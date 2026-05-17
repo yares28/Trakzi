@@ -68,7 +68,7 @@ export type HomeChartData = {
   ringCategories: string[]
   setRingCategories: Dispatch<SetStateAction<string[]>>
   allExpenseCategories: string[]
-  getDefaultRingLimit: (filter: string | null, isDemoMode?: boolean) => number
+  getDefaultRingLimit: (filter: string | null, isDemoMode?: boolean) => number | null
 }
 
 type UseHomeChartDataOptions = {
@@ -100,25 +100,43 @@ export function useHomeChartData({
     return Array.from(categories).sort((a, b) => a.localeCompare(b))
   }, [chartTransactions])
 
+  // Source of truth for ring budgets is the DB (category_budgets, scope='analytics').
+  // The Budget tab in /savings, the analytics-page rings chart, and these home
+  // rings all read and write through /api/budgets so edits stay in sync.
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    let cancelled = false
+    const load = async () => {
       try {
-        const saved = localStorage.getItem("activityRingLimits")
-        if (saved) {
-          setRingLimits(JSON.parse(saved))
+        const res = await fetch("/api/budgets")
+        if (!res.ok) return
+        const data = await res.json()
+        if (!cancelled && data && typeof data === "object") {
+          setRingLimits(data as Record<string, number>)
         }
       } catch (error) {
-        console.error("Failed to load ring limits:", error)
+        console.error("[Home] Failed to load ring limits:", error)
+        if (!cancelled) setRingLimits({})
       }
+    }
+    load()
+    return () => {
+      cancelled = true
     }
   }, [])
 
-  const getDefaultRingLimit = useCallback((filter: string | null, isDemoMode = false) => {
-    const isYearLike =
-      !filter || filter === "lastyear" || /^\d{4}$/.test(filter)
-    const base = isYearLike ? 5000 : 2000
-    return isDemoMode ? base * 4 : base
-  }, [])
+  // No default budget for real users — unbudgeted rings render as "no cap"
+  // so the UI never invents a number the user didn't set. Demo mode keeps
+  // the synthetic fallback so the demo data looks populated out of the box.
+  const getDefaultRingLimit = useCallback(
+    (filter: string | null, isDemoMode = false): number | null => {
+      if (!isDemoMode) return null
+      const isYearLike =
+        !filter || filter === "lastyear" || /^\d{4}$/.test(filter)
+      const base = isYearLike ? 5000 : 2000
+      return base * 4
+    },
+    []
+  )
 
   const activityData: ActivityRingsData = useMemo(() => {
     if (!chartTransactions || chartTransactions.length === 0) {
@@ -148,17 +166,28 @@ export function useHomeChartData({
       .sort((a, b) => b[1] - a[1])
       .map(([category]) => category)
 
+    // Categories the user has budgeted — these drive ring selection so the
+    // home rings, analytics rings, and Budgets tab all show the same set.
+    const budgetedCategories = Object.keys(ringLimits).filter(
+      (name) => typeof ringLimits[name] === "number" && ringLimits[name]! > 0
+    )
+
     const categoriesToUse =
       ringCategories && ringCategories.length > 0
         ? ringCategories
+        : budgetedCategories.length > 0
+        ? Array.from(
+            new Set([...budgetedCategories, ...defaultTopCategories])
+          ).slice(0, 5)
         : defaultTopCategories.slice(0, 5)
 
+    const budgetedSet = new Set(budgetedCategories)
     const selectedCategories = categoriesToUse
       .map((category) => {
         const amount = categoryTotals.get(category) || 0
         return [category, amount] as [string, number]
       })
-      .filter(([, amount]) => amount > 0)
+      .filter(([category, amount]) => amount > 0 || budgetedSet.has(category))
 
     return selectedCategories.map(([category, amount], index) => {
       const storedLimit = ringLimits[category]
@@ -181,12 +210,13 @@ export function useHomeChartData({
           ? palette[index % palette.length]
           : undefined) || "#a1a1aa"
 
-      const exceeded = ratioToLimit !== null && amount > effectiveLimit
+      const exceeded =
+        ratioToLimit !== null && effectiveLimit !== null && amount > effectiveLimit
       const pct = ratioToLimit !== null ? (ratioToLimit * 100).toFixed(1) : "0"
 
       return {
         label:
-          ratioToLimit !== null
+          ratioToLimit !== null && effectiveLimit !== null
             ? `Category: ${category}\nUsed: ${pct}%\nSpent: $${amount.toFixed(
               2
             )}\nBudget: $${effectiveLimit.toFixed(2)}${exceeded ? "\nExceeded" : ""

@@ -65,7 +65,7 @@ export type ActivityRingsDatum = {
   backgroundColor?: string
   category?: string
   spent?: number
-  budget?: number
+  budget?: number | null
 }
 
 export type ActivityRingsData = ActivityRingsDatum[]
@@ -82,5 +82,5 @@ export type SpendingActivityRingsProps = {
   config: ActivityRingsConfig
   theme: "light" | "dark"
   ringLimits?: Record<string, number>
-  getDefaultLimit?: () => number
+  getDefaultLimit?: () => number | null
 }

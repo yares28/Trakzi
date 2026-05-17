@@ -243,11 +243,10 @@ export function ChartsGrid({
     return getSuggestedDemoRingLimit(spent)
   }, [activityData, isDemoMode])
 
-  const getResolvedLimit = useCallback((category: string) => {
+  const getResolvedLimit = useCallback((category: string): number => {
     const storedLimit = ringLimits[category]
-    return typeof storedLimit === "number" && storedLimit > 0
-      ? storedLimit
-      : (getSuggestedDemoLimit(category) ?? getDefaultRingLimit(dateFilter, isDemoMode))
+    if (typeof storedLimit === "number" && storedLimit > 0) return storedLimit
+    return getSuggestedDemoLimit(category) ?? getDefaultRingLimit(dateFilter, isDemoMode) ?? 0
   }, [dateFilter, getSuggestedDemoLimit, isDemoMode, ringLimits])
 
   const buildRingEditDrafts = useCallback(() => {

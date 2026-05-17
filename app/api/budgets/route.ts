@@ -163,7 +163,12 @@ export const POST = async (req: NextRequest) => {
       )
     }
 
-    invalidateUserCachePrefix(userId, 'budgets').catch((err) => {
+    Promise.all([
+      invalidateUserCachePrefix(userId, 'budgets'),
+      invalidateUserCachePrefix(userId, 'home'),
+      invalidateUserCachePrefix(userId, 'analytics'),
+      invalidateUserCachePrefix(userId, 'savings'),
+    ]).catch((err) => {
       console.error('[Budgets API] Cache invalidation error:', err)
     })
 
@@ -217,7 +222,12 @@ export const DELETE = async (req: NextRequest) => {
       [userId, categoryId, scope]
     )
 
-    invalidateUserCachePrefix(userId, 'budgets').catch((err) => {
+    Promise.all([
+      invalidateUserCachePrefix(userId, 'budgets'),
+      invalidateUserCachePrefix(userId, 'home'),
+      invalidateUserCachePrefix(userId, 'analytics'),
+      invalidateUserCachePrefix(userId, 'savings'),
+    ]).catch((err) => {
       console.error('[Budgets API] Cache invalidation error:', err)
     })
 

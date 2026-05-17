@@ -376,11 +376,10 @@ export const FavoritesGrid = memo(function FavoritesGrid({
     return getSuggestedDemoRingLimit(spent)
   }, [activityData, isDemoMode])
 
-  const getResolvedLimit = useCallback((category: string) => {
+  const getResolvedLimit = useCallback((category: string): number => {
     const storedLimit = ringLimits[category]
-    return typeof storedLimit === "number" && storedLimit > 0
-      ? storedLimit
-      : (getSuggestedDemoLimit(category) ?? getDefaultRingLimit(dateFilter, isDemoMode))
+    if (typeof storedLimit === "number" && storedLimit > 0) return storedLimit
+    return getSuggestedDemoLimit(category) ?? getDefaultRingLimit(dateFilter, isDemoMode) ?? 0
   }, [dateFilter, getDefaultRingLimit, getSuggestedDemoLimit, isDemoMode, ringLimits])
 
   const buildRingEditDrafts = useCallback(() => {
@@ -482,12 +481,6 @@ export const FavoritesGrid = memo(function FavoritesGrid({
       updates.forEach(({ category, limitValue }) => {
         next[category] = limitValue
       })
-      if (typeof window !== "undefined") {
-        localStorage.setItem(
-          "activityRingLimits",
-          JSON.stringify(next)
-        )
-      }
       return next
     })
 

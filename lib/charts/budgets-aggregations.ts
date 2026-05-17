@@ -27,7 +27,8 @@ function computeStatus(avgMonthly: number, monthlyCap: number | null): BudgetCat
 
 export function buildBudgetRows(
   rawRows: RawBudgetRow[],
-  monthsElapsed: number
+  monthsElapsed: number,
+  allTimeAvgByCategory: Map<number, number>
 ): { categories: BudgetCategoryRow[]; suggestions: BudgetCategoryRow[] } {
   const grouped = new Map<number, RawBudgetRow[]>()
   for (const row of rawRows) {
@@ -53,13 +54,15 @@ export function buildBudgetRows(
       : 0
     const overByMonthly = monthlyCap !== null ? avgMonthly - monthlyCap : 0
 
+    const categoryId = Number(first.category_id)
     const row: BudgetCategoryRow = {
-      categoryId: Number(first.category_id),
+      categoryId,
       name: first.name,
       color: first.color ?? null,
       monthlyCap,
       monthlySpends,
       avgMonthly,
+      allTimeAvgMonthly: allTimeAvgByCategory.get(categoryId) ?? 0,
       totalSpent,
       overByMonthly,
       overBudgetMonths,
@@ -86,36 +89,65 @@ export async function getBudgetsBundle(
   const { startDate, endDate } = getDateRange(filter)
   const monthsElapsed = computeMonthsElapsed(filter)
 
-  const rawRows = await neonQuery<RawBudgetRow>(
-    `
-    SELECT
-      c.id::text AS category_id,
-      c.name,
-      c.color AS color,
-      cb.budget::text AS monthly_cap,
-      TO_CHAR(DATE_TRUNC('month', t.tx_date), 'YYYY-MM-DD') AS month,
-      SUM(ABS(t.amount))::text AS month_spend
-    FROM categories c
-    LEFT JOIN category_budgets cb
-      ON cb.category_id = c.id
-      AND cb.user_id = $1
-      AND cb.scope = 'analytics'
-    LEFT JOIN transactions t
-      ON t.category_id = c.id
-      AND t.user_id = $1
-      AND t.amount < 0
-      AND ($2::date IS NULL OR t.tx_date >= $2::date)
-      AND ($3::date IS NULL OR t.tx_date <= $3::date)
-    WHERE c.user_id = $1
-      AND c.name IS NOT NULL
-    GROUP BY c.id, c.name, c.color, cb.budget, DATE_TRUNC('month', t.tx_date)
-    HAVING cb.budget IS NOT NULL OR SUM(ABS(t.amount)) > 0
-    ORDER BY c.name, month NULLS LAST
-    `,
-    [userId, startDate, endDate]
-  )
+  const [rawRows, allTimeAvgRows] = await Promise.all([
+    neonQuery<RawBudgetRow>(
+      `
+      SELECT
+        c.id::text AS category_id,
+        c.name,
+        c.color AS color,
+        cb.budget::text AS monthly_cap,
+        TO_CHAR(DATE_TRUNC('month', t.tx_date), 'YYYY-MM-DD') AS month,
+        SUM(ABS(t.amount))::text AS month_spend
+      FROM categories c
+      LEFT JOIN category_budgets cb
+        ON cb.category_id = c.id
+        AND cb.user_id = $1
+        AND cb.scope = 'analytics'
+      LEFT JOIN transactions t
+        ON t.category_id = c.id
+        AND t.user_id = $1
+        AND t.amount < 0
+        AND ($2::date IS NULL OR t.tx_date >= $2::date)
+        AND ($3::date IS NULL OR t.tx_date <= $3::date)
+      WHERE c.user_id = $1
+        AND c.name IS NOT NULL
+      GROUP BY c.id, c.name, c.color, cb.budget, DATE_TRUNC('month', t.tx_date)
+      HAVING cb.budget IS NOT NULL OR SUM(ABS(t.amount)) > 0
+      ORDER BY c.name, month NULLS LAST
+      `,
+      [userId, startDate, endDate]
+    ),
+    // All-time per-category monthly average. Independent of the filter so the
+    // popover's "Avg" bar reflects the user's true historical baseline, not
+    // just the active window. AVG over a per-month subquery means months with
+    // no spend don't dilute the average — only logged months count.
+    neonQuery<{ category_id: string; all_time_avg: string }>(
+      `
+      SELECT category_id::text, AVG(monthly_total)::text AS all_time_avg
+      FROM (
+        SELECT
+          t.category_id,
+          DATE_TRUNC('month', t.tx_date) AS month,
+          SUM(ABS(t.amount)) AS monthly_total
+        FROM transactions t
+        WHERE t.user_id = $1
+          AND t.amount < 0
+          AND t.category_id IS NOT NULL
+        GROUP BY t.category_id, DATE_TRUNC('month', t.tx_date)
+      ) m
+      GROUP BY category_id
+      `,
+      [userId]
+    ),
+  ])
 
-  const { categories, suggestions } = buildBudgetRows(rawRows, monthsElapsed)
+  const allTimeAvgByCategory = new Map<number, number>()
+  for (const r of allTimeAvgRows) {
+    allTimeAvgByCategory.set(Number(r.category_id), parseFloat(r.all_time_avg))
+  }
+
+  const { categories, suggestions } = buildBudgetRows(rawRows, monthsElapsed, allTimeAvgByCategory)
 
   const monthTotalsMap = new Map<string, { cap: number; spent: number }>()
   for (const cat of categories) {

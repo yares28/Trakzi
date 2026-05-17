@@ -9,6 +9,9 @@ export interface BudgetCategoryRow {
   /** One entry per calendar month that had spend in the filter window */
   monthlySpends: { month: string; amount: number }[]
   avgMonthly: number
+  /** Average per-month spend across ALL months the user has spend in this category,
+   *  independent of the active date filter. Zero if the category has no history. */
+  allTimeAvgMonthly: number
   totalSpent: number
   /** avgMonthly - monthlyCap (negative = under budget) */
   overByMonthly: number

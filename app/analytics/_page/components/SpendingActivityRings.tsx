@@ -8,7 +8,7 @@ type SpendingActivityRingsProps = {
   config: ActivityRingsConfig
   theme: "light" | "dark"
   ringLimits?: Record<string, number>
-  getDefaultLimit?: () => number
+  getDefaultLimit?: () => number | null
 }
 
 // Custom concentric rings renderer so we control tooltips from Neon data

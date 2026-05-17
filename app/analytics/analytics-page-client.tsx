@@ -189,7 +189,7 @@ interface SpendingActivityRingsProps {
   config: ActivityRingsConfig
   theme: "light" | "dark"
   ringLimits?: Record<string, number>
-  getDefaultLimit?: () => number
+  getDefaultLimit?: () => number | null
   colorScheme?: string
 }
 
@@ -2820,19 +2820,10 @@ export default function AnalyticsPage() {
                                                       if (savedLimit) {
                                                         const limitValue = parseFloat(savedLimit)
                                                         if (!isNaN(limitValue) && limitValue >= 0) {
-                                                          setRingLimits((prev) => {
-                                                            const updated = {
-                                                              ...prev,
-                                                              [savedCategory]: limitValue,
-                                                            }
-                                                            if (typeof window !== "undefined") {
-                                                              localStorage.setItem(
-                                                                "activityRingLimits",
-                                                                JSON.stringify(updated)
-                                                              )
-                                                            }
-                                                            return updated
-                                                          })
+                                                          setRingLimits((prev) => ({
+                                                            ...prev,
+                                                            [savedCategory]: limitValue,
+                                                          }))
 
                                                           // Save to database with current filter
                                                           try {

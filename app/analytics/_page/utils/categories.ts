@@ -22,10 +22,19 @@ export const getSuggestedDemoRingLimit = (spent: number): number | null => {
   return Math.max(roundingStep, Math.ceil(suggested / roundingStep) * roundingStep)
 }
 
-export const getDefaultRingLimit = (filter: string | null, isDemoMode = false): number => {
-  // All time (no filter), specific year (e.g. "2024"), or last year use a higher default
+/**
+ * Default ring limit for unbudgeted categories.
+ *
+ * Real users: returns null — we don't invent budgets the user didn't set.
+ * Unbudgeted rings render as "no cap" and the Spending Activity Rings chart
+ * stays in lockstep with what's actually in `category_budgets`.
+ *
+ * Demo mode: keeps the synthetic fallback so demo data shows ring variation
+ * instead of empty rings.
+ */
+export const getDefaultRingLimit = (filter: string | null, isDemoMode = false): number | null => {
+  if (!isDemoMode) return null
   const isYearLike = !filter || filter === "lastyear" || /^\d{4}$/.test(filter)
   const base = isYearLike ? 5000 : 2000
-  // Demo mode needs more headroom so the sample data shows ring variation instead of saturation.
-  return isDemoMode ? base * 4 : base
+  return base * 4
 }

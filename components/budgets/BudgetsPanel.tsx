@@ -113,6 +113,7 @@ export const BudgetsPanel = memo(function BudgetsPanel() {
             <BudgetCard
               key={row.categoryId}
               row={row}
+              monthsElapsed={data.monthsElapsed}
               onBudgetSaved={handleSaved}
             />
           ))}

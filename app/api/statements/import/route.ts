@@ -524,6 +524,110 @@ export const POST = async (req: NextRequest) => {
         await persistTransferPairs(userId, pairs);
         const detectedTransferCount = pairs.length;
 
+        // Budget seeding (idempotent, never overwrites existing budgets).
+        //
+        // Goal: after a CSV import, the user should land in the Budgets tab
+        // and Spending Activity Rings chart and see sensible per-category
+        // monthly caps reflecting their actual spending — not a global
+        // "first calendar month" snapshot that may be sparse or anchored to
+        // an ancient stray transaction.
+        //
+        // Strategy:
+        //   1. Find this user's top-5 categories by total all-time expense.
+        //   2. For each top category WITHOUT an existing budget, set the
+        //      cap = SUM of spend in THAT CATEGORY'S earliest logged month
+        //      (per-category, not global — so "Groceries" budget reflects
+        //      Groceries' first month, even if Groceries started two months
+        //      after the user's earliest tx).
+        //   3. Top-up logic: if the user already has 1-4 budgets, fill the
+        //      remaining slots from their top-spend uncovered categories.
+        //   4. Skip categories where first-month spend was 0 (degenerate).
+        //
+        // Idempotent across re-imports: existing budgets are never
+        // overwritten. Only inserts for categories not already in the table.
+        try {
+            const existingBudgets = await neonQuery<{ category_id: string }>(
+                `SELECT category_id::text FROM category_budgets
+                 WHERE user_id = $1 AND scope = 'analytics'`,
+                [userId]
+            );
+            const existingCategoryIds = new Set(
+                existingBudgets.map((r) => parseInt(r.category_id, 10))
+            );
+
+            if (existingCategoryIds.size < 5) {
+                // Top-5 categories by all-time total expense, EXCLUDING ones
+                // already budgeted. The first-month-spend value comes from a
+                // correlated subquery so each category gets its OWN first
+                // month, not a shared global one.
+                const seedCandidates = await neonQuery<{
+                    category_id: string;
+                    first_month_spend: string;
+                }>(
+                    `WITH category_totals AS (
+                       SELECT
+                         t.category_id,
+                         SUM(ABS(t.amount)) AS lifetime_total
+                       FROM transactions t
+                       WHERE t.user_id = $1
+                         AND t.amount < 0
+                         AND t.category_id IS NOT NULL
+                       GROUP BY t.category_id
+                     ),
+                     category_first_month AS (
+                       SELECT
+                         t.category_id,
+                         DATE_TRUNC('month', MIN(t.tx_date)) AS first_month
+                       FROM transactions t
+                       WHERE t.user_id = $1
+                         AND t.amount < 0
+                         AND t.category_id IS NOT NULL
+                       GROUP BY t.category_id
+                     ),
+                     category_first_month_spend AS (
+                       SELECT
+                         cfm.category_id,
+                         SUM(ABS(t.amount)) AS first_month_total
+                       FROM category_first_month cfm
+                       JOIN transactions t
+                         ON t.category_id = cfm.category_id
+                         AND t.user_id = $1
+                         AND t.amount < 0
+                         AND DATE_TRUNC('month', t.tx_date) = cfm.first_month
+                       GROUP BY cfm.category_id
+                     )
+                     SELECT
+                       ct.category_id::text,
+                       cfms.first_month_total::text AS first_month_spend
+                     FROM category_totals ct
+                     JOIN category_first_month_spend cfms
+                       ON cfms.category_id = ct.category_id
+                     WHERE cfms.first_month_total > 0
+                     ORDER BY ct.lifetime_total DESC, ct.category_id ASC
+                     LIMIT 20`,
+                    [userId]
+                );
+
+                const slotsToFill = 5 - existingCategoryIds.size;
+                const seedRows = seedCandidates
+                    .filter((r) => !existingCategoryIds.has(parseInt(r.category_id, 10)))
+                    .slice(0, slotsToFill)
+                    .map((r) => ({
+                        user_id: userId,
+                        category_id: parseInt(r.category_id, 10),
+                        scope: "analytics" as const,
+                        budget: parseFloat(r.first_month_spend),
+                    }));
+
+                if (seedRows.length > 0) {
+                    await neonInsert("category_budgets", seedRows);
+                }
+            }
+        } catch (seedError) {
+            // Seeding is best-effort — don't fail the whole import if it errors.
+            console.error("[Import] Budget seeding failed:", seedError);
+        }
+
         // Build response
         const response: ImportResponse & { detectedTransfers?: number; duplicatesSkipped?: number } = {
             statementId,

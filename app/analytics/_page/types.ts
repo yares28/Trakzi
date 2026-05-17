@@ -26,7 +26,7 @@ export type ActivityRingsDatum = {
   backgroundColor?: string
   category?: string
   spent?: number
-  budget?: number
+  budget?: number | null
 }
 
 export type ActivityRingsData = ActivityRingsDatum[]

@@ -271,10 +271,11 @@ export interface BudgetsBundleData {
     categories: Array<{
         categoryId: number
         name: string
-        color: string
+        color: string | null
         monthlyCap: number | null
         monthlySpends: Array<{ month: string; amount: number }>
         avgMonthly: number
+        allTimeAvgMonthly: number
         totalSpent: number
         overByMonthly: number
         overBudgetMonths: number
@@ -283,10 +284,11 @@ export interface BudgetsBundleData {
     suggestions: Array<{
         categoryId: number
         name: string
-        color: string
+        color: string | null
         monthlyCap: number | null
         monthlySpends: Array<{ month: string; amount: number }>
         avgMonthly: number
+        allTimeAvgMonthly: number
         totalSpent: number
         overByMonthly: number
         overBudgetMonths: number

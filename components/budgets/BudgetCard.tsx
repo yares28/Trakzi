@@ -17,6 +17,7 @@ const CHART_H = 64 // px of bar area inside the popover chart
 
 interface BudgetCardProps {
   row: BudgetCategoryRow
+  monthsElapsed: number
   onBudgetSaved: () => void
 }
 
@@ -39,7 +40,8 @@ function parseCurrencyInput(raw: string): number {
 interface SpendingChartProps {
   spends: { month: string; amount: number }[]
   cap: number | null
-  avg: number
+  /** Average per-month spend across the entire logged history for this category. */
+  allTimeAvg: number
   formatCurrency: (v: number) => string
   onPickAmount: (amount: number) => void
 }
@@ -47,13 +49,18 @@ interface SpendingChartProps {
 function SpendingChart({
   spends,
   cap,
-  avg,
+  allTimeAvg,
   formatCurrency,
   onPickAmount,
 }: SpendingChartProps) {
   const recent = spends.slice(-6)
   const nonZero = recent.filter((s) => s.amount > 0).map((s) => s.amount)
-  const maxAmount = Math.max(...recent.map((s) => s.amount), cap ?? 0, 1)
+  const maxAmount = Math.max(
+    ...recent.map((s) => s.amount),
+    cap ?? 0,
+    allTimeAvg,
+    1
+  )
   const high = nonZero.length > 0 ? Math.max(...nonZero) : 0
   const low = nonZero.length > 0 ? Math.min(...nonZero) : 0
   const overCount = cap ? recent.filter((s) => s.amount > cap).length : 0
@@ -105,7 +112,7 @@ function SpendingChart({
       </div>
 
       <p className="text-[10px] text-muted-foreground -mt-1">
-        Click a month to use it as your cap.
+        Click any bar to use it as your monthly cap.
       </p>
 
       <div className="relative" style={{ height: CHART_H + 28 }}>
@@ -135,7 +142,7 @@ function SpendingChart({
         )}
 
         <div
-          className="absolute inset-x-0 bottom-0 flex gap-1"
+          className="absolute inset-x-0 bottom-0 flex items-end gap-1"
           style={{ height: CHART_H + 28 }}
         >
           {recent.map((s) => {
@@ -187,6 +194,65 @@ function SpendingChart({
               </button>
             )
           })}
+
+          {/* Vertical hairline separator — visually distinguishes the all-time
+              avg summary bar from the calendar-month bars to its left. */}
+          {allTimeAvg > 0 && (
+            <span
+              aria-hidden="true"
+              className="self-stretch w-px shrink-0"
+              style={{
+                backgroundColor: "var(--border)",
+                marginLeft: 2,
+                marginRight: 2,
+                marginBottom: 18,
+              }}
+            />
+          )}
+
+          {/* All-time monthly average bar — same height/value logic as a
+              monthly bar but colored distinctly and labeled "Avg". Clickable
+              so the user can adopt it as the cap. */}
+          {allTimeAvg > 0 && (() => {
+            const barH = Math.max(3, (allTimeAvg / maxAmount) * CHART_H)
+            return (
+              <button
+                type="button"
+                onClick={() => onPickAmount(Math.round(allTimeAvg))}
+                aria-label={`Use all-time average ${formatCurrency(Math.round(allTimeAvg))} as cap`}
+                className="relative flex-1 group rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <span
+                  className="absolute inset-x-0 text-center text-muted-foreground leading-none group-hover:text-foreground transition-colors"
+                  style={{
+                    fontSize: 8,
+                    bottom: 18 + barH + 3,
+                    overflow: "hidden",
+                  }}
+                >
+                  {formatCurrency(Math.round(allTimeAvg))}
+                </span>
+                <div
+                  className="absolute inset-x-0 rounded-sm transition-all group-hover:brightness-110"
+                  style={{
+                    bottom: 18,
+                    height: barH,
+                    backgroundColor: "var(--chart-1)",
+                  }}
+                />
+                <span
+                  className="absolute inset-x-0 text-center leading-none font-medium"
+                  style={{
+                    fontSize: 9,
+                    bottom: 3,
+                    color: "var(--chart-1)",
+                  }}
+                >
+                  Avg
+                </span>
+              </button>
+            )
+          })()}
         </div>
       </div>
 
@@ -199,7 +265,7 @@ function SpendingChart({
           }}
         >
           {[
-            { label: "Avg", value: avg },
+            { label: "Avg (all-time)", value: allTimeAvg },
             { label: "High", value: high },
             { label: "Low", value: low },
           ].map(({ label, value }) => (
@@ -234,6 +300,7 @@ function SpendingChart({
 
 export const BudgetCard = memo(function BudgetCard({
   row,
+  monthsElapsed,
   onBudgetSaved,
 }: BudgetCardProps) {
   const { formatCurrency } = useCurrency()
@@ -247,19 +314,26 @@ export const BudgetCard = memo(function BudgetCard({
 
   const displayCap = optimisticCap ?? row.monthlyCap
 
+  // Period cap = monthly cap × months in the active filter window. The chart
+  // bars are per-month so the cap line stays monthly, but the meta line and
+  // status bar reflect the *period* the user has selected (3-mo, YTD, etc.).
+  const safeMonths = monthsElapsed > 0 ? monthsElapsed : 1
+  const periodCap = displayCap !== null ? displayCap * safeMonths : null
+
   // Optimistic status — recomputed locally so the progress bar reflects the new
-  // cap immediately instead of waiting for the refetch round-trip.
+  // cap immediately instead of waiting for the refetch round-trip. Compares
+  // period totals; ratio is identical to avgMonthly/monthlyCap by construction.
   const optimisticStatus: BudgetCategoryRow["status"] =
-    displayCap === null
+    periodCap === null
       ? "unset"
-      : row.avgMonthly > displayCap
+      : row.totalSpent > periodCap
       ? "over"
-      : row.avgMonthly > displayCap * 0.8
+      : row.totalSpent > periodCap * 0.8
       ? "warning"
       : "under"
 
-  const progressPct = displayCap
-    ? Math.min(150, (row.avgMonthly / displayCap) * 100)
+  const progressPct = periodCap
+    ? Math.min(150, (row.totalSpent / periodCap) * 100)
     : 0
 
   const progressBgColor =
@@ -278,11 +352,11 @@ export const BudgetCard = memo(function BudgetCard({
       ? "var(--primary)"
       : "var(--chart-1)"
 
-  const overByMonthly =
-    displayCap !== null ? row.avgMonthly - displayCap : row.overByMonthly
+  const overByPeriod =
+    periodCap !== null ? row.totalSpent - periodCap : 0
   const overPct =
-    displayCap && displayCap > 0
-      ? Math.abs(overByMonthly / displayCap) * 100
+    periodCap && periodCap > 0
+      ? Math.abs(overByPeriod / periodCap) * 100
       : 0
 
   // Stats used by the quick-fill chips
@@ -290,17 +364,16 @@ export const BudgetCard = memo(function BudgetCard({
   const nonZeroRecent = recent.filter((s) => s.amount > 0).map((s) => s.amount)
   const quickFills = useMemo(() => {
     if (nonZeroRecent.length === 0) return []
-    const avg = row.avgMonthly
+    const baseAvg = row.allTimeAvgMonthly > 0 ? row.allTimeAvgMonthly : row.avgMonthly
     const high = Math.max(...nonZeroRecent)
     const p = Math.ceil(p80(nonZeroRecent) / 5) * 5
-    const avgPlus10 = Math.ceil((avg * 1.1) / 5) * 5
+    const avgPlus10 = Math.ceil((baseAvg * 1.1) / 5) * 5
     return [
-      { label: "Match avg", value: Math.round(avg) },
       { label: "Match high", value: Math.round(high) },
       { label: "80th pct", value: p },
       { label: "Avg +10%", value: avgPlus10 },
     ]
-  }, [row.avgMonthly, nonZeroRecent])
+  }, [row.allTimeAvgMonthly, row.avgMonthly, nonZeroRecent])
 
   // Live coverage hint — "covers N of M months at this cap"
   const previewAmount = parseCurrencyInput(capInput)
@@ -459,9 +532,14 @@ export const BudgetCard = memo(function BudgetCard({
                       : "text-muted-foreground hover:text-foreground"
                   } ${saving ? "opacity-50" : ""}`}
                 >
-                  {displayCap !== null
-                    ? formatCurrency(displayCap)
-                    : "Set cap"}
+                  {displayCap !== null ? (
+                    <>
+                      {formatCurrency(displayCap)}
+                      <span className="text-muted-foreground/60 ml-0.5">/mo</span>
+                    </>
+                  ) : (
+                    "Set cap"
+                  )}
                   <Pencil className="size-2.5 opacity-50" />
                 </button>
               )}
@@ -491,7 +569,7 @@ export const BudgetCard = memo(function BudgetCard({
               <SpendingChart
                 spends={row.monthlySpends}
                 cap={displayCap}
-                avg={row.avgMonthly}
+                allTimeAvg={row.allTimeAvgMonthly}
                 formatCurrency={formatCurrency}
                 onPickAmount={handlePickAmount}
               />
@@ -533,7 +611,7 @@ export const BudgetCard = memo(function BudgetCard({
       </div>
 
       {/* Hairline progress bar */}
-      {displayCap !== null && (
+      {periodCap !== null && (
         <div className="relative h-[3px] w-full overflow-hidden rounded-full bg-muted/50">
           <div
             className="h-full rounded-full transition-all duration-500"
@@ -545,12 +623,20 @@ export const BudgetCard = memo(function BudgetCard({
         </div>
       )}
 
-      {/* Compact meta line: avg on left, status on right */}
+      {/* Compact meta line: period spent / period cap on left, status on right */}
       <div className="flex items-center justify-between text-[11px] tabular-nums text-muted-foreground/80">
-        <span>{formatCurrency(row.avgMonthly)} avg</span>
-        {displayCap !== null ? (
+        {periodCap !== null ? (
+          <span>
+            {formatCurrency(row.totalSpent)}
+            <span className="text-muted-foreground/50"> / </span>
+            {formatCurrency(periodCap)}
+          </span>
+        ) : (
+          <span>{formatCurrency(row.totalSpent)} spent</span>
+        )}
+        {periodCap !== null ? (
           <span style={{ color: statusTextColor }}>
-            {overByMonthly > 0
+            {overByPeriod > 0
               ? `+${overPct.toFixed(0)}% over`
               : `${overPct.toFixed(0)}% under`}
           </span>

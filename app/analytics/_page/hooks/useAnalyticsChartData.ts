@@ -249,32 +249,50 @@ export function useAnalyticsChartData({
       .sort((a, b) => b[1] - a[1])
       .map(([category]) => category)
 
+    // Categories the user has budgeted (single source of truth for which
+    // rings to show — if you set a budget for "Restaurants", you want to see
+    // that ring even when you didn't eat out this period).
+    const budgetedCategories = Object.keys(ringLimits).filter(
+      (name) => typeof ringLimits[name] === "number" && ringLimits[name]! > 0
+    )
+
+    // Selection precedence: manual ringCategories > budgeted categories >
+    // top-spend fallback. Mixing budgeted + top-spend keeps the chart useful
+    // for users with <5 budgets set.
     const categoriesToUse =
       ringCategories && ringCategories.length > 0
         ? ringCategories
+        : budgetedCategories.length > 0
+        ? Array.from(
+            new Set([...budgetedCategories, ...defaultTopCategories])
+          ).slice(0, 5)
         : defaultTopCategories.slice(0, 5)
 
-    // Build [category, amount] pairs for the chosen categories
+    // Build [category, amount] pairs. Keep budgeted categories even when
+    // current-period spend is zero so the user sees "$0 / $cap" — celebrating
+    // staying under budget is the whole point.
+    const budgetedSet = new Set(budgetedCategories)
     const selectedCategories = categoriesToUse
       .map((category) => {
         const amount = categoryTotals.get(category) || 0
         return [category, amount] as [string, number]
       })
-      .filter(([, amount]) => amount > 0)
+      .filter(([category, amount]) => amount > 0 || budgetedSet.has(category))
 
     return selectedCategories.map(([category, amount], index) => {
       const storedLimit = ringLimits[category]
-      const effectiveLimit =
+      const rawLimit =
         typeof storedLimit === "number" && storedLimit > 0
           ? storedLimit
           : (isDemoMode
               ? (getSuggestedDemoRingLimit(amount) ?? getDefaultRingLimit(dateFilter, true))
               : getDefaultRingLimit(dateFilter))
 
+      const effectiveLimit: number | null =
+        typeof rawLimit === "number" && rawLimit > 0 ? rawLimit : null
+
       const ratioToLimit =
-        effectiveLimit && effectiveLimit > 0
-          ? Math.min(amount / effectiveLimit, 1)
-          : null
+        effectiveLimit !== null ? Math.min(amount / effectiveLimit, 1) : null
 
       const value = ratioToLimit !== null ? ratioToLimit : 0
 
@@ -283,13 +301,13 @@ export function useAnalyticsChartData({
           ? palette[index % palette.length]
           : undefined) || "#a1a1aa"
 
-      const exceeded = ratioToLimit !== null && amount > effectiveLimit
+      const exceeded = effectiveLimit !== null && amount > effectiveLimit
       const pct = ratioToLimit !== null ? (ratioToLimit * 100).toFixed(1) : '0'
 
       return {
         // Label is used by the ActivityRings tooltip on hover
         label:
-          ratioToLimit !== null
+          effectiveLimit !== null
             ? `Category: ${category}\nUsed: ${pct}%\nSpent: $${amount.toFixed(2)}\nBudget: $${effectiveLimit.toFixed(2)}${exceeded ? '\n⚠ Exceeded' : ''}`
             : `Category: ${category}\nSpent: $${amount.toFixed(2)}\nNo budget set`,
         // Store the raw category name separately for our own legend

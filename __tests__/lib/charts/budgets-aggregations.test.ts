@@ -27,37 +27,37 @@ describe('buildBudgetRows', () => {
   const monthsElapsed = 3
 
   it('separates budgeted categories from suggestions', () => {
-    const { categories, suggestions } = buildBudgetRows(rawRows, monthsElapsed)
+    const { categories, suggestions } = buildBudgetRows(rawRows, monthsElapsed, new Map())
     expect(categories).toHaveLength(1)
     expect(categories[0].name).toBe('Groceries')
     expect(suggestions).toHaveLength(1)
     expect(suggestions[0].name).toBe('Dining')
   })
   it('computes correct avgMonthly for Groceries', () => {
-    const { categories } = buildBudgetRows(rawRows, monthsElapsed)
+    const { categories } = buildBudgetRows(rawRows, monthsElapsed, new Map())
     expect(categories[0].avgMonthly).toBeCloseTo(200, 1)
   })
   it('computes overByMonthly correctly', () => {
-    const { categories } = buildBudgetRows(rawRows, monthsElapsed)
+    const { categories } = buildBudgetRows(rawRows, monthsElapsed, new Map())
     expect(categories[0].overByMonthly).toBeCloseTo(-100, 1)
   })
   it('counts months over budget correctly', () => {
-    const { categories } = buildBudgetRows(rawRows, monthsElapsed)
+    const { categories } = buildBudgetRows(rawRows, monthsElapsed, new Map())
     expect(categories[0].overBudgetMonths).toBe(1)
   })
   it('assigns status "warning" when avgMonthly is 80-100% of cap', () => {
     const rows = [{ category_id: '3', name: 'Transport', color: '#6366f1', monthly_cap: '200', month: '2025-01-01', month_spend: '170' }]
-    const { categories } = buildBudgetRows(rows, 1)
+    const { categories } = buildBudgetRows(rows, 1, new Map())
     expect(categories[0].status).toBe('warning')
   })
   it('assigns status "over" when avgMonthly exceeds cap', () => {
     const rows = [{ category_id: '3', name: 'Transport', color: '#6366f1', monthly_cap: '200', month: '2025-01-01', month_spend: '250' }]
-    const { categories } = buildBudgetRows(rows, 1)
+    const { categories } = buildBudgetRows(rows, 1, new Map())
     expect(categories[0].status).toBe('over')
   })
   it('excludes suggestions with zero spend', () => {
     const rows = [{ category_id: '4', name: 'Empty', color: '#aaa', monthly_cap: null, month: null, month_spend: null }]
-    const { suggestions } = buildBudgetRows(rows, 3)
+    const { suggestions } = buildBudgetRows(rows, 3, new Map())
     expect(suggestions).toHaveLength(0)
   })
 })
