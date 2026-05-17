@@ -235,7 +235,7 @@ const data = {
     {
       title: "Analytics",
       url: "/analytics",
-      icon: IconChartBar,
+      icon: IconAnalytics,
     },
     {
       title: "Fridge",
