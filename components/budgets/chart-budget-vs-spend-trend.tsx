@@ -41,6 +41,8 @@ export const ChartBudgetVsSpendTrend = memo(function ChartBudgetVsSpendTrend({
 
   const gridColor = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"
   const axisColor = isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)"
+  const spentColor = isDark ? "#fb923c" : "#f97316"
+  const capColor = isDark ? "#2dd4bf" : "#14b8a6"
 
   if (data.length === 0) return null
 
@@ -79,14 +81,14 @@ export const ChartBudgetVsSpendTrend = memo(function ChartBudgetVsSpendTrend({
           <Bar
             dataKey="spent"
             name="spent"
-            fill="#6366f1"
+            fill={spentColor}
             radius={[4, 4, 0, 0]}
           />
           <Bar
             dataKey="cap"
             name="cap"
             fill="transparent"
-            stroke="#10b981"
+            stroke={capColor}
             strokeWidth={1.5}
             radius={[4, 4, 0, 0]}
           />
