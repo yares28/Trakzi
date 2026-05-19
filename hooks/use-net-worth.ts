@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useAccountFilter } from '@/components/account-filter-provider'
+import { demoFetch, isDemoActive } from '@/lib/demo/demo-fetch'
 
 export interface CurrencyTotals {
     assets: number
@@ -33,7 +34,7 @@ async function fetchNetWorth(accountIds: string[] = []): Promise<NetWorthData> {
     const url = accountIds.length > 0
         ? `/api/accounts/net-worth?accounts=${encodeURIComponent(accountIds.join(','))}`
         : '/api/accounts/net-worth'
-    const res = await fetch(url)
+    const res = await demoFetch(url)
     if (!res.ok) throw new Error('Failed to fetch net worth')
     const data = await res.json()
     return {
@@ -52,9 +53,15 @@ async function fetchNetWorth(accountIds: string[] = []): Promise<NetWorthData> {
 export function useNetWorth() {
     const { selected: accountIds, isReady: accountsReady } = useAccountFilter()
     const accountKey = accountIds.length === 0 ? 'all' : accountIds.join(',')
+    // SECURITY: namespace the cache by demo state. `enterDemo()` is a soft
+    // navigation, so the React Query cache survives — without this scope a
+    // real logged-in user's account breakdown would be served from cache
+    // while the app is in demo mode. Mirrors the predicate `demoFetch` uses,
+    // so the cache key always matches which endpoint is actually hit.
+    const scope = isDemoActive() ? 'demo' : 'live'
 
     return useQuery({
-        queryKey: ['accounts', 'net-worth', accountKey],
+        queryKey: ['accounts', 'net-worth', scope, accountKey],
         queryFn: () => fetchNetWorth(accountIds),
         enabled: accountsReady,
     })

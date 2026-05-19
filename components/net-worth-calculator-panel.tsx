@@ -35,7 +35,7 @@ type SavingsTransaction = {
   balance?: number | null
 }
 
-type TrackedItemSection = "Core" | "Properties" | "Vehicles" | "Other" | "Debts"
+type TrackedItemSection = "Core" | "Accounts" | "Properties" | "Vehicles" | "Other" | "Debts"
 
 type TrackedItem = {
   id: string
@@ -44,6 +44,33 @@ type TrackedItem = {
   amount: number
   section: TrackedItemSection
   defaultSelected: boolean
+}
+
+/** Shape of a single account from `/api/accounts/net-worth` → `breakdown`. */
+export type NetWorthAccount = {
+  id: string
+  name: string
+  accountType: string
+  balance: number
+  isAsset: boolean
+}
+
+const ACCOUNT_TYPE_LABELS: Record<string, string> = {
+  checking: "Checking",
+  savings: "Savings",
+  credit_card: "Credit card",
+  cash: "Cash",
+  investment: "Investment",
+  loan: "Loan",
+}
+
+function formatAccountType(type: string): string {
+  return ACCOUNT_TYPE_LABELS[type] ?? type.replace(/_/g, " ")
+}
+
+/** Coerce any non-finite value (NaN/Infinity/undefined) to 0 so totals never break. */
+function safeAmount(value: number | null | undefined): number {
+  return Number.isFinite(value) ? (value as number) : 0
 }
 
 type ManualNetWorthItem = {
@@ -129,6 +156,7 @@ export function NetWorthCalculatorPanel({
   savingsTotal,
   pocketsData,
   debts,
+  accounts = [],
   onCreatePocketGoal,
   isLoading = false,
 }: {
@@ -136,6 +164,7 @@ export function NetWorthCalculatorPanel({
   savingsTotal: number
   pocketsData?: PocketsBundleResponse
   debts: DebtAccountSummary[]
+  accounts?: NetWorthAccount[]
   onCreatePocketGoal?: (defaults: GoalComposerDefaults) => void
   isLoading?: boolean
 }) {
@@ -149,27 +178,49 @@ export function NetWorthCalculatorPanel({
 
   const trackedItems = useMemo<TrackedItem[]>(() => {
     const latestBalanceDate = latestBalanceEntry?.date ? latestBalanceEntry.date.split("T")[0] : null
+    const hasAccounts = accounts.length > 0
 
     const coreItems: TrackedItem[] = [
       {
         id: "core:savings-total",
         label: "Total savings",
         description: "Savings total from the current savings bundle.",
-        amount: savingsTotal,
+        amount: safeAmount(savingsTotal),
         section: "Core",
         defaultSelected: true,
       },
-      {
+    ]
+
+    // Legacy single snapshot — kept only as a fallback when no per-account
+    // balances are available, so it never double-counts the Accounts section.
+    if (!hasAccounts) {
+      coreItems.push({
         id: "core:latest-balance",
         label: "Latest balance snapshot",
         description: latestBalanceDate
           ? `Imported balance snapshot from ${latestBalanceDate}. Keep off if it overlaps with savings.`
           : "Imported balance snapshot when a balance exists on transactions.",
-        amount: latestBalanceEntry?.balance ?? 0,
+        amount: safeAmount(latestBalanceEntry?.balance ?? 0),
         section: "Core",
         defaultSelected: false,
-      },
-    ]
+      })
+    }
+
+    // One selectable row per imported account — the user picks which
+    // accounts contribute to net worth. Liabilities (credit card / loan)
+    // contribute negatively.
+    const accountItems: TrackedItem[] = accounts.map((account) => {
+      const balance = safeAmount(account.balance)
+      const signedBalance = account.isAsset ? balance : -Math.abs(balance)
+      return {
+        id: `account:${account.id}`,
+        label: account.name,
+        description: `${formatAccountType(account.accountType)} • latest imported balance.`,
+        amount: signedBalance,
+        section: "Accounts" as const,
+        defaultSelected: false,
+      }
+    })
 
     const propertyItems: TrackedItem[] = (pocketsData?.properties ?? [])
       .filter((pocket) => {
@@ -186,7 +237,7 @@ export function NetWorthCalculatorPanel({
             mortgageLeft > 0
               ? `Estimated value minus remaining mortgage of ${formatCurrency(mortgageLeft)}.`
               : "Estimated equity from this property pocket.",
-          amount: computePropertyEquity(pocket),
+          amount: safeAmount(computePropertyEquity(pocket)),
           section: "Properties" as const,
           defaultSelected: true,
         }
@@ -202,7 +253,7 @@ export function NetWorthCalculatorPanel({
           loanRemaining > 0
             ? `Purchase value with ${formatCurrency(loanRemaining)} financing removed.`
             : "Tracked vehicle value from the pocket.",
-        amount: computeVehicleEquity(pocket),
+        amount: safeAmount(computeVehicleEquity(pocket)),
         section: "Vehicles" as const,
         defaultSelected: true,
       }
@@ -212,7 +263,7 @@ export function NetWorthCalculatorPanel({
       id: `other:${pocket.id}`,
       label: pocket.name,
       description: "Tracked using the amount invested in this pocket.",
-      amount: pocket.totalInvested,
+      amount: safeAmount(pocket.totalInvested),
       section: "Other" as const,
       defaultSelected: true,
     }))
@@ -226,13 +277,13 @@ export function NetWorthCalculatorPanel({
         debt.lender_name
           ? debt.lender_name
           : "Standalone debt.",
-      amount: -Math.max(0, debt.current_balance),
+      amount: -Math.max(0, safeAmount(debt.current_balance)),
       section: "Debts" as const,
       defaultSelected: true,
     }))
 
-    return [...coreItems, ...propertyItems, ...vehicleItems, ...otherItems, ...debtItems]
-  }, [debts, formatCurrency, latestBalanceEntry, pocketsData?.otherPockets, pocketsData?.properties, pocketsData?.vehicles, savingsTotal])
+    return [...coreItems, ...accountItems, ...propertyItems, ...vehicleItems, ...otherItems, ...debtItems]
+  }, [accounts, debts, formatCurrency, latestBalanceEntry, pocketsData?.otherPockets, pocketsData?.properties, pocketsData?.vehicles, savingsTotal])
 
   useEffect(() => {
     try {
@@ -306,7 +357,7 @@ export function NetWorthCalculatorPanel({
 
   const trackedTotal = useMemo(() => {
     return trackedItems.reduce((sum, item) => {
-      return selectedIdSet.has(item.id) ? sum + item.amount : sum
+      return selectedIdSet.has(item.id) ? sum + safeAmount(item.amount) : sum
     }, 0)
   }, [selectedIdSet, trackedItems])
 
@@ -337,7 +388,7 @@ export function NetWorthCalculatorPanel({
     })
   }, [debts, pocketsData, savingsTotal, transactions])
 
-  const netWorthTotal = trackedTotal + customAssetsTotal - customDebtsTotal
+  const netWorthTotal = safeAmount(trackedTotal + customAssetsTotal - customDebtsTotal)
 
   const sections: Array<{
     key: TrackedItemSection
@@ -350,6 +401,12 @@ export function NetWorthCalculatorPanel({
       title: "Core",
       items: trackedItems.filter((item) => item.section === "Core"),
       empty: "No core balances available yet.",
+    },
+    {
+      key: "Accounts",
+      title: "Accounts",
+      items: trackedItems.filter((item) => item.section === "Accounts"),
+      empty: "No imported accounts available to include.",
     },
     {
       key: "Properties",

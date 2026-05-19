@@ -28,9 +28,13 @@ import { ChartLoadingState } from "@/components/chart-loading-state"
 import { NivoChartTooltip } from "@/components/chart-tooltip"
 import { getChartTextColor, getChartAxisLineColor } from "@/lib/chart-colors"
 import { HoverableBar } from "@/components/chart-hoverable-bar"
+import { cn } from "@/lib/utils"
 
 const CHART_TITLE = "Payday Impact"
-const CHART_DESCRIPTION = "See how your spending changes in the 7 days before and after payday."
+const CHART_DESCRIPTION = "See how your spending changes in the 7 days before and after payday — overall or for a single spending category."
+
+/** Which lens the chart is viewed through. */
+type PaydayMode = "income" | "category"
 
 type IncomeType = "all" | "salary" | "freelance" | "investments" | "refunds"
 
@@ -38,6 +42,15 @@ const SALARY_KEYWORDS = ["payroll", "salary", "wage", "direct deposit", "employe
 const FREELANCE_KEYWORDS = ["freelance", "consulting", "invoice", "client payment", "contract", "self-employed", "upwork", "fiverr"]
 const INVESTMENT_KEYWORDS = ["dividend", "interest", "return", "capital gain", "investment", "etf", "stock", "bond", "crypto"]
 const REFUND_KEYWORDS = ["refund", "return", "reimbursement", "cashback", "cash back", "rebate", "credit"]
+
+// Income-source filter — drives which incoming transactions count as a "payday".
+const INCOME_TYPE_OPTIONS: { value: IncomeType; label: string }[] = [
+    { value: "all", label: "All income" },
+    { value: "salary", label: "Salary" },
+    { value: "freelance", label: "Freelance" },
+    { value: "investments", label: "Investments" },
+    { value: "refunds", label: "Refunds" },
+]
 
 function classifyIncome(description: string): IncomeType | null {
     const lower = (description || "").toLowerCase()
@@ -49,7 +62,7 @@ function classifyIncome(description: string): IncomeType | null {
 }
 
 function matchesIncomeType(
-    selectedType: string,
+    selectedType: IncomeType,
     incomeClass: IncomeType | null,
     txCategory: string
 ): boolean {
@@ -66,8 +79,7 @@ function matchesIncomeType(
     if (selectedType === "refunds") {
         return incomeClass === "refunds" || txCategory.includes("refund")
     }
-    // Custom category — match by category field
-    return txCategory === selectedType.toLowerCase()
+    return false
 }
 
 interface ChartPaydayImpactProps {
@@ -94,50 +106,49 @@ export const ChartPaydayImpact = memo(function ChartPaydayImpact({
     const palette = useMemo(() => getShuffledPalette(), [getShuffledPalette])
     const [mounted, setMounted] = useState(false)
     const [isFullscreen, setIsFullscreen] = useState(false)
-    const [selectedType, setSelectedType] = useState<string>("all")
+    // `mode` chooses the lens; each lens keeps its own independent selection.
+    const [mode, setMode] = useState<PaydayMode>("income")
+    const [incomeType, setIncomeType] = useState<IncomeType>("all")
+    const [spendCategory, setSpendCategory] = useState<string>("all")
 
     useEffect(() => {
         setMounted(true)
     }, [])
 
-    const availableIncomeTypes = useMemo(() => {
-        const customCategories = new Set<string>()
+    // Spending categories available for the Category lens — derived from
+    // outgoing transactions only, so income never leaks into this list.
+    const spendCategoryOptions = useMemo(() => {
+        const categories = new Set<string>()
         if (data) {
             data.forEach((tx) => {
-                if (tx.amount <= 0) return
-                if (tx.amount < 50) return
+                if (tx.amount >= 0) return
                 const cat = (tx.category || "").trim()
-                if (cat && cat.toLowerCase() !== "income") {
-                    customCategories.add(cat)
-                }
+                if (cat) categories.add(cat)
             })
         }
-        const standard: { value: string; label: string }[] = [
-            { value: "all", label: "All" },
-            { value: "salary", label: "Salary" },
-            { value: "freelance", label: "Freelance" },
-            { value: "investments", label: "Invest" },
-            { value: "refunds", label: "Refunds" },
+        return [
+            { value: "all", label: "All spending" },
+            ...Array.from(categories)
+                .sort()
+                .map((cat) => ({ value: cat.toLowerCase(), label: cat })),
         ]
-        const custom = Array.from(customCategories)
-            .sort()
-            .map(cat => ({ value: cat.toLowerCase(), label: cat }))
-        return [...standard, ...custom]
     }, [data])
 
     const chartData = useMemo(() => {
         if (!data || data.length === 0) return []
 
-        // Detect paydays filtered by selected income type
+        // Detect paydays. In Category mode every income source anchors a
+        // payday ("all"); in Income mode the picker narrows them.
+        const effectiveIncomeType: IncomeType = mode === "income" ? incomeType : "all"
         const paydays = new Set<string>()
         data.forEach((tx) => {
             if (tx.amount <= 0) return
             const incomeClass = classifyIncome(tx.description || "")
             const txCategory = (tx.category || "").toLowerCase()
-            const matches = matchesIncomeType(selectedType, incomeClass, txCategory)
+            const matches = matchesIncomeType(effectiveIncomeType, incomeClass, txCategory)
 
-            // Minimum income threshold — avoid tiny refunds being treated as paydays when "all" selected
-            const minAmount = selectedType === "refunds" ? 1 : 100
+            // Minimum income threshold — avoid tiny refunds being treated as paydays.
+            const minAmount = effectiveIncomeType === "refunds" ? 1 : 100
             if (matches && tx.amount >= minAmount) {
                 paydays.add(tx.date.split("T")[0])
             }
@@ -145,13 +156,19 @@ export const ChartPaydayImpact = memo(function ChartPaydayImpact({
 
         if (paydays.size === 0) return []
 
-        // Aggregate spending per relative day [-7, +7]
+        const paydayDates = Array.from(paydays).map((pd) => new Date(pd))
+
+        // Aggregate spending per relative day [-7, +7].
         const relativeDaySpending = new Map<number, { total: number; count: number }>()
 
         data.forEach((tx) => {
             if (tx.amount >= 0) return
+            // Category mode: keep only spending in the selected category.
+            if (mode === "category" && spendCategory !== "all") {
+                if ((tx.category || "").toLowerCase() !== spendCategory) return
+            }
+
             const txDate = new Date(tx.date.split("T")[0])
-            const paydayDates = Array.from(paydays).map(pd => new Date(pd))
 
             // Find nearest payday
             let nearestPayday: Date | null = null
@@ -190,7 +207,7 @@ export const ChartPaydayImpact = memo(function ChartPaydayImpact({
             })
         }
         return result
-    }, [data, palette, selectedType])
+    }, [data, palette, mode, incomeType, spendCategory])
 
     const isDark = resolvedTheme === "dark"
     const textColor = getChartTextColor(isDark)
@@ -212,19 +229,54 @@ export const ChartPaydayImpact = memo(function ChartPaydayImpact({
         )
     }, [formatCurrency])
 
-    const renderTypePicker = () => (
-        <Select value={selectedType} onValueChange={setSelectedType}>
-            <SelectTrigger className="h-7 text-xs w-[140px]">
-                <SelectValue placeholder="Income type" />
-            </SelectTrigger>
-            <SelectContent>
-                {availableIncomeTypes.map((t) => (
-                    <SelectItem key={t.value} value={t.value} className="text-xs">
-                        {t.label}
-                    </SelectItem>
+    const renderControls = () => (
+        <div className="flex items-center gap-2">
+            {/* Income | Category lens toggle */}
+            <div className="flex h-7 items-center rounded-md border bg-muted/40 p-0.5 text-xs">
+                {(["income", "category"] as const).map((m) => (
+                    <button
+                        key={m}
+                        type="button"
+                        onClick={() => setMode(m)}
+                        className={cn(
+                            "rounded px-2 py-0.5 capitalize transition-colors",
+                            mode === m
+                                ? "bg-background font-medium shadow-sm"
+                                : "text-muted-foreground hover:text-foreground"
+                        )}
+                    >
+                        {m}
+                    </button>
                 ))}
-            </SelectContent>
-        </Select>
+            </div>
+            {mode === "income" ? (
+                <Select value={incomeType} onValueChange={(v) => setIncomeType(v as IncomeType)}>
+                    <SelectTrigger className="h-7 w-[130px] text-xs">
+                        <SelectValue placeholder="Income type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {INCOME_TYPE_OPTIONS.map((t) => (
+                            <SelectItem key={t.value} value={t.value} className="text-xs">
+                                {t.label}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            ) : (
+                <Select value={spendCategory} onValueChange={setSpendCategory}>
+                    <SelectTrigger className="h-7 w-[130px] text-xs">
+                        <SelectValue placeholder="Category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {spendCategoryOptions.map((t) => (
+                            <SelectItem key={t.value} value={t.value} className="text-xs">
+                                {t.label}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            )}
+        </div>
     )
 
     const renderInfoTrigger = (forFullscreen = false) => (
@@ -236,14 +288,15 @@ export const ChartPaydayImpact = memo(function ChartPaydayImpact({
                     "Day 0 = Payday",
                     "Negative = days before payday",
                     "Positive = days after payday",
-                    "Select income type to filter paydays",
+                    "Income tab: filter which paydays anchor day 0",
+                    "Category tab: focus the spending bars on one category",
                 ]}
             />
             <ChartAiInsightButton
                 chartId="paydayImpact"
                 chartTitle={CHART_TITLE}
                 chartDescription={CHART_DESCRIPTION}
-                chartData={{ days: chartData, incomeType: selectedType }}
+                chartData={{ days: chartData, mode, incomeType, spendCategory }}
                 size="sm"
             />
         </div>
@@ -300,7 +353,7 @@ export const ChartPaydayImpact = memo(function ChartPaydayImpact({
                         <CardTitle>{CHART_TITLE}</CardTitle>
                     </div>
                     <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-                        {renderTypePicker()}
+                        {renderControls()}
                         {renderInfoTrigger()}
                     </CardAction>
                 </CardHeader>
@@ -340,12 +393,12 @@ export const ChartPaydayImpact = memo(function ChartPaydayImpact({
                         <CardTitle>{CHART_TITLE}</CardTitle>
                     </div>
                     <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-                        {renderTypePicker()}
+                        {renderControls()}
                         {renderInfoTrigger()}
                     </CardAction>
                 </CardHeader>
                 <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex flex-col flex-1 min-h-0">
-                    <div className="h-full w-full min-h-[230px]" key={`${colorScheme}-${selectedType}`}>
+                    <div className="h-full w-full min-h-[230px]" key={`${colorScheme}-${mode}-${incomeType}-${spendCategory}`}>
                         {renderChart()}
                     </div>
                 </CardContent>

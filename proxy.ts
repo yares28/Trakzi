@@ -133,9 +133,12 @@ export default clerkMiddleware(async (auth, req) => {
   // Only call auth() for page routes that need redirect logic
   const { userId } = await auth()
 
-  // If user is signed in and trying to access sign-in/sign-up, redirect to home
+  // If user is signed in and trying to access sign-in/sign-up, redirect to home.
+  // Also clear any stale demo cookie so the user lands in their real account.
   if (userId && (path.startsWith('/sign-in') || path.startsWith('/sign-up'))) {
-    return NextResponse.redirect(new URL('/home', req.url))
+    const response = NextResponse.redirect(new URL('/home', req.url))
+    response.cookies.delete('trakzi-demo-mode')
+    return response
   }
 
   // If user is not signed in and trying to access protected routes, redirect to sign-in
@@ -151,6 +154,11 @@ export default clerkMiddleware(async (auth, req) => {
   }
 
   const response = NextResponse.next()
+  // Signed-in users must never see demo data — clear any stale demo cookie at the
+  // server level so DemoModeProvider hydrates false on the very first paint.
+  if (userId) {
+    response.cookies.delete('trakzi-demo-mode')
+  }
   // Expose locale to server components via a request header so <html lang> can be set server-side
   response.headers.set("x-locale", path.startsWith("/es") ? "es" : "en")
   return response
@@ -180,7 +188,9 @@ export const config = {
     "/pockets/:path*",
     "/testCharts/:path*",
     // Auth routes for sign-in redirect logic
+    "/sign-in",
     "/sign-in/:path*",
+    "/sign-up",
     "/sign-up/:path*",
     // Admin route
     "/admin/:path*",

@@ -38,6 +38,7 @@ import { BudgetsPanel } from "@/components/budgets/BudgetsPanel"
 import { AnimatePresence, m } from "framer-motion"
 import { summarizeGoals, type GoalContext } from "@/lib/goals"
 import { computeDefaultNetWorth } from "@/lib/net-worth"
+import { useNetWorth } from "@/hooks/use-net-worth"
 import type { GoalRecord } from "@/lib/types/goals"
 import type { GoalComposerDefaults, GoalFinancialProfile } from "@/components/chat/goal-wizard-card"
 
@@ -152,7 +153,7 @@ export default function Page() {
   const fetchGoals = useCallback(async () => {
     setGoalsLoading(true)
     try {
-      const res = await fetch("/api/chat/goals")
+      const res = await demoFetch("/api/chat/goals")
       if (res.ok) {
         const data = await res.json() as { goals: GoalRecord[] }
         setGoals(data.goals)
@@ -347,6 +348,8 @@ export default function Page() {
   const { data: homeBundle } = useHomeBundleData()
   const { data: pocketsBundle, isLoading: pocketsBundleLoading } = usePocketsBundleData()
   const { data: debtsData, isLoading: debtsLoading, refetch: refetchDebts } = useDebtAccountsData()
+  // Per-account balances power the Net Worth Calculator's account selection.
+  const { data: netWorthAccountsData } = useNetWorth()
 
   const goalFinancialProfile = useMemo<GoalFinancialProfile | null>(() => {
     const totalIncome = homeBundle?.kpis.totalIncome ?? 0
@@ -844,6 +847,7 @@ export default function Page() {
                       savingsTotal={savingsBundle?.kpis.totalSaved ?? 0}
                       pocketsData={pocketsBundle}
                       debts={debtsData?.debts ?? []}
+                      accounts={netWorthAccountsData?.breakdown ?? []}
                       onCreatePocketGoal={(goalDefaults) => openGoalWizard(goalDefaults)}
                       isLoading={savingsBundleLoading || pocketsBundleLoading || debtsLoading}
                     />

@@ -942,7 +942,21 @@ export const MOCK_POCKETS_BUNDLE = {
             id: 1,
             type: "vehicle",
             name: "Toyota Corolla",
-            metadata: { make: "Toyota", model: "Corolla", year: 2020, licensePlate: "1234 ABC" },
+            // Shape must match PocketItemWithTotals + VehicleMetadata so the
+            // Net Worth Calculator can compute equity (priceBought − loanRemaining).
+            metadata: {
+                brand: "Toyota",
+                vehicleType: "Car",
+                year: 2020,
+                priceBought: 21000,
+                licensePlate: "1234 ABC",
+                fuelType: "Hybrid",
+                financing: { upfrontPaid: 6000, annualInterestRate: 5.5, loanRemaining: 7400 },
+            },
+            svg_path: null,
+            created_at: daysAgo(700),
+            totals: { fuel: 1180, maintenance: 540, insurance: 620 },
+            totalInvested: spendingByCategory.find(c => c.category === "Transport")?.total || 0,
             totalSpent: spendingByCategory.find(c => c.category === "Transport")?.total || 0,
             transactionCount: spendingByCategory.find(c => c.category === "Transport")?.count || 0,
         },
@@ -952,7 +966,17 @@ export const MOCK_POCKETS_BUNDLE = {
             id: 2,
             type: "property",
             name: "Main Apartment",
-            metadata: { address: "123 Main St", type: "apartment" },
+            // OwnedPropertyMetadata — `propertyType: "owned"` is required for the
+            // Net Worth Calculator to include it (estimatedValue − remaining mortgage).
+            metadata: {
+                propertyType: "owned",
+                estimatedValue: 285000,
+                mortgage: { originalAmount: 240000, interestRate: 3.2, loanYears: 30, yearsPaid: 6 },
+            },
+            svg_path: null,
+            created_at: daysAgo(900),
+            totals: { mortgage: 12456, maintenance: 600, insurance: 1200, taxes: 800 },
+            totalInvested: spendingByCategory.find(c => c.category === "Housing")?.total || 0,
             totalSpent: spendingByCategory.find(c => c.category === "Housing")?.total || 0,
             transactionCount: spendingByCategory.find(c => c.category === "Housing")?.count || 0,
         },
@@ -2207,3 +2231,154 @@ export const MOCK_FRIENDS_BUNDLE = {
     challenges: MOCK_CHALLENGES,
     netBalance: MOCK_NET_BALANCE,
 }
+
+// ═══════════════════════════════════════════════════════
+// NET WORTH (per-account breakdown)
+// Shape matches /api/accounts/net-worth so the Net Worth
+// Calculator can render one selectable row per account.
+// ═══════════════════════════════════════════════════════
+
+export const MOCK_NET_WORTH = (() => {
+    const breakdown = [
+        { id: "demo-acc-checking", name: "Everyday Checking", accountType: "checking", currency: "EUR", balance: 4250.50, isAsset: true },
+        { id: "demo-acc-savings", name: "High-Yield Savings", accountType: "savings", currency: "EUR", balance: 12800, isAsset: true },
+        { id: "demo-acc-invest", name: "Brokerage", accountType: "investment", currency: "EUR", balance: 8500, isAsset: true },
+        { id: "demo-acc-credit", name: "Visa Credit Card", accountType: "credit_card", currency: "EUR", balance: -640.25, isAsset: false },
+    ]
+    const assets = breakdown.filter(a => a.isAsset).reduce((s, a) => s + a.balance, 0)
+    const liabilities = breakdown.filter(a => !a.isAsset).reduce((s, a) => s + Math.abs(a.balance), 0)
+    const netWorth = assets - liabilities
+    return {
+        success: true,
+        netWorth,
+        totalAssets: assets,
+        totalLiabilities: liabilities,
+        primaryCurrency: "EUR",
+        byCurrency: { EUR: { assets, liabilities, netWorth } },
+        breakdown,
+        totalAccountCount: breakdown.length,
+        filteredAccountCount: breakdown.length,
+        filterActive: false,
+    }
+})()
+
+// ═══════════════════════════════════════════════════════
+// GOALS — shape matches GoalRecord from /api/chat/goals
+// ═══════════════════════════════════════════════════════
+
+export const MOCK_GOALS = [
+    {
+        id: 1, user_id: "demo-user", category: "Emergency Fund", label: "Emergency Fund",
+        target_amount: "10000", deadline: daysAgo(-210), monthly_allocation: "500",
+        status: "active", created_at: daysAgo(150), goal_kind: "savings_target",
+        priority: 1, notes: "Three months of living expenses set aside.",
+        linked_debt_account_id: null, linked_pocket_id: null, linked_pocket_type: null,
+        archived_at: null, updated_at: daysAgo(6), completed_at: null,
+        target_balance: null, starting_amount: "2000", manual_progress: "6400",
+    },
+    {
+        id: 2, user_id: "demo-user", category: "Travel", label: "Japan Trip 2026",
+        target_amount: "4500", deadline: daysAgo(-320), monthly_allocation: "300",
+        status: "active", created_at: daysAgo(90), goal_kind: "savings_target",
+        priority: 2, notes: "Two weeks in spring — flights and hotels.",
+        linked_debt_account_id: null, linked_pocket_id: null, linked_pocket_type: null,
+        archived_at: null, updated_at: daysAgo(3), completed_at: null,
+        target_balance: null, starting_amount: "0", manual_progress: "1850",
+    },
+    {
+        id: 3, user_id: "demo-user", category: "Net Worth", label: "Reach €50k Net Worth",
+        target_amount: "50000", deadline: daysAgo(-540), monthly_allocation: "800",
+        status: "active", created_at: daysAgo(60), goal_kind: "net_worth_target",
+        priority: 1, notes: "Long-term wealth milestone.",
+        linked_debt_account_id: null, linked_pocket_id: null, linked_pocket_type: null,
+        archived_at: null, updated_at: daysAgo(2), completed_at: null,
+        target_balance: "50000", starting_amount: "24909", manual_progress: "24909",
+    },
+]
+
+// ═══════════════════════════════════════════════════════
+// DEBTS — shape matches DebtAccountSummary from /api/debts
+// ═══════════════════════════════════════════════════════
+
+export const MOCK_DEBTS = [
+    {
+        id: 1, user_id: "demo-user", origin_kind: "standalone",
+        linked_pocket_id: null, linked_pocket_type: null,
+        name: "Visa Credit Card", debt_type: "credit_card", lender_name: "BBVA",
+        currency: "EUR", country_code: "ES", region_code: null,
+        interest_rate: 19.9, interest_rate_kind: "variable", reference_rate: null,
+        minimum_payment: 75, payment_frequency: "monthly", due_day: 15,
+        status: "active", opened_at: daysAgo(420), closed_at: null,
+        notes: "Everyday card — paid down monthly.",
+        created_at: daysAgo(420), updated_at: daysAgo(5),
+        current_balance: 640.25, total_paid: 3180, total_interest: 142.6,
+        total_fees: 0, entry_count: 14, last_entry_date: daysAgo(5),
+    },
+    {
+        id: 2, user_id: "demo-user", origin_kind: "standalone",
+        linked_pocket_id: null, linked_pocket_type: null,
+        name: "Student Loan", debt_type: "student_loan", lender_name: "Santander",
+        currency: "EUR", country_code: "ES", region_code: null,
+        interest_rate: 4.5, interest_rate_kind: "fixed", reference_rate: null,
+        minimum_payment: 220, payment_frequency: "monthly", due_day: 1,
+        status: "active", opened_at: daysAgo(1100), closed_at: null,
+        notes: "Graduate degree financing.",
+        created_at: daysAgo(1100), updated_at: daysAgo(12),
+        current_balance: 7820, total_paid: 5280, total_interest: 612.4,
+        total_fees: 0, entry_count: 24, last_entry_date: daysAgo(12),
+    },
+]
+
+// ═══════════════════════════════════════════════════════
+// BUDGETS BUNDLE — shape matches BudgetsSummary
+// (/api/charts/budgets-bundle)
+// ═══════════════════════════════════════════════════════
+
+export const MOCK_BUDGETS_BUNDLE = (() => {
+    const months = [monthsAgo(2), monthsAgo(1), monthsAgo(0)]
+    const monthsElapsed = 3
+    // The mock transaction set spans ~6 months → divide totals for a per-month figure.
+    const toRow = (c: (typeof spendingByCategory)[number], index: number, withCap: boolean) => {
+        const avgMonthly = Math.round((c.total / 6) * 100) / 100
+        const monthlyCap = withCap ? Math.round(avgMonthly * 1.1) : null
+        const monthlySpends = months.map((month, i) => ({
+            month,
+            amount: Math.round(avgMonthly * (0.85 + i * 0.15) * 100) / 100,
+        }))
+        const overByMonthly = monthlyCap === null
+            ? 0
+            : Math.round((avgMonthly - monthlyCap) * 100) / 100
+        const overBudgetMonths = monthlyCap === null
+            ? 0
+            : monthlySpends.filter(s => s.amount > monthlyCap).length
+        const status: "under" | "warning" | "over" | "unset" =
+            monthlyCap === null
+                ? "unset"
+                : overBudgetMonths > 0
+                    ? "over"
+                    : avgMonthly > monthlyCap * 0.9
+                        ? "warning"
+                        : "under"
+        return {
+            categoryId: index + 1,
+            name: c.category,
+            color: c.color,
+            monthlyCap,
+            monthlySpends,
+            avgMonthly,
+            allTimeAvgMonthly: avgMonthly,
+            totalSpent: Math.round(c.total * 100) / 100,
+            overByMonthly,
+            overBudgetMonths,
+            status,
+        }
+    }
+    const categories = spendingByCategory.slice(0, 5).map((c, i) => toRow(c, i, true))
+    const suggestions = spendingByCategory.slice(5, 10).map((c, i) => toRow(c, i + 5, false))
+    const monthlyTotals = months.map((month, i) => {
+        const cap = categories.reduce((s, c) => s + (c.monthlyCap ?? 0), 0)
+        const spent = categories.reduce((s, c) => s + (c.monthlySpends[i]?.amount ?? 0), 0)
+        return { month, cap, spent: Math.round(spent * 100) / 100 }
+    })
+    return { monthsElapsed, monthlyTotals, categories, suggestions }
+})()

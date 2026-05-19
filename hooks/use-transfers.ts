@@ -1,10 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { AccountTransferWithDetails } from '@/lib/types/accounts'
+import { demoFetch, isDemoActive } from '@/lib/demo/demo-fetch'
 
 export type TransferStatusFilter = 'open' | 'pending' | 'suggested' | 'confirmed' | 'all'
 
 async function fetchTransfers(filter: TransferStatusFilter): Promise<AccountTransferWithDetails[]> {
-    const res = await fetch(`/api/transfers?status=${filter}`)
+    const res = await demoFetch(`/api/transfers?status=${filter}`)
     if (!res.ok) throw new Error('Failed to fetch transfers')
     const data = await res.json()
     return data.transfers
@@ -16,8 +17,9 @@ async function fetchTransfers(filter: TransferStatusFilter): Promise<AccountTran
  * render the "pick the right counterpart" affordance.
  */
 export function useTransfers(filter: TransferStatusFilter = 'open') {
+    const scope = isDemoActive() ? 'demo' : 'live'
     return useQuery({
-        queryKey: ['transfers', filter],
+        queryKey: ['transfers', scope, filter],
         queryFn: () => fetchTransfers(filter),
     })
 }
@@ -35,7 +37,7 @@ export interface TransferCounts {
 }
 
 async function fetchTransferCounts(): Promise<TransferCounts> {
-    const res = await fetch('/api/transfers/count')
+    const res = await demoFetch('/api/transfers/count')
     if (!res.ok) throw new Error('Failed to fetch transfer counts')
     const data = await res.json()
     return {
@@ -50,8 +52,9 @@ async function fetchTransferCounts(): Promise<TransferCounts> {
  * Returns 0/0 by default while loading so render code can render unconditionally.
  */
 export function useTransferCounts() {
+    const scope = isDemoActive() ? 'demo' : 'live'
     return useQuery({
-        queryKey: ['transfers', 'count'],
+        queryKey: ['transfers', scope, 'count'],
         queryFn: fetchTransferCounts,
         staleTime: 30_000,
     })

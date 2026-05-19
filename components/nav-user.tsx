@@ -61,11 +61,13 @@ export function NavUser() {
             className="h-10 w-full"
             onClick={exitDemo}
           >
-            <Avatar className="h-6 w-6 flex-shrink-0 rounded-md">
-              <AvatarFallback className="rounded-md bg-gradient-to-br from-primary/70 to-primary text-primary-foreground text-[10px]">
-                D
-              </AvatarFallback>
-            </Avatar>
+            <div className="flex-shrink-0">
+              <Avatar className="h-6 w-6 rounded-md">
+                <AvatarFallback className="rounded-md bg-gradient-to-br from-primary/70 to-primary text-primary-foreground text-[10px]">
+                  D
+                </AvatarFallback>
+              </Avatar>
+            </div>
             <div className="flex min-w-0 flex-1 flex-col text-left group-data-[collapsible=icon]:hidden">
               <span className="truncate text-sm font-medium">Demo Mode</span>
               <span className="truncate text-xs text-muted-foreground">Click to exit</span>
@@ -81,11 +83,13 @@ export function NavUser() {
                   aria-label="Sign in"
                   className="h-10 w-full"
                 >
-                  <Avatar className="h-6 w-6 flex-shrink-0 rounded-md">
-                    <AvatarFallback className="rounded-md">
-                      <IconLogin className="size-[13px]" />
-                    </AvatarFallback>
-                  </Avatar>
+                  <div className="flex-shrink-0">
+                    <Avatar className="h-6 w-6 rounded-md">
+                      <AvatarFallback className="rounded-md">
+                        <IconLogin className="size-[13px]" />
+                      </AvatarFallback>
+                    </Avatar>
+                  </div>
                   <span className="truncate text-sm group-data-[collapsible=icon]:hidden">
                     Sign in
                   </span>
@@ -103,12 +107,14 @@ export function NavUser() {
                       className="h-10 w-full"
                       tooltip={user.fullName || user.firstName || "Account"}
                     >
-                      <Avatar className="h-6 w-6 flex-shrink-0 rounded-md">
-                        <AvatarImage src={user.imageUrl} alt={user.fullName || "User"} />
-                        <AvatarFallback className="rounded-md">
-                          <IconUser className="size-[13px]" />
-                        </AvatarFallback>
-                      </Avatar>
+                      <div className="flex-shrink-0">
+                        <Avatar className="h-6 w-6 rounded-md">
+                          <AvatarImage src={user.imageUrl} alt={user.fullName || "User"} />
+                          <AvatarFallback className="rounded-md">
+                            <IconUser className="size-[13px]" />
+                          </AvatarFallback>
+                        </Avatar>
+                      </div>
                       <div className="flex min-w-0 flex-1 flex-col text-left group-data-[collapsible=icon]:hidden">
                         <span className="truncate text-sm font-medium leading-none">
                           {user.fullName || user.firstName || "User"}
@@ -147,9 +153,11 @@ export function NavUser() {
                 </DropdownMenu>
               ) : (
                 <SidebarMenuButton size="sm" aria-label="Loading account" className="h-10 w-full">
-                  <Avatar className="h-6 w-6 flex-shrink-0 rounded-md">
-                    <AvatarFallback className="rounded-md animate-pulse" />
-                  </Avatar>
+                  <div className="flex-shrink-0">
+                    <Avatar className="h-6 w-6 rounded-md">
+                      <AvatarFallback className="rounded-md animate-pulse" />
+                    </Avatar>
+                  </div>
                   <div className="flex min-w-0 flex-1 flex-col gap-1 group-data-[collapsible=icon]:hidden">
                     <div className="h-3 w-24 animate-pulse rounded bg-muted" />
                     <div className="h-2.5 w-32 animate-pulse rounded bg-muted" />

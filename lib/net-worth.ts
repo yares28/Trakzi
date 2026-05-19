@@ -42,8 +42,11 @@ export function computeVehicleEquity(pocket: PocketItemWithTotals) {
     typeof metadata.priceBought === "number" && Number.isFinite(metadata.priceBought)
       ? metadata.priceBought
       : pocket.totalInvested
-  const loanRemaining = metadata.financing?.loanRemaining ?? 0
-  return baseValue - loanRemaining
+  const safeBaseValue = Number.isFinite(baseValue) ? (baseValue as number) : 0
+  const loanRemaining = Number.isFinite(metadata.financing?.loanRemaining)
+    ? (metadata.financing?.loanRemaining as number)
+    : 0
+  return safeBaseValue - loanRemaining
 }
 
 export function computePropertyEquity(pocket: PocketItemWithTotals) {
@@ -54,13 +57,16 @@ export function computePropertyEquity(pocket: PocketItemWithTotals) {
     typeof metadata.estimatedValue === "number" && Number.isFinite(metadata.estimatedValue)
       ? metadata.estimatedValue
       : pocket.totalInvested
+  const safeEstimatedValue = Number.isFinite(estimatedValue) ? (estimatedValue as number) : 0
 
-  return estimatedValue - estimateRemainingMortgage(metadata.mortgage)
+  return safeEstimatedValue - estimateRemainingMortgage(metadata.mortgage)
 }
 
 export function getLatestBalanceSnapshot(transactions: NetWorthTransaction[]) {
+  // `Number.isFinite` rejects null, undefined AND NaN — a plain `!== null`
+  // check would let NaN through and poison every downstream total.
   return [...transactions]
-    .filter((transaction) => transaction.balance !== null && transaction.balance !== undefined)
+    .filter((transaction) => Number.isFinite(transaction.balance))
     .sort((a, b) => b.date.localeCompare(a.date))[0] ?? null
 }
 
@@ -86,14 +92,15 @@ export function computeDefaultNetWorth({
   }, 0)
 
   const otherTotal = (pocketsData?.otherPockets ?? []).reduce((sum, pocket) => {
-    return sum + pocket.totalInvested
+    return sum + (Number.isFinite(pocket.totalInvested) ? pocket.totalInvested : 0)
   }, 0)
 
   const standaloneDebtTotal = debts
     .filter((debt) => debt.origin_kind === "standalone")
-    .reduce((sum, debt) => sum + Math.max(0, debt.current_balance), 0)
+    .reduce((sum, debt) => sum + Math.max(0, Number.isFinite(debt.current_balance) ? debt.current_balance : 0), 0)
 
-  const total = savingsTotal + propertyTotal + vehicleTotal + otherTotal - standaloneDebtTotal
+  const safeSavingsTotal = Number.isFinite(savingsTotal) ? savingsTotal : 0
+  const total = safeSavingsTotal + propertyTotal + vehicleTotal + otherTotal - standaloneDebtTotal
 
   return {
     total,

@@ -1,16 +1,18 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { BankAccount, CreateAccountDto, UpdateAccountDto } from "@/lib/types/accounts"
+import { demoFetch, isDemoActive } from "@/lib/demo/demo-fetch"
 
 async function fetchAccounts(): Promise<BankAccount[]> {
-    const res = await fetch("/api/accounts")
+    const res = await demoFetch("/api/accounts")
     if (!res.ok) throw new Error("Failed to fetch accounts")
     const data = await res.json()
     return data.accounts
 }
 
 export function useAccounts() {
+    const scope = isDemoActive() ? 'demo' : 'live'
     return useQuery({
-        queryKey: ["accounts"],
+        queryKey: ["accounts", scope],
         queryFn: fetchAccounts,
     })
 }
@@ -60,3 +62,4 @@ export function useDeleteAccount() {
         onSuccess: () => qc.invalidateQueries({ queryKey: ["accounts"] }),
     })
 }
+

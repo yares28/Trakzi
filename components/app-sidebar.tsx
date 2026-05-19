@@ -214,9 +214,23 @@ function FriendRequestBadge() {
   const count = data?.pendingRequests?.incoming?.length ?? 0
   if (count === 0) return null
   return (
-    <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground">
+    // A <div> (not a <span>) so the collapsed sidebar's
+    // `[&>span:not(.sr-only)]:hidden` rule never hides it.
+    // Expanded: inline pill on the right. Collapsed: a dot anchored
+    // to the top-right of the nav icon (the <li> is `position: relative`).
+    <div
+      aria-label={`${count} pending friend request${count > 1 ? "s" : ""}`}
+      className={cn(
+        "ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground",
+        "group-data-[collapsible=icon]:pointer-events-none group-data-[collapsible=icon]:absolute",
+        "group-data-[collapsible=icon]:right-1 group-data-[collapsible=icon]:top-1",
+        "group-data-[collapsible=icon]:ml-0 group-data-[collapsible=icon]:h-3.5",
+        "group-data-[collapsible=icon]:min-w-3.5 group-data-[collapsible=icon]:px-0.5",
+        "group-data-[collapsible=icon]:text-[9px] group-data-[collapsible=icon]:shadow-sm",
+      )}
+    >
       {count > 9 ? "9+" : count}
-    </span>
+    </div>
   )
 }
 

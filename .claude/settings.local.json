@@ -54,7 +54,8 @@
       "Bash(claude plugin *)",
       "Bash(sips *)",
       "Bash(lsof -ti:3000)",
-      "Bash(npx --yes jest@29 __tests__/lib/charts/budgets-aggregations.test.ts --config jest.config.js)"
+      "Bash(npx --yes jest@29 __tests__/lib/charts/budgets-aggregations.test.ts --config jest.config.js)",
+      "AskUserQuestion"
     ]
   },
   "enabledPlugins": {
