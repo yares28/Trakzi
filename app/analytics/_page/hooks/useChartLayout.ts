@@ -5,9 +5,6 @@ import { useUserPreferences } from "@/components/user-preferences-provider"
 import {
   DEFAULT_CHART_ORDER,
   DEFAULT_CHART_SIZES,
-  DEMO_DEFAULT_CHART_ORDER,
-  DEMO_DEFAULT_CHART_SIZES,
-  DEMO_DEFAULT_USER_SIZES,
   DEFAULT_SIZES_VERSION,
 } from "../constants"
 
@@ -35,7 +32,9 @@ export function useChartLayout({ isDemoMode = false }: UseChartLayoutOptions = {
 
   useEffect(() => {
     if (isDemoMode) {
-      setAnalyticsChartOrder([...DEMO_DEFAULT_CHART_ORDER])
+      // Demo mode now uses the same default layout as new real users — no separate
+      // DEMO_DEFAULT_CHART_ORDER. This keeps the demo and the real first-run UX in sync.
+      setAnalyticsChartOrder([...DEFAULT_CHART_ORDER])
       return
     }
 
@@ -78,9 +77,9 @@ export function useChartLayout({ isDemoMode = false }: UseChartLayoutOptions = {
 
   useEffect(() => {
     if (isDemoMode) {
-      const demoUserSizes = cloneChartSizes(DEMO_DEFAULT_USER_SIZES)
-      setSavedSizes(demoUserSizes)
-      savedSizesRef.current = demoUserSizes
+      // No demo-specific user_sizes — demo uses the same defaults as real users.
+      setSavedSizes({})
+      savedSizesRef.current = {}
       return
     }
 
@@ -123,13 +122,8 @@ export function useChartLayout({ isDemoMode = false }: UseChartLayoutOptions = {
   // Compute sizes from preferences (with version-reset logic).
   useEffect(() => {
     if (isDemoMode) {
+      // Demo uses the same DEFAULT_CHART_SIZES as new real users — no overlays.
       const demoSizes = cloneChartSizes(DEFAULT_CHART_SIZES)
-      Object.entries(DEMO_DEFAULT_CHART_SIZES).forEach(([chartId, size]) => {
-        demoSizes[chartId] = { ...demoSizes[chartId], ...size }
-      })
-      Object.entries(DEMO_DEFAULT_USER_SIZES).forEach(([chartId, size]) => {
-        demoSizes[chartId] = { ...demoSizes[chartId], ...size }
-      })
       savedChartSizesRef.current = demoSizes
       setSavedChartSizes(demoSizes)
       setHasLoadedChartSizes(true)

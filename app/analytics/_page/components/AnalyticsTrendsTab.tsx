@@ -4,8 +4,6 @@ import { useCallback, useEffect, useState, useMemo } from "react"
 import { useTrendsData } from "@/hooks/use-dashboard-data"
 import { SortableGridProvider, SortableGridItem } from "@/components/sortable-grid"
 import { ChartCategoryTrend } from "@/components/chart-category-trend"
-import { ChartCardSkeleton } from "@/components/chart-loading-state"
-import { ShimmeringText } from "@/components/ui/shimmering-text"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
 import { TrendingUp, Upload, ArrowRight } from "lucide-react"
 import Link from "next/link"
@@ -69,25 +67,6 @@ export function AnalyticsTrendsTab() {
 
   return (
     <>
-      {isLoading && (
-        <section className="px-4 lg:px-6">
-          <div className="flex items-center justify-between">
-            <ShimmeringText
-              text="Loading trend charts"
-              className="text-sm font-medium text-muted-foreground"
-              duration={1.6}
-              repeatDelay={0.4}
-              spread={2.2}
-            />
-          </div>
-          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 min-w-0">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <ChartCardSkeleton key={`trend-skeleton-${index}`} height="h-[420px]" skeletonType="area" />
-            ))}
-          </div>
-        </section>
-      )}
-
       {error && !isLoading && (
         <section className="px-4 lg:px-6">
           <div className="flex flex-col items-center justify-center text-center py-16 rounded-3xl border bg-muted/30">

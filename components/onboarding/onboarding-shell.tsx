@@ -19,7 +19,15 @@ export function OnboardingShell({ open, onOpenChange, children }: OnboardingShel
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogPortal>
-        <DialogOverlay />
+        {/*
+          Override the default DialogOverlay animation/opacity for onboarding.
+          The base overlay starts at opacity 0 and fades in over 200ms — on first
+          page load (and especially after hydration), the browser can paint the
+          overlay before the fade-in keyframes kick in, leaving the backdrop visibly
+          transparent for a few frames. We use a much shorter duration and a slightly
+          stronger backdrop colour so any first-frame flash is imperceptible.
+        */}
+        <DialogOverlay className="duration-75 bg-black/85" />
         {/*
           Mobile  : align to bottom edge (bottom sheet)
           sm+     : center in viewport

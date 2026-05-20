@@ -22,6 +22,10 @@ export const FRIDGE_CHART_TO_ANALYTICS_CHART: Record<FridgeChartId, ChartId> = {
   groceryNetWorthAllocation: "netWorthAllocation",
 }
 
+// "groceryShoppingHeatmapHoursDays" (Shopping Hours Heatmap) and
+// "groceryShoppingHeatmapDaysMonths" (Monthly Shopping Patterns) were moved out
+// of the main Fridge grid and into the Advanced tab (rendered directly in
+// FridgePageClient.tsx). They no longer appear here.
 export const FRIDGE_CHART_ORDER: FridgeChartId[] = [
   "grocerySpendTrend",
   "groceryCategoryRankings",
@@ -36,8 +40,6 @@ export const FRIDGE_CHART_ORDER: FridgeChartId[] = [
   "groceryVsRestaurant",
   "groceryTransactionHistory",
   "groceryPurchaseSizeComparison",
-  "groceryShoppingHeatmapHoursDays",
-  "groceryShoppingHeatmapDaysMonths",
 ]
 
 export const DEFAULT_CHART_ORDER = FRIDGE_CHART_ORDER
@@ -68,4 +70,7 @@ export const DEFAULT_CHART_SIZES: Record<
 export const CHART_ORDER_STORAGE_KEY = "fridge-chart-order"
 export const CHART_SIZES_STORAGE_KEY = "fridge-chart-sizes"
 export const CHART_SIZES_VERSION_KEY = "fridge-chart-sizes-version"
-export const DEFAULT_SIZES_VERSION = "3"
+// Bumped 3 → 4 to invalidate saved layouts that still reference the two heatmap
+// chart IDs (now Advanced-tab-only). Without the bump, returning users would
+// continue to see the heatmaps in the main grid until they manually reset.
+export const DEFAULT_SIZES_VERSION = "4"

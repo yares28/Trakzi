@@ -1,5 +1,10 @@
 export const ANALYTICS_CACHE_TTL_MS = 5 * 60 * 1000
 
+// The 9 charts below were duplicated between this main grid and the Advanced tab.
+// They now live exclusively in the Advanced tab (AdvancedChartsGrid.tsx):
+//   dailyAverageByMonth, momGrowth, paydayImpact, recurringVsOneTime,
+//   dayOfWeekCategory, dailyTransactionActivity, seasonalSpending,
+//   weekendVsWeekday, hourlySpending.
 export const DEFAULT_CHART_ORDER = [
   "incomeExpensesTracking2",
   "incomeExpenseRatio",
@@ -8,38 +13,32 @@ export const DEFAULT_CHART_ORDER = [
   "spendingActivityRings",
   "needsWantsBreakdown",
   "yearOverYear",
-  "dailyAverageByMonth",
   "spendingCategoryRankings",
   "netWorthAllocation",
-  "momGrowth",
-  "paydayImpact",
   "financialHealthScore",
   "budgetBurndown",
   "purchaseSizeBreakdown",
-  "recurringVsOneTime",
   "categoryBubbleMap",
   "moneyFlow",
   "householdSpendMix",
-  "dayOfWeekCategory",
   "transactionHistory",
   "categorySpendingByPeriod",
   "cashFlowSankey",
-  "dailyTransactionActivity",
   "singleMonthCategorySpending",
-  "seasonalSpending",
   "spendingStreamgraph",
   "transactionCountTrend",
   "topMerchantsRace",
   "incomeSources",
-  "weekendVsWeekday",
   "dailySpendAllowance",
-  "hourlySpending",
 ]
 
 export const CHART_ORDER_STORAGE_KEY = "analytics-chart-order"
 export const CHART_SIZES_STORAGE_KEY = "analytics-chart-sizes"
 export const CHART_SIZES_VERSION_KEY = "analytics-chart-sizes-version"
-export const DEFAULT_SIZES_VERSION = "17"
+// Bumped from 17 to 18: removed 9 duplicated charts from DEFAULT_CHART_ORDER (now
+// Advanced-tab-only). Bumping the version invalidates any saved layouts that still
+// reference those IDs so users see the clean default instead of an inconsistent grid.
+export const DEFAULT_SIZES_VERSION = "18"
 
 export const DEFAULT_CHART_SIZES: Record<string, { w: number; h: number; x?: number; y?: number }> = {
   // Kept for compatibility — not in default order; size used only if surfaced elsewhere.

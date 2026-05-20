@@ -20,6 +20,8 @@ import { UploadDialog } from "./components/UploadDialog"
 import { ReviewDialog } from "./components/ReviewDialog"
 import { CreateCategoryDialog } from "./components/CreateCategoryDialog"
 import { LimitDialogs } from "./components/LimitDialogs"
+import { ChartShoppingHeatmapHoursDaysFridge } from "@/components/fridge/chart-shopping-heatmap-hours-days-fridge"
+import { ChartShoppingHeatmapDaysMonthsFridge } from "@/components/fridge/chart-shopping-heatmap-days-months-fridge"
 import { useChartLayout } from "./hooks/useChartLayout"
 import { useFridgeChartData } from "./hooks/useFridgeChartData"
 import { useFridgeData } from "./hooks/useFridgeData"
@@ -268,22 +270,25 @@ export function FridgePageClient() {
 
           {viewMode === "advanced" && (
             <section className="px-4 lg:px-6">
+              {/*
+                Advanced Fridge tab houses heatmap-style charts that are too dense
+                for the main grid. Moved here from the main view: Shopping Hours
+                Heatmap (hour × day) and Monthly Shopping Patterns (day × month).
+              */}
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 min-w-0">
                 <div className="lg:col-span-6">
-                  <Card className="@container/card h-[420px] flex flex-col">
-                    <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-                      <div className="flex items-center gap-2">
-                        <CardTitle className="text-base font-medium">
-                          Advanced Fridge
-                        </CardTitle>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1">
-                      <div className="h-full w-full flex items-center justify-center text-sm text-muted-foreground">
-                        This area is ready for advanced fridge analytics.
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <ChartShoppingHeatmapHoursDaysFridge
+                    receiptTransactions={receiptTransactions}
+                    hourDayHeatmapData={chartData.hourDayHeatmapData}
+                    isLoading={isChartsLoading}
+                  />
+                </div>
+                <div className="lg:col-span-6">
+                  <ChartShoppingHeatmapDaysMonthsFridge
+                    receiptTransactions={receiptTransactions}
+                    dayMonthHeatmapData={chartData.dayMonthHeatmapData}
+                    isLoading={isChartsLoading}
+                  />
                 </div>
               </div>
             </section>

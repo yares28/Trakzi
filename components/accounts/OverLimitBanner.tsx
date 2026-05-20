@@ -5,6 +5,7 @@ import { IconAlertTriangle, IconX } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
 import { usePlanFeatures } from "@/hooks/use-plan-features"
 import { useAccounts } from "@/hooks/use-accounts"
+import { useDemoMode } from "@/lib/demo/demo-context"
 
 const DISMISS_KEY = "account_limit_banner_dismissed"
 
@@ -15,6 +16,7 @@ function getTodayString(): string {
 export function OverLimitBanner() {
   const features = usePlanFeatures()
   const { data: accounts = [] } = useAccounts()
+  const { isDemoMode } = useDemoMode()
   // Start hidden to avoid layout flash before localStorage is checked
   const [dismissed, setDismissed] = useState(true)
 
@@ -23,7 +25,10 @@ export function OverLimitBanner() {
     setDismissed(stored === getTodayString())
   }, [])
 
-  if (!features || dismissed) return null
+  // Demo mode uses fixture data with N accounts by design — the real plan limit
+  // doesn't apply here. Showing the banner would imply the user is over their
+  // real plan when they're just looking at a preview.
+  if (isDemoMode || !features || dismissed) return null
 
   const activeCount = accounts.filter((a) => a.isActive).length
   const { maxAccounts } = features
