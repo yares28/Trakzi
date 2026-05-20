@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
-import { getStripe, STRIPE_PRICES, getPlanFromPriceId } from '@/lib/stripe';
+import { getStripe, STRIPE_PRICES, getPlanFromPriceId, getBillingIntervalFromPriceId } from '@/lib/stripe';
 import { getUserSubscription, upsertSubscription } from '@/lib/subscriptions';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/security/rate-limiter';
 import {
@@ -93,6 +93,10 @@ export async function POST(request: NextRequest) {
             const { getAppUrl } = await import('@/lib/env');
             const appUrl = getAppUrl();
 
+            // Promo codes are restricted to monthly plans only — see /api/checkout for the full
+            // rationale. A 100%-off "1 month" coupon would otherwise discount an entire annual invoice.
+            const isMonthly = getBillingIntervalFromPriceId(priceId) === 'monthly';
+
             const session = await stripe.checkout.sessions.create({
                 mode: 'subscription',
                 payment_method_types: ['card'],
@@ -108,7 +112,7 @@ export async function POST(request: NextRequest) {
                 ...(subscription?.stripeCustomerId && { customer: subscription.stripeCustomerId }),
                 metadata: { userId },
                 subscription_data: { metadata: { userId } },
-                allow_promotion_codes: true,
+                allow_promotion_codes: isMonthly,
             });
 
             return NextResponse.json({ action: 'checkout', url: session.url });
