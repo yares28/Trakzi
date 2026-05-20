@@ -26,14 +26,19 @@ const nextConfig: NextConfig = {
     // CSP: Allow Clerk, Stripe, PostHog, and Google Fonts — block everything else.
     // 'unsafe-inline' for styles is required by Tailwind/shadcn SSR.
     // 'unsafe-eval' removed — no eval needed in production.
+    // Cloudflare Turnstile (https://challenges.cloudflare.com) is Clerk's bot-protection
+    // CAPTCHA provider. It must be allow-listed in script-src (to load the widget JS),
+    // frame-src (the challenge renders in an iframe), and connect-src (the widget calls
+    // back to verify). Without all three, sign-in fails with the misleading message
+    // "CAPTCHA failed to load — may be due to an unsupported browser or extension."
     const csp = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' https://*.clerk.accounts.dev https://clerk.trakzi.com https://dev.clerk.trakzi.com https://js.stripe.com https://eu.i.posthog.com https://eu-assets.i.posthog.com https://va.vercel-scripts.com",
+      "script-src 'self' 'unsafe-inline' https://*.clerk.accounts.dev https://clerk.trakzi.com https://dev.clerk.trakzi.com https://challenges.cloudflare.com https://js.stripe.com https://eu.i.posthog.com https://eu-assets.i.posthog.com https://va.vercel-scripts.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: blob: https://img.clerk.com https://images.clerk.dev https://rankspot-space.sfo3.digitaloceanspaces.com",
-      "connect-src 'self' https://*.clerk.accounts.dev https://clerk.trakzi.com https://dev.clerk.trakzi.com https://api.stripe.com https://eu.i.posthog.com https://eu-assets.i.posthog.com wss://*.clerk.accounts.dev",
-      "frame-src https://js.stripe.com https://hooks.stripe.com https://www.youtube-nocookie.com",
+      "connect-src 'self' https://*.clerk.accounts.dev https://clerk.trakzi.com https://dev.clerk.trakzi.com https://challenges.cloudflare.com https://api.stripe.com https://eu.i.posthog.com https://eu-assets.i.posthog.com wss://*.clerk.accounts.dev",
+      "frame-src https://challenges.cloudflare.com https://js.stripe.com https://hooks.stripe.com https://www.youtube-nocookie.com",
       "worker-src blob: 'self'",
       "object-src 'none'",
       "base-uri 'self'",
