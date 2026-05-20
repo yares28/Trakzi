@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
-import { getStripe, getAppUrl, STRIPE_PRICES, getBillingIntervalFromPriceId } from '@/lib/stripe';
+import { getStripe, getAppUrl, STRIPE_PRICES } from '@/lib/stripe';
 import { getUserSubscription, upsertSubscription } from '@/lib/subscriptions';
 import { ensureUserExists } from '@/lib/user-sync';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/security/rate-limiter';
@@ -131,11 +131,13 @@ export async function POST(request: NextRequest) {
             ? cancelUrl
             : `${appUrl}/?checkout=canceled`;
 
-        // Promo codes are restricted to monthly plans only.
-        // Rationale: a 100%-off coupon with "1 month repeating" duration would still apply
-        // to the single annual invoice (since annual is billed once per year), effectively
-        // giving away a free year. Disabling the field on annual checkouts blocks this entirely.
-        const isMonthly = getBillingIntervalFromPriceId(priceId) === 'monthly';
+        // Promo codes are restricted to the PRO Monthly price only.
+        // Rationale:
+        //   - Annual plans are excluded because a 100%-off "1 month" coupon would still
+        //     discount the entire annual invoice (billed once per year), giving away a free year.
+        //   - MAX is excluded because launch promos are intentionally scoped to PRO.
+        // If we add more eligible prices later (e.g. a MAX-specific code), turn this into a Set.
+        const isPromoEligible = priceId === STRIPE_PRICES.PRO_MONTHLY;
 
         // Create Checkout Session
         // ALWAYS pass customer ID (never let Stripe create it automatically)
@@ -167,7 +169,7 @@ export async function POST(request: NextRequest) {
                     userId: userId,
                 },
             },
-            allow_promotion_codes: isMonthly,
+            allow_promotion_codes: isPromoEligible,
         });
 
         return NextResponse.json({ url: session.url });
