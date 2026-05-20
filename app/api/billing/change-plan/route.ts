@@ -93,10 +93,8 @@ export async function POST(request: NextRequest) {
             const { getAppUrl } = await import('@/lib/env');
             const appUrl = getAppUrl();
 
-            // Promo codes are restricted to the PRO Monthly price only.
-            // See /api/checkout for the full rationale (annual = free-year risk; MAX = out of scope).
-            const isPromoEligible = priceId === STRIPE_PRICES.PRO_MONTHLY;
-
+            // Promo codes enabled for every paid checkout. Per-code targeting is enforced at
+            // the Stripe Coupon level — see /api/checkout for the full rationale.
             const session = await stripe.checkout.sessions.create({
                 mode: 'subscription',
                 payment_method_types: ['card'],
@@ -112,7 +110,7 @@ export async function POST(request: NextRequest) {
                 ...(subscription?.stripeCustomerId && { customer: subscription.stripeCustomerId }),
                 metadata: { userId },
                 subscription_data: { metadata: { userId } },
-                allow_promotion_codes: isPromoEligible,
+                allow_promotion_codes: true,
             });
 
             return NextResponse.json({ action: 'checkout', url: session.url });

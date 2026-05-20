@@ -131,13 +131,15 @@ export async function POST(request: NextRequest) {
             ? cancelUrl
             : `${appUrl}/?checkout=canceled`;
 
-        // Promo codes are restricted to the PRO Monthly price only.
-        // Rationale:
-        //   - Annual plans are excluded because a 100%-off "1 month" coupon would still
-        //     discount the entire annual invoice (billed once per year), giving away a free year.
-        //   - MAX is excluded because launch promos are intentionally scoped to PRO.
-        // If we add more eligible prices later (e.g. a MAX-specific code), turn this into a Set.
-        const isPromoEligible = priceId === STRIPE_PRICES.PRO_MONTHLY;
+        // Promo codes are enabled for every paid checkout. Per-code targeting is enforced
+        // at the Stripe Coupon level via `applies_to.products` and per-coupon discount type:
+        //   • 100%-off codes (e.g. 1MPRO4PH) are configured as FIXED-AMOUNT discounts equal
+        //     to one PRO Monthly billing cycle, restricted to the PRO product. This means
+        //     they zero out PRO Monthly but only shave a small amount off PRO Annual, and
+        //     Stripe rejects them on MAX entirely.
+        //   • Percentage discounts (e.g. PH30OFF) can safely apply to any paid plan.
+        // Letting Stripe handle the rejection keeps this code simple and avoids per-code
+        // branching in checkout. See scripts/create-launch-coupon.mjs for setup.
 
         // Create Checkout Session
         // ALWAYS pass customer ID (never let Stripe create it automatically)
@@ -169,7 +171,7 @@ export async function POST(request: NextRequest) {
                     userId: userId,
                 },
             },
-            allow_promotion_codes: isPromoEligible,
+            allow_promotion_codes: true,
         });
 
         return NextResponse.json({ url: session.url });

@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { getStripe } from '@/lib/stripe';
 import { getUserSubscription, upsertSubscription } from '@/lib/subscriptions';
-import { enforceTransactionCap, getTransactionCap } from '@/lib/limits/transactions-cap';
+import { getTransactionCap } from '@/lib/limits/transactions-cap';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/security/rate-limiter';
 import {
     buildClerkSubscriptionMetadata,
@@ -49,11 +49,18 @@ export async function POST() {
         }
 
         if (!subscription.stripeSubscriptionId) {
-            // No Stripe subscription — clean up DB directly
+            // No Stripe subscription — clean up DB directly.
+            // We deliberately do NOT call enforceTransactionCap here. Per the wallet design
+            // (lib/limits/transaction-wallet.ts: "we never reduce capacity per plan doc"),
+            // a downgrade preserves the user's existing data — new writes are blocked at
+            // /api/transactions via assertCapacityOrExplain once they exceed the free cap,
+            // but historical transactions remain intact and readable.
+            // This matters most for trial users (e.g. Product Hunt redeemers) who tried PRO,
+            // uploaded a year of history, and didn't renew. Silently deleting their data on
+            // downgrade would be a launch-day catastrophe.
             await upsertSubscription({ userId, plan: 'free', status: 'canceled' });
 
             const freePlanCap = getTransactionCap('free');
-            const capResult = await enforceTransactionCap(userId, freePlanCap);
 
             const client = await clerkClient();
             await client.users.updateUserMetadata(
@@ -63,11 +70,10 @@ export async function POST() {
 
             await invalidateSubscriptionCaches(userId);
 
-            const message = capResult.deleted > 0
-                ? `Your subscription has been canceled. ${capResult.deleted} oldest transaction(s) were automatically deleted to fit the free plan limit of ${freePlanCap} transactions.`
-                : 'Your subscription has been canceled.';
-
-            return NextResponse.json({ success: true, message, deletedTransactions: capResult.deleted });
+            return NextResponse.json({
+                success: true,
+                message: `Your subscription has been canceled. Your existing transactions are preserved — you can keep viewing them. New uploads will be limited to the free plan cap of ${freePlanCap} transactions.`,
+            });
         }
 
         const stripe = getStripe();
