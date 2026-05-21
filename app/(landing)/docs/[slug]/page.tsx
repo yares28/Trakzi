@@ -20,6 +20,11 @@ export async function generateMetadata({ params }: DocPageProps): Promise<Metada
     description: post.description,
     alternates: {
       canonical: `https://trakzi.com/docs/${post.slug}`,
+      // hreflang declared per-post so each language version points at itself
+      languages: {
+        en: `https://trakzi.com/docs/${post.slug}`,
+        "x-default": `https://trakzi.com/docs/${post.slug}`,
+      },
     },
     openGraph: {
       title: post.title,

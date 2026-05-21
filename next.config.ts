@@ -33,11 +33,15 @@ const nextConfig: NextConfig = {
     // "CAPTCHA failed to load — may be due to an unsupported browser or extension."
     const csp = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' https://*.clerk.accounts.dev https://clerk.trakzi.com https://dev.clerk.trakzi.com https://challenges.cloudflare.com https://js.stripe.com https://eu.i.posthog.com https://eu-assets.i.posthog.com https://va.vercel-scripts.com",
+      // GA4 uses googletagmanager.com (loader) + google-analytics.com (data).
+      // Without these here, gtag.js fails to load and pageview events are dropped.
+      "script-src 'self' 'unsafe-inline' https://*.clerk.accounts.dev https://clerk.trakzi.com https://dev.clerk.trakzi.com https://challenges.cloudflare.com https://js.stripe.com https://eu.i.posthog.com https://eu-assets.i.posthog.com https://va.vercel-scripts.com https://www.googletagmanager.com https://www.google-analytics.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
-      "img-src 'self' data: blob: https://img.clerk.com https://images.clerk.dev https://rankspot-space.sfo3.digitaloceanspaces.com",
-      "connect-src 'self' https://*.clerk.accounts.dev https://clerk.trakzi.com https://dev.clerk.trakzi.com https://challenges.cloudflare.com https://api.stripe.com https://eu.i.posthog.com https://eu-assets.i.posthog.com wss://*.clerk.accounts.dev",
+      // GA4 fires 1x1 tracking pixels from google-analytics.com.
+      "img-src 'self' data: blob: https://img.clerk.com https://images.clerk.dev https://rankspot-space.sfo3.digitaloceanspaces.com https://www.google-analytics.com https://www.googletagmanager.com",
+      // GA4 telemetry endpoints (region-specific subdomains via *.analytics.google.com).
+      "connect-src 'self' https://*.clerk.accounts.dev https://clerk.trakzi.com https://dev.clerk.trakzi.com https://challenges.cloudflare.com https://api.stripe.com https://eu.i.posthog.com https://eu-assets.i.posthog.com wss://*.clerk.accounts.dev https://www.google-analytics.com https://*.analytics.google.com https://*.google-analytics.com https://www.googletagmanager.com",
       "frame-src https://challenges.cloudflare.com https://js.stripe.com https://hooks.stripe.com https://www.youtube-nocookie.com",
       "worker-src blob: 'self'",
       "object-src 'none'",

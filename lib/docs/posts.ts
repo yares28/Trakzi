@@ -2655,6 +2655,119 @@ Yes, with some caveats. AI tools trained on consistent monthly patterns may stru
 Costs vary widely. Some tools with basic AI features, like **Empower** and **Rocket Money**, offer free tiers. More advanced AI budgeting platforms like **Monarch Money** and **YNAB** typically charge $10–$15 per month or $80–$100 annually. The question is not whether the cost is zero but whether the time saved and improved financial awareness is worth the subscription.
     `,
   },
+  {
+    slug: "how-to-stop-overspending",
+    title: "How to Stop Overspending: A Framework That Actually Works",
+    description:
+      "Stop overspending without willpower hacks. See where your money really goes, find your two or three leak categories, and add friction precisely where it matters.",
+    date: "2026-05-21",
+    author: defaultAuthor,
+    readingTime: "7 min read",
+    tags: ["budgeting", "spending", "habits"],
+    relatedSlugs: ["how-to-track-expenses", "how-to-budget-your-money"],
+    content: `
+## You're not lazy. Your brain isn't built for invisible spending.
+
+If you've tried to stop overspending and keep failing, the problem usually isn't discipline. It's information. By the time most people notice they've overspent, the money is already gone — split across thirty small charges, four delivery apps, two streaming services, and a category called "miscellaneous" that quietly eats $300 a month.
+
+This guide gives you a practical framework for **how to stop overspending** without willpower hacks, restrictive budgets, or guilt cycles. What actually works is making your money visible, then building friction in exactly the places where you tend to leak.
+
+## Why "just spend less" doesn't work
+
+The most common advice for overspending is to cut categories or set tight limits. It almost never sticks, for a simple reason: you don't know what to cut because you don't know where it's going.
+
+When you don't know your real numbers, every decision becomes a guess. Was eating out four times last week unusual or normal? Did Amazon really charge you $211 in May? Without a baseline, restriction feels arbitrary, and arbitrary restrictions get abandoned within weeks.
+
+The fix isn't more discipline. It's removing the guesswork so your decisions reflect what's actually happening — not what you remember.
+
+## What actually works: the awareness-then-friction framework
+
+Get full visibility into your spending, identify the two or three places where money is genuinely leaking, then add small amounts of friction *only* in those categories. Don't restrict everything. Restrict precisely.
+
+### Step 1 — See everything in one picture
+
+Most overspending is invisible because it's spread across so many places: card, debit, app subscriptions, peer-to-peer payments. The first move is consolidating.
+
+Export the last 60 days of bank transactions as a CSV and upload them somewhere that auto-categorizes them. You don't need a fancy budget — you need a single view that shows where your money went, broken down by category and merchant.
+
+Trakzi does this without connecting to your bank: you upload a CSV, PDF, or spreadsheet, and 20+ charts populate from your own data. The first time you see it, the answer to "where did my money go?" stops being a question.
+
+### Step 2 — Find the two or three leak categories
+
+Look at your visualisation and rank categories by total spend. Then ask one question per category: *was this what I expected?*
+
+You're not looking for "wrong" spending — you're looking for **surprise**. The categories where the number is bigger than you would have guessed are your leaks. For most people, there are only two or three. The rest of the budget is roughly fine.
+
+Common surprise categories:
+
+- **Food delivery** — easy to underestimate because individual orders feel small
+- **Subscriptions** — services charged annually or that auto-renewed silently
+- **Convenience spending** — small purchases at stations, vending, kiosks
+- **Gifts and "treats"** — birthdays, last-minute presents, spontaneous online buys
+
+### Step 3 — Add friction in the leaks (not everywhere)
+
+For each leak, add one specific piece of friction. Friction beats willpower because it works whether or not you're paying attention.
+
+- **Delete the app.** If you can't order delivery in three taps, you'll order less.
+- **Remove the saved card.** Re-entering card details for every purchase adds a 30-second pause that kills most impulse buys.
+- **Set a category limit with an alert.** Don't restrict to zero. Set the limit slightly below your usual spend so you notice early when you're trending over.
+- **Make it visible.** Pin the leaking category to your dashboard. Looking at the chart daily changes behaviour without conscious effort.
+
+### Step 4 — Replace, don't restrict
+
+The reason most spending diets fail is that they try to remove something without replacing it. Spending serves a function — comfort, convenience, social belonging. Take away the function and the behaviour comes back.
+
+For each leak you're addressing, ask what need it was meeting and find a cheaper substitute. If you're using food delivery to handle stress on weeknights, the substitute isn't "cook from scratch" — it's a pre-prepped freezer meal that takes the same effort to start.
+
+## Using Trakzi to stop overspending
+
+The framework above is the work. The tool just makes the work easier. The specific Trakzi workflow that maps to each step:
+
+1. **See everything (Step 1):** Upload your bank CSV. Within seconds you have 20+ charts showing every category, merchant, and month. The AI auto-categorizes everything and learns from your corrections.
+2. **Find the leaks (Step 2):** Open the *Category Rankings* chart — your top three spend categories are at the top. The *Day of Week Spending* chart shows when you spend most (usually Friday–Sunday, which tells you when to add friction).
+3. **Add friction (Step 3):** Set per-category budget limits. When you cross a threshold mid-month, you see it on the dashboard before the credit card bill arrives.
+4. **Stay calibrated (Step 4):** The AI chat lets you ask things like *"how much did I spend on food delivery in April?"* and you get an actual chart back — not a sentence. That instant feedback is what keeps the framework working over months instead of weeks.
+
+[Create a free Trakzi account](/sign-up) — the free plan handles 300 transactions plus 50 free every month, no card needed.
+
+## Overspending in specific scenarios
+
+### When income is variable
+
+If you don't know what's coming in, you can't set fixed limits. Track *baseline* spending — the minimum you spend in a low-income month — and use that as your normal. Anything above baseline only happens after income clears the threshold, not before.
+
+### When finances are shared
+
+Shared finances make overspending harder to spot because each person sees only their own side. Use a shared expense room (Trakzi has these built in — flexible splits, automatic balance tracking) and review the joint chart together once a month. The conversation gets concrete instead of accusatory.
+
+### When you're recovering from a big slip
+
+If you just had a month where everything went over, don't try to "make up for it" by restricting the next month brutally. That always backfires. Treat the slip as data — what was different about that month? Identify the trigger, address it with friction, and resume normal limits.
+
+## FAQ
+
+### What's the fastest way to stop overspending?
+
+Get visibility first. Most people can identify their two biggest leaks within ten minutes of looking at a properly categorised view of their last 60 days. That visibility alone — without any restriction — reduces overspending in the next 30 days by 10–15% for most people, because awareness changes behaviour automatically.
+
+### How much should I budget for "fun" spending each month?
+
+Look at what you actually spent on enjoyment categories in your most recent normal month and start there. The "right" amount is the one you don't blow past mid-month. Set it slightly below your historical average and adjust after 60 days of real data.
+
+### Is it bad to use credit cards if I overspend?
+
+The card itself isn't the issue — invisible spending is. If you can see every transaction categorised in one place and review weekly, credit cards are fine. If you check your card statement once a month and feel ambushed, switch to debit until you have visibility, then return to cards if you want the rewards.
+
+### How do I stop emotional spending?
+
+Identify what need the spending is filling. If it's stress, the substitute isn't "no spending" — it's a cheaper version of stress relief (walk, call a friend, free alternative). Restriction without replacement fails. Replacement without restriction often works.
+
+### How long does it take to break an overspending habit?
+
+The information loop matters more than time. Most people who switch from "no visibility" to "weekly visibility" see meaningful change within 30 days, because they catch leaks before they compound. The habit isn't gone in 30 days — but the awareness mechanism that prevents future leaks is in place.
+    `,
+  },
 ]
 
 export function getPostBySlug(slug: string): BlogPost | undefined {

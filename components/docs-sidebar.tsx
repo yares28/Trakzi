@@ -62,6 +62,7 @@ function getDocsNav(locale: "en" | "es"): DocNavGroup[] {
         { title: "Help Me With My Budget", href: "/docs/help-me-with-my-budget" },
         { title: "Help With Budgeting", href: "/docs/help-with-budgeting" },
         { title: "Budgeting for Investors", href: "/docs/help-me-budget-for-investors" },
+        { title: "How to Stop Overspending", href: "/docs/how-to-stop-overspending" },
       ],
     },
     {
