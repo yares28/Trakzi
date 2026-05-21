@@ -36,6 +36,37 @@ function isSupportedReceiptPdf(file: File): boolean {
   return ext === "pdf"
 }
 
+// Magic-byte validator. The MIME type and file extension are both client-supplied
+// and trivially spoofable — without this, a 10MB random binary named "x.jpg" with
+// no MIME passes the gate and gets sent to Gemini OCR, burning paid tokens on
+// garbage. Validating the first few bytes against known signatures means only
+// actual images/PDFs ever reach the expensive AI pipeline.
+function hasValidReceiptMagicBytes(buf: Buffer): boolean {
+  if (buf.length < 12) return false
+
+  // JPEG: FF D8 FF
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return true
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  if (
+    buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47 &&
+    buf[4] === 0x0d && buf[5] === 0x0a && buf[6] === 0x1a && buf[7] === 0x0a
+  ) return true
+  // WebP: RIFF....WEBP
+  if (
+    buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46 &&
+    buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50
+  ) return true
+  // HEIC/HEIF: bytes 4-11 begin with "ftyp" followed by a known brand
+  if (buf[4] === 0x66 && buf[5] === 0x74 && buf[6] === 0x79 && buf[7] === 0x70) {
+    const brand = buf.slice(8, 12).toString("ascii")
+    if (["heic", "heix", "heim", "heis", "mif1", "msf1", "hevc", "hevx"].includes(brand)) return true
+  }
+  // PDF: %PDF-
+  if (buf[0] === 0x25 && buf[1] === 0x50 && buf[2] === 0x44 && buf[3] === 0x46 && buf[4] === 0x2d) return true
+
+  return false
+}
+
 async function extractTextFromPdf(data: Uint8Array): Promise<string> {
   // Use unpdf which is designed for serverless environments (no DOM dependencies)
   const { extractText } = await import("unpdf")
@@ -760,11 +791,18 @@ export const POST = async (req: NextRequest) => {
       }
 
       try {
-        const stored = await saveFileToNeon({ file, source: "Receipt" })
-
         const arrayBuffer = await file.arrayBuffer()
         const uint8Array = new Uint8Array(arrayBuffer)
         const buffer = Buffer.from(arrayBuffer)
+
+        // Magic-byte check BEFORE saveFileToNeon — we don't want to persist
+        // garbage in BYTEA, and we definitely don't want it reaching Gemini OCR.
+        if (!hasValidReceiptMagicBytes(buffer)) {
+          rejected.push({ fileName: file.name, reason: "File contents do not match a supported image or PDF format" })
+          continue
+        }
+
+        const stored = await saveFileToNeon({ file, source: "Receipt" })
 
         // Determine MIME type
         const mimeType = (file.type || stored.mime_type || (isPdf ? "application/pdf" : "image/jpeg")).toLowerCase()

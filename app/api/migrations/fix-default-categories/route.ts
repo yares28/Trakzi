@@ -1,12 +1,23 @@
 import { NextResponse } from 'next/server'
 import { getCurrentUserId } from '@/lib/auth'
+import { isAdminUser } from '@/lib/admin'
 import { neonQuery } from '@/lib/neonClient'
 import { DEFAULT_CATEGORIES } from '@/lib/categories'
 import { DEFAULT_RECEIPT_CATEGORIES } from '@/lib/receipt-categories'
 
+// Admin-only: this endpoint can mutate category rows across the database.
+// Open access would let any user trigger expensive bulk updates or, if logic
+// drifts, modify other users' categories.
 export const POST = async (request: Request) => {
     try {
         const userId = await getCurrentUserId()
+
+        if (!isAdminUser(userId)) {
+            return NextResponse.json(
+                { success: false, error: 'Unauthorized - admin access required' },
+                { status: 403 }
+            )
+        }
 
         const { searchParams } = new URL(request.url)
         const dryRun = searchParams.get('dryRun') === 'true'

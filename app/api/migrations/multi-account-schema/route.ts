@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getCurrentUserId } from '@/lib/auth'
+import { isAdminUser } from '@/lib/admin'
 import { neonQuery } from '@/lib/neonClient'
 
 /**
@@ -13,11 +14,21 @@ import { neonQuery } from '@/lib/neonClient'
  *   - tx_type CHECK constraint expanded to include 'pending_transfer'
  *
  * Safe to run multiple times — each step checks before executing.
- * Requires an authenticated user to prevent unauthorized execution.
+ * Restricted to admin users: this endpoint executes ALTER TABLE / CREATE TABLE
+ * statements globally (not user-scoped), so allowing any authenticated user to
+ * trigger it could cause launch-time lock contention or unintended schema
+ * drift if the SQL is ever modified.
  */
 export const POST = async () => {
     try {
-        await getCurrentUserId()
+        const userId = await getCurrentUserId()
+
+        if (!isAdminUser(userId)) {
+            return NextResponse.json(
+                { success: false, error: 'Unauthorized - admin access required' },
+                { status: 403 }
+            )
+        }
 
         const steps: { name: string; status: 'ok' | 'skipped' | 'error'; detail?: string }[] = []
 

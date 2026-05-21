@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/auth";
 import { invalidateUserCache, invalidateUserCachePrefix } from "@/lib/cache/upstash";
+import { checkRateLimit, createRateLimitResponse } from "@/lib/security/rate-limiter";
 
 // POST /api/cache/invalidate
 // Body: { prefix?: "analytics" | "fridge" | "home" | "trends" | "savings" | "categories" | "data-library" }
@@ -12,7 +13,12 @@ import { invalidateUserCache, invalidateUserCachePrefix } from "@/lib/cache/upst
 export async function POST(request: NextRequest) {
     try {
         const userId = await getCurrentUserId();
-        
+
+        // Rate-limit to bound Upstash billing. Each call does a Redis SCAN+DEL
+        // plus up to 10 revalidatePath calls — spammable without this gate.
+        const rl = await checkRateLimit(userId, 'standard');
+        if (rl.limited) return createRateLimitResponse(rl.resetIn);
+
         let body: { prefix?: string } = {};
         try {
             body = await request.json();
@@ -79,6 +85,10 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
     try {
         const userId = await getCurrentUserId();
+
+        const rl = await checkRateLimit(userId, 'standard');
+        if (rl.limited) return createRateLimitResponse(rl.resetIn);
+
         const prefix = request.nextUrl.searchParams.get("prefix");
         const all = request.nextUrl.searchParams.get("all");
 

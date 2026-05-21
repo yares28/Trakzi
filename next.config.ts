@@ -58,6 +58,16 @@ const nextConfig: NextConfig = {
           { key: 'Content-Security-Policy', value: csp },
         ],
       },
+      {
+        // Demo endpoints serve static MOCK_* fixtures — they are identical for
+        // every caller and never touch the DB. Caching at the Vercel edge for an
+        // hour removes the function-invocation cost vector entirely (an attacker
+        // hammering /api/demo/* now hits the CDN, not the function runtime).
+        source: '/api/demo/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, s-maxage=3600, stale-while-revalidate=600' },
+        ],
+      },
     ]
   },
 

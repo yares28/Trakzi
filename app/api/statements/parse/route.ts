@@ -12,11 +12,17 @@ import { getCurrentUserId } from "@/lib/auth";
 import { getTransactionCategoryPreferences } from "@/lib/transactions/transaction-category-preferences";
 import { detectLanguageFromSamples } from "@/lib/language/language-detection";
 import { extractTextFromImage } from "@/lib/receipts/ocr";
+import { checkRateLimit, createRateLimitResponse } from "@/lib/security/rate-limiter";
+import { checkFeatureAccess } from "@/lib/feature-access";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 
 // Maximum file size: 10MB
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
+// Hard cap on the number of PDF pages we'll OCR for one upload. Without this,
+// an attacker can upload a 500-page image-only PDF that triggers 500 Gemini OCR
+// calls per upload — a direct cost-amplification attack.
+const PDF_MAX_OCR_PAGES = 20;
 
 type AiParseHint = {
     delimiter: string | null;
@@ -892,7 +898,10 @@ async function extractStatementTextFromPdf(data: Uint8Array) {
         const { definePDFJSModule, renderPageAsImage } = await import("unpdf");
         await definePDFJSModule(() => import("pdfjs-dist"));
 
-        const pageLimit = Math.max(1, metrics.pageCount);
+        // Cap pages we OCR. metrics.pageCount can be arbitrarily large for an
+        // attacker-supplied PDF; without this cap a single 500-page upload
+        // produces 500 paid Gemini OCR calls.
+        const pageLimit = Math.max(1, Math.min(metrics.pageCount, PDF_MAX_OCR_PAGES));
         const ocrPages: string[] = [];
         let ocrRetryUsed = false;
 
@@ -1309,6 +1318,20 @@ async function parseCsvWithAiFallback(params: { csvContent: string; context: str
 }
 
 export const POST = async (req: NextRequest) => {
+    // ─── Security gate (added pre-launch) ──────────────────────────────────
+    // 1. Authenticate. Previously this endpoint only authenticated deep inside
+    //    saveFileToNeon, meaning AI parsing + Gemini categorization could run
+    //    against the world.
+    // 2. Rate limit before doing any work. AI-paid endpoints cost real money
+    //    per call and a Product Hunt visitor with a curl loop could burn the
+    //    founder's metered API budget in minutes.
+    // 3. AI parse mode is plan-gated below (after we know `parseMode`).
+    const userId = await getCurrentUserId();
+    const uploadRl = await checkRateLimit(userId, 'upload');
+    if (uploadRl.limited) return createRateLimitResponse(uploadRl.resetIn);
+    const aiRl = await checkRateLimit(userId, 'ai');
+    if (aiRl.limited) return createRateLimitResponse(aiRl.resetIn);
+
     const formData = await req.formData();
     const file = formData.get("file");
     const bankName = String(formData.get("bankName") ?? "Unknown");
@@ -1323,6 +1346,22 @@ export const POST = async (req: NextRequest) => {
             { error: "File too large. Maximum size is 10MB." },
             { status: 400 }
         );
+    }
+
+    // If the caller explicitly asked for AI parsing, require a plan that allows
+    // it. Free users can still upload — they just won't get the AI path. The
+    // `auto` mode also potentially falls back to AI, but that fallback only
+    // fires when the deterministic CSV parser cannot detect a schema, which is
+    // bounded; explicit AI mode is the one users can abuse at scale.
+    const requestedParseMode = String(formData.get("parseMode") ?? "auto").toLowerCase();
+    if (requestedParseMode === "ai") {
+        const access = await checkFeatureAccess(userId, 'aiCategorizationEnabled');
+        if (!access.allowed) {
+            return NextResponse.json(
+                { error: access.reason ?? 'AI parsing requires a paid plan', upgradeRequired: true },
+                { status: 403 }
+            );
+        }
     }
 
     const extension = file.name.split(".").pop()?.toLowerCase() ?? "";

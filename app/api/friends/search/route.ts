@@ -5,15 +5,20 @@ import { getCurrentUserId } from "@/lib/auth"
 import { neonQuery } from "@/lib/neonClient"
 import { isBlocked } from "@/lib/friends/permissions"
 import type { FriendSearchResult } from "@/lib/types/friends"
+import { checkRateLimit, createRateLimitResponse } from "@/lib/security/rate-limiter"
 
 const SearchSchema = z.object({
     email: z.string().email("Invalid email address").max(255),
 })
 
 // POST /api/friends/search — Search by exact email
+// Rate-limited to prevent email enumeration attacks against the user table.
 export async function POST(req: NextRequest) {
     try {
         const userId = await getCurrentUserId()
+
+        const rl = await checkRateLimit(userId, 'standard')
+        if (rl.limited) return createRateLimitResponse(rl.resetIn)
 
         const body = await req.json()
         const { email } = SearchSchema.parse(body)

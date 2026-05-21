@@ -9,14 +9,20 @@ import { sanitizeForAI } from "@/lib/security/input-sanitizer";
 import { getGeminiClient } from "@/lib/ai/posthog-gemini";
 import type { Content } from "@google/genai";
 
+// Caps tightened for cost-amplification protection:
+//   • content was 10000 → 2000  (per-message ceiling)
+//   • messages array was 50 → 20 (per-request ceiling)
+// At the old caps a single request could be ~500KB / ~125k tokens. Combined
+// with 10 req/min that's ~5MB/min of Gemini input per user — multiplied across
+// PH launch signups it becomes a real bill.
 const ChatMessageSchema = z.object({
     role: z.enum(["user", "assistant", "system"]),
-    content: z.string().max(10000),
+    content: z.string().max(2000),
     reasoning_details: z.unknown().optional(),
 });
 
 const ChatRequestSchema = z.object({
-    messages: z.array(ChatMessageSchema).min(1, "Messages array is required").max(50),
+    messages: z.array(ChatMessageSchema).min(1, "Messages array is required").max(20),
     currency: z.string().max(5).optional(),
 });
 
@@ -290,8 +296,15 @@ export const POST = async (req: NextRequest) => {
         // Authenticate user
         const userId = await getCurrentUserId();
 
-        const isDev = process.env.NODE_ENV === "development";
-        // In dev, DEV_CHAT_USER_ID lets you fetch context as a different account for testing
+        // Hard-gate the dev escape hatch to LOCAL development only. Previously this
+        // used `NODE_ENV === "development"`, which is also true on Vercel Preview
+        // deployments — meaning a leaked DEV_CHAT_USER_ID would let someone read
+        // another user's data through any preview URL. VERCEL_ENV is undefined
+        // locally and explicitly "preview" / "production" on Vercel, so requiring
+        // it to be undefined keeps the bypass strictly local.
+        const isLocalDev = process.env.NODE_ENV === "development" && !process.env.VERCEL_ENV;
+        const isDev = isLocalDev;
+        // In LOCAL dev, DEV_CHAT_USER_ID lets you fetch context as a different account for testing
         const contextUserId = isDev && process.env.DEV_CHAT_USER_ID ? process.env.DEV_CHAT_USER_ID : userId;
 
         if (!isDev) {

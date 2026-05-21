@@ -4,7 +4,9 @@ import { getCurrentUserId } from "@/lib/auth"
 import { verifyRoomMember } from "@/lib/rooms/permissions"
 import { parseCsvToRows } from "@/lib/parsing/parseCsvToRows"
 
-const MAX_FILE_BYTES = 20 * 1024 * 1024 // 20 MB
+// 10MB — standardized across all parse routes (was 20MB here, an outlier).
+// Matches /api/statements/parse, /api/files/upload, /api/receipts/upload.
+const MAX_FILE_BYTES = 10 * 1024 * 1024
 
 // POST /api/rooms/[roomId]/transactions/parse-statement
 // Upload a bank statement (CSV, XLSX, or PDF), parse it, return transaction rows (no DB write).

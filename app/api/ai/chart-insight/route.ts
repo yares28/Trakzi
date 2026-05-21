@@ -4,11 +4,24 @@ import { getCurrentUserId } from "@/lib/auth";
 import { generateChartInsight, getChartContextHints, ChartInsightRequest } from "@/lib/ai/chartInsights";
 import { neonQuery } from "@/lib/neonClient";
 import { checkRateLimit, createRateLimitResponse, createRateLimitHeaders } from "@/lib/security/rate-limiter";
+import { checkFeatureAccess } from "@/lib/feature-access";
 
 export const POST = async (req: NextRequest) => {
     try {
         // Authenticate user
         const userId = await getCurrentUserId();
+
+        // Plan gate: free users have `aiInsightsEnabled: false` per
+        // lib/plan-limits.ts but until this check existed nothing on the server
+        // enforced it. A free user could sustain 10 req/min × 14,400 calls/day
+        // = ~$700/day in Gemini cost across a fleet of free signups.
+        const access = await checkFeatureAccess(userId, 'aiInsightsEnabled');
+        if (!access.allowed) {
+            return NextResponse.json(
+                { error: access.reason ?? 'AI insights require a paid plan', upgradeRequired: true },
+                { status: 403 }
+            );
+        }
 
         // Rate limit check - AI endpoints are expensive
         const rateLimitResult = await checkRateLimit(userId, 'ai');

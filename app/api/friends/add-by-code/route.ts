@@ -10,15 +10,23 @@ import {
     existingFriendship,
 } from "@/lib/friends/permissions"
 import { invalidateUserCachePrefix, invalidateExactKeys, buildCacheKey } from "@/lib/cache/upstash"
+import { checkRateLimit, createRateLimitResponse } from "@/lib/security/rate-limiter"
 
 const AddByCodeSchema = z.object({
     code: z.string().min(1, "Friend code is required"),
 })
 
 // POST /api/friends/add-by-code — Add friend via friend code (QR scan)
+//
+// Rate-limited to prevent friend-code brute forcing. The code space is short
+// (XXXX-XXXX, ~1B combinations) so unrate-limited probing can enumerate real
+// users in a few days. The 'standard' bucket caps probing rate.
 export async function POST(req: NextRequest) {
     try {
         const userId = await getCurrentUserId()
+
+        const rl = await checkRateLimit(userId, 'standard')
+        if (rl.limited) return createRateLimitResponse(rl.resetIn)
 
         const body = await req.json()
         const { code: rawCode } = AddByCodeSchema.parse(body)
