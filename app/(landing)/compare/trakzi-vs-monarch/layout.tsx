@@ -16,6 +16,7 @@ export const metadata: Metadata = {
     title: "Trakzi vs Monarch Money — Budget App Comparison",
     description: "Free CSV import, receipt scanning, and shared expenses vs bank-linked budgeting.",
     url: "https://trakzi.com/compare/trakzi-vs-monarch",
+    images: [{ url: "https://trakzi.com/Trakzi/og-image.png", width: 1200, height: 630, alt: "Trakzi vs Monarch" }],
   },
 }
 

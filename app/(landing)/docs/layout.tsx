@@ -14,6 +14,7 @@ export const metadata: Metadata = {
     title: "Trakzi Docs — Budgeting & Expense Tracking Guides",
     description: "Step-by-step guides for budgeting, expense tracking, splitting bills, and grocery savings.",
     url: "https://trakzi.com/docs",
+    images: [{ url: "https://trakzi.com/Trakzi/og-image.png", width: 1200, height: 630, alt: "Trakzi Docs" }],
   },
 }
 

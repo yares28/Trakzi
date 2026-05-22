@@ -16,6 +16,7 @@ export const metadata: Metadata = {
     title: "Trakzi vs Splitwise — Shared Expenses App Comparison",
     description: "Trakzi combines shared expenses with personal budgeting. Splitwise only does splits.",
     url: "https://trakzi.com/compare/trakzi-vs-splitwise",
+    images: [{ url: "https://trakzi.com/Trakzi/og-image.png", width: 1200, height: 630, alt: "Trakzi vs Splitwise" }],
   },
 }
 

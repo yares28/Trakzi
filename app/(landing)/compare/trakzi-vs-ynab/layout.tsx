@@ -16,6 +16,7 @@ export const metadata: Metadata = {
     title: "Trakzi vs YNAB — Budgeting App Comparison",
     description: "Compare Trakzi and YNAB side by side. Free CSV import, receipt scanning, shared expenses vs envelope method.",
     url: "https://trakzi.com/compare/trakzi-vs-ynab",
+    images: [{ url: "https://trakzi.com/Trakzi/og-image.png", width: 1200, height: 630, alt: "Trakzi vs YNAB" }],
   },
 }
 

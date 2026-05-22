@@ -17,6 +17,7 @@ export const metadata: Metadata = {
     description:
       "AI receipt scanning, CSV bank import, shared expense rooms, grocery budget tracking, interactive charts, and savings tools.",
     url: "https://trakzi.com/features",
+    images: [{ url: "https://trakzi.com/Trakzi/og-image.png", width: 1200, height: 630, alt: "Trakzi Features" }],
   },
 }
 

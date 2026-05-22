@@ -17,6 +17,7 @@ export const metadata: Metadata = {
     description:
       "Track every grocery purchase by scanning receipts with your phone. See spending by store, category, and week.",
     url: "https://trakzi.com/grocery-tracker",
+    images: [{ url: "https://trakzi.com/Trakzi/og-image.png", width: 1200, height: 630, alt: "Trakzi Grocery Tracker" }],
   },
 }
 

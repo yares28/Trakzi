@@ -17,6 +17,7 @@ export const metadata: Metadata = {
     description:
       "Create rooms with friends or roommates to track group expenses, split bills, and see who owes whom at a glance.",
     url: "https://trakzi.com/split-expenses",
+    images: [{ url: "https://trakzi.com/Trakzi/og-image.png", width: 1200, height: 630, alt: "Trakzi Split Expenses" }],
   },
 }
 

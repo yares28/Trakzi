@@ -17,6 +17,7 @@ export const metadata: Metadata = {
     description:
       "Upload any CSV export from your bank or card provider. Trakzi normalizes the data and generates charts automatically.",
     url: "https://trakzi.com/csv-import",
+    images: [{ url: "https://trakzi.com/Trakzi/og-image.png", width: 1200, height: 630, alt: "Trakzi CSV Import" }],
   },
 }
 

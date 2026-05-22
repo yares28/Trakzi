@@ -15,6 +15,7 @@ export const metadata: Metadata = {
     title: "Trakzi Pricing — Simple, Transparent Plans",
     description: "Start free with 300 transactions. Upgrade for more transactions, AI insights, and unlimited rooms.",
     url: "https://trakzi.com/pricing",
+    images: [{ url: "https://trakzi.com/Trakzi/og-image.png", width: 1200, height: 630, alt: "Trakzi Pricing" }],
   },
 }
 

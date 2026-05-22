@@ -17,6 +17,7 @@ export const metadata: Metadata = {
     description:
       "Snap a photo of any receipt and Trakzi extracts the total automatically. Track grocery, retail, and restaurant spending with AI-powered receipt scanning.",
     url: "https://trakzi.com/receipt-scanner",
+    images: [{ url: "https://trakzi.com/Trakzi/og-image.png", width: 1200, height: 630, alt: "Trakzi Receipt Scanner" }],
   },
 }
 
