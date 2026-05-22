@@ -4,31 +4,48 @@ This document lists all chart components used on the Analytics page.
 
 > **IMPORTANT:** When adding, modifying, or deleting charts on this page, update this document accordingly.
 
+## Chart Control Placement Contract
+
+- When a request says update `ALL charts`, apply the change to every chart rendered by `app/analytics/_page/components/ChartsGrid.tsx` (not just the first charts found by search).
+- Card metadata controls must stay bottom-left in card view:
+  - `Insight` button above `Info` button.
+- Chart data switch controls (for example `Basic/Cumulative`, day-of-week selectors, period switches) must stay top-right and aligned with the card title.
+- Before finishing, verify there are no overlapping controls with chart legends or left-axis labels.
+
 ---
 
-## Charts (19 total)
+## Charts (29 total)
 
 | # | Chart ID | Component File | Component Name | Description |
 |---|----------|----------------|----------------|-------------|
 | 1 | `incomeExpensesTracking1` | `chart-area-interactive.tsx` | `ChartAreaInteractive` | Income & Expenses Cumulative Tracking (Top Chart) - Visualizes cumulative cash flow over time |
-| 2 | `incomeExpensesTracking2` | `chart-area-interactive.tsx` | `ChartAreaInteractive` | Income & Expenses Cumulative Tracking (Bottom Chart) - Same visualization, different data slice |
-| 3 | `spendingCategoryRankings` | `chart-category-flow.tsx` | `ChartCategoryFlow` | Spending Category Rankings - Bump chart showing category rank changes over time |
-| 5 | `transactionHistory` | `chart-swarm-plot.tsx` | `ChartSwarmPlot` | Transaction History Swarm Plot - Individual transactions as dots grouped by category |
-| 6 | `moneyFlow` | `chart-spending-funnel.tsx` | `ChartSpendingFunnel` | Money Flow Funnel - Shows money flow through different stages |
-| 7 | `householdSpendMix` | `chart-polar-bar.tsx` | `ChartPolarBar` | Household Spend Mix - Circular stacked chart of monthly expenses by category |
-| 8 | `needsWantsBreakdown` | `chart-needs-wants-pie.tsx` | `ChartNeedsWantsPie` | Needs vs Wants Breakdown - Groups spending into Essentials, Mandatory, Wants |
-| 9 | `expenseBreakdown` | `chart-expenses-pie.tsx` | `ChartExpensesPie` | Expense Breakdown Pie - Distribution across spending categories |
-| 10 | `netWorthAllocation` | `chart-treemap.tsx` | `ChartTreeMap` | Net Worth Allocation TreeMap - Hierarchical breakdown of spending |
-| 11 | `cashFlowSankey` | `chart-sankey.tsx` | `ChartSankey` | Cash Flow Sankey Diagram - Income flow through expenses to savings |
-| 12 | `spendingStreamgraph` | `chart-spending-streamgraph.tsx` | `ChartSpendingStreamgraph` | Category Streamgraph - Spending trends by category as flowing areas |
-| 13 | `dailyTransactionActivity` | `chart-transaction-calendar.tsx` | `ChartTransactionCalendar` | Daily Transaction Activity - Contribution graph heatmap of daily spending |
-| 14 | `categoryBubbleMap` | `chart-category-bubble.tsx` | `ChartCategoryBubble` | Category Bubble Map - Bubble chart with size/position encoding |
-| 15 | `dayOfWeekSpending` | `chart-day-of-week-spending.tsx` | `ChartDayOfWeekSpending` | Day of Week Spending - Grouped bar chart by day and category |
-| 16 | `allMonthsCategorySpending` | `chart-all-months-category-spending.tsx` | `ChartAllMonthsCategorySpending` | All Months Category Spending - Spending by category across all months |
-| 17 | `singleMonthCategorySpending` | `chart-single-month-category-spending.tsx` | `ChartSingleMonthCategorySpending` | Single Month Category Spending - Detailed breakdown for selected month |
-| 18 | `dayOfWeekCategory` | `chart-day-of-week-category.tsx` | `ChartDayOfWeekCategory` | Day of Week Category - Spending breakdown by day and category |
-| 19 | `financialHealthScore` | `chart-radar.tsx` | `ChartRadar` | Financial Health Score - Radar chart of financial health metrics |
-| 20 | `spendingActivityRings` | `SpendingActivityRings.tsx` | `SpendingActivityRings` | Spending Activity Rings - Concentric rings showing category progress vs limits |
+| 2 | `incomeExpensesTracking2` | `chart-area-interactive.tsx` | `ChartAreaInteractive` | Income & Expenses — Basic / Cumulative / Net / Accounts views; the Accounts tab shows each bank account's running balance as a separate line, sourced from `accountBalances` in the analytics bundle |
+| 3 | `spendingScore` | `chart-spending-score.tsx` | `ChartSpendingScore` | Spending Score - AI-calculated score based on spending patterns, diversity, and trends |
+| 4 | `cashFlowIndicator` | `chart-cash-flow-indicator.tsx` | `ChartCashFlowIndicator` | Cash Flow Indicator - Visualizes income vs expenses with animated gauge |
+| 5 | `incomeExpenseRatio` | `chart-income-expense-ratio.tsx` | `ChartIncomeExpenseRatio` | Income to Expense Ratio - Donut gauge comparing income to expenses |
+| 6 | `weekendVsWeekday` | `chart-weekend-vs-weekday.tsx` | `ChartWeekendVsWeekday` | Weekend vs Weekday - Compare spending between weekdays and weekends |
+| 7 | `monthlyBudgetPace` | `chart-monthly-budget-pace.tsx` | `ChartMonthlyBudgetPace` | Monthly Budget Pace - Track spending pace against average month |
+| 8 | `budgetBurndown` | `chart-budget-burndown.tsx` | `ChartBudgetBurndown` | Budget Burndown - Track budget consumption over the month |
+| 9 | `purchaseSizeBreakdown` | `chart-purchase-size-breakdown.tsx` | `ChartPurchaseSizeBreakdown` | Purchase Size Breakdown - Spending distributed by small, medium, large purchases |
+| 10 | `recurringVsOneTime` | `chart-recurring-vs-onetime.tsx` | `ChartRecurringVsOneTime` | Recurring vs One-Time - Pie chart of recurring bills vs one-time purchases |
+| 11 | `spendingCategoryRankings` | `chart-category-flow.tsx` | `ChartCategoryFlow` | Spending Category Rankings - Bump chart showing category rank changes over time |
+| 12 | `transactionHistory` | `chart-swarm-plot.tsx` | `ChartSwarmPlot` | Transaction History Swarm Plot - Individual transactions as dots grouped by category |
+| 13 | `moneyFlow` | `chart-spending-funnel.tsx` | `ChartSpendingFunnel` | Money Flow Funnel - Shows money flow through different stages |
+| 14 | `householdSpendMix` | `chart-polar-bar.tsx` | `ChartPolarBar` | Household Spend Mix - Circular stacked chart of monthly expenses by category |
+| 15 | `needsWantsBreakdown` | `chart-needs-wants-pie.tsx` | `ChartNeedsWantsPie` | Needs vs Wants Breakdown - Groups spending into Essentials, Mandatory, Wants |
+| 16 | `expenseBreakdown` | `chart-expenses-pie.tsx` | `ChartExpensesPie` | Expense Breakdown Pie - Distribution across spending categories |
+| 17 | `netWorthAllocation` | `chart-treemap.tsx` | `ChartTreeMap` | Net Worth Allocation TreeMap - Hierarchical breakdown of spending |
+| 18 | `cashFlowSankey` | `chart-sankey.tsx` | `ChartSankey` | Cash Flow Sankey Diagram - Income flow through expenses to savings |
+| 19 | `spendingStreamgraph` | `chart-spending-streamgraph.tsx` | `ChartSpendingStreamgraph` | Category Streamgraph - Spending trends by category as flowing areas; months are gap-filled in-range, single-month views use weekly buckets; responsive SVG |
+| 20 | `dailyTransactionActivity` | `chart-transaction-calendar.tsx` | `ChartTransactionCalendar` | Daily Transaction Activity - Contribution graph heatmap of daily spending |
+| 21 | `categoryBubbleMap` | `chart-category-bubble.tsx` | `ChartCategoryBubble` | Category Bubble Map - Bubble chart with size/position encoding |
+| 22 | `dayOfWeekSpending` | `chart-day-of-week-spending.tsx` | `ChartDayOfWeekSpending` | Day of Week Spending - Grouped bar chart by day and category |
+| 23 | `allMonthsCategorySpending` | `chart-all-months-category-spending.tsx` | `ChartAllMonthsCategorySpending` | All Months Category Spending - Spending by category across all months |
+| 24 | `singleMonthCategorySpending` | `chart-single-month-category-spending.tsx` | `ChartSingleMonthCategorySpending` | Single Month Category Spending - Detailed breakdown for selected month |
+| 25 | `dayOfWeekCategory` | `chart-day-of-week-category.tsx` | `ChartDayOfWeekCategory` | Day of Week Category - Spending breakdown by day and category |
+| 26 | `financialHealthScore` | `chart-radar.tsx` | `ChartRadar` | Financial Health Score - Radar chart of financial health metrics |
+| 27 | `spendingActivityRings` | `SpendingActivityRings.tsx` | `SpendingActivityRings` | Spending Activity Rings - Concentric rings showing category progress vs limits |
+| 28 | `dailySpendAllowance` | `chart-daily-spend-allowance.tsx` | `ChartDailySpendAllowance` | Daily Spend Allowance — Year + Month selectors; line chart of rolling daily discretionary allowance (income − essentials ÷ days remaining) with flat Ideal reference line; computed client-side from rawTransactions |
 
 ---
 
@@ -40,6 +57,14 @@ Each chart has a `mobileH` property that controls its height on mobile devices (
 |----------|---------------------|---------------------------|-------|
 | `incomeExpensesTracking1` | 6 | 5 | Area chart, compact on mobile |
 | `incomeExpensesTracking2` | 6 | 5 | Area chart, compact on mobile |
+| `spendingScore` | 6 | 5 | Score gauge with indicators |
+| `cashFlowIndicator` | 6 | 5 | Animated gauge visualization |
+| `incomeExpenseRatio` | 6 | 5 | Donut gauge with metrics |
+| `weekendVsWeekday` | 6 | 5 | Bar chart comparison |
+| `monthlyBudgetPace` | 6 | 5 | Horizontal bar chart |
+| `budgetBurndown` | 6 | 5 | Line chart with projections |
+| `purchaseSizeBreakdown` | 6 | 5 | Stacked bar chart |
+| `recurringVsOneTime` | 6 | 5 | Pie chart with legend |
 | `spendingCategoryRankings` | 8 | 7 | Bar chart with multiple bars |
 | `netWorthAllocation` | 10 | 5 | TreeMap, can be compact |
 | `needsWantsBreakdown` | 10 | 6 | Pie with legend |
@@ -90,11 +115,23 @@ transactionHistory: {
 
 ---
 
-## Advanced Tab Charts (1 total)
+## Advanced Tab Charts (11 total)
+
+Gated behind `planFeatures.advancedChartsEnabled` (Pro/Max tiers) — see `app/analytics/_page/components/AdvancedChartsGrid.tsx`. Charts also appearing on the main Analytics tab share the same component, so updates flow to both surfaces.
 
 | # | Chart ID | Component File | Component Name | Description |
 |---|----------|----------------|----------------|-------------|
 | 1 | `spendingPyramid` | `chart-spending-pyramid.tsx` | `ChartSpendingPyramid` | Spending Pyramid - Horizontal mirrored bar chart comparing user spending distribution vs platform average by category |
+| 2 | `dailyAverageByMonth` | `test-charts/chart-daily-average-by-month.tsx` | `ChartDailyAverageByMonth` | Daily Average by Month - Per-month average daily spend |
+| 3 | `momGrowth` | `test-charts/chart-mom-growth.tsx` | `ChartMoMGrowth` | Month-over-Month Growth - Percent change in spending vs prior month |
+| 4 | `paydayImpact` | `test-charts/chart-payday-impact.tsx` | `ChartPaydayImpact` | Payday Impact - Spending pattern relative to payday. Income/Category mode toggle: Income filters which paydays anchor day 0; Category narrows the spending bars to one category |
+| 5 | `recurringVsOneTime` | `chart-recurring-vs-onetime.tsx` | `ChartRecurringVsOneTime` | Recurring vs One-Time - Pie of recurring bills vs one-time purchases |
+| 6 | `dayOfWeekCategory` | `chart-day-of-week-category.tsx` | `ChartDayOfWeekCategory` | Day of Week Category - Spending breakdown by day and category |
+| 7 | `dailyTransactionActivity` | `chart-transaction-calendar.tsx` | `ChartTransactionCalendar` | Daily Transaction Activity - Calendar heatmap of daily spending |
+| 8 | `seasonalSpending` | `test-charts/chart-seasonal-spending.tsx` | `ChartSeasonalSpending` | Seasonal Spending - Spending pattern across seasons |
+| 9 | `weekendVsWeekday` | `chart-weekend-vs-weekday.tsx` | `ChartWeekendVsWeekday` | Weekend vs Weekday - Compare spending between weekdays and weekends |
+| 10 | `dailySpendAllowance` | `chart-daily-spend-allowance.tsx` | `ChartDailySpendAllowance` | Daily Spend Allowance - Rolling discretionary allowance line chart |
+| 11 | `hourlySpending` | `test-charts/chart-hourly-spending.tsx` | `ChartHourlySpending` | Hourly Spending Pattern - Spending grouped by hour of day |
 
 ---
 
@@ -177,10 +214,13 @@ analytics:{userId}:{filter}:bundle
 
 | Library | Charts Using It |
 |---------|-----------------|
-| **Recharts** | Area charts, line charts |
-| **Nivo** | Pie, TreeMap, Polar Bar, Funnel, Sankey, Swarm Plot |
-| **ECharts** | Calendar heatmap, Bubble map, Bar charts |
-| **Custom SVG** | Streamgraph, Day of week charts, Activity rings |
+| **Recharts** | `chart-area-interactive.tsx` (area charts), `chart-category-trend.tsx` (trends tab) |
+| **Nivo + HoverableBar** | All bar charts: `chart-weekend-vs-weekday`, `chart-day-of-week-spending`, `chart-all-months-category-spending`, `chart-single-month-category-spending`, `chart-day-of-week-category`, `chart-purchase-size-breakdown`, `chart-monthly-budget-pace`, `chart-budget-burndown`, `chart-spending-pyramid` |
+| **Nivo (other)** | Pie charts, Radar, Polar Bar, Funnel, Sankey, SwarmPlot, TreeMap, Bump (category flow) |
+| **ECharts** | Calendar heatmap (`chart-transaction-calendar`), Bubble map (`chart-category-bubble`) |
+| **Custom SVG** | Streamgraph (`chart-spending-streamgraph`), Activity rings (`SpendingActivityRings`) |
+
+> All bar charts use `barComponent={HoverableBar}` from `chart-hoverable-bar.tsx` for CSS clip-path mount animation + hover scale effect. Wrapper `div` carries `key={colorScheme}` to retrigger animation on palette change.
 
 ---
 

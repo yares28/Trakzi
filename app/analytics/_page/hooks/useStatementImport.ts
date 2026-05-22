@@ -6,7 +6,7 @@ import { parseCsvToRows } from "@/lib/parsing/parseCsvToRows"
 import { buildStatementParseQuality, type ParseQualitySummary } from "@/lib/parsing/statement-parse-quality"
 import { rowsToCanonicalCsv } from "@/lib/parsing/rowsToCanonicalCsv"
 import { DEFAULT_CATEGORIES } from "@/lib/categories"
-import { safeCapture } from "@/lib/posthog-safe"
+import { typedCapture } from "@/types/posthog-events"
 import { toast } from "sonner"
 import { TxRow } from "@/lib/types/transactions"
 
@@ -17,12 +17,13 @@ import { useCategoryPreferences } from "./useCategoryPreferences"
 
 type UseStatementImportOptions = {
   refreshAnalyticsData: () => Promise<void> | void
+  onImportSuccess?: () => void
 }
 
-export function useStatementImport({ refreshAnalyticsData }: UseStatementImportOptions) {
+export function useStatementImport({ refreshAnalyticsData, onImportSuccess }: UseStatementImportOptions) {
   // Statement drop-to-import state
   const [isDragging, setIsDragging] = useState(false)
-  const [droppedFile, setDroppedFile] = useState<File | null>(null)
+  const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false)
   const [isParsing, setIsParsing] = useState(false)
@@ -40,26 +41,13 @@ export function useStatementImport({ refreshAnalyticsData }: UseStatementImportO
   const [selectedParsedRowIds, setSelectedParsedRowIds] = useState<Set<number>>(new Set())
   const [transactionCount, setTransactionCount] = useState<number>(0)
   const [projectName, setProjectName] = useState<string>("")
+  const [accountId, setAccountId] = useState<string | null>(null)
   const dragCounterRef = useRef(0)
+  const droppedFile = pendingFiles[0] ?? null
   const csvRegenerationTimerRef = useRef<NodeJS.Timeout | null>(null)
   const latestParsedRowsRef = useRef<ParsedRow[]>([])
 
   const { schedulePreferenceUpdate, resetPreferenceUpdates } = useCategoryPreferences()
-
-  // Parse CSV when it changes
-  useEffect(() => {
-    if (parsedCsv) {
-      const rows = parseCsvToRows(parsedCsv)
-      const rowsWithId: ParsedRow[] = rows.map((row, index) => ({
-        ...row,
-        id: index,
-        category: row.category || undefined,
-      }))
-      setParsedRows(rowsWithId)
-    } else {
-      setParsedRows([])
-    }
-  }, [parsedCsv])
 
   // Keep ref in sync with parsedRows
   useEffect(() => {
@@ -74,43 +62,39 @@ export function useStatementImport({ refreshAnalyticsData }: UseStatementImportO
       const pendingFile = (window as any).__pendingUploadFile
       const targetPage = (window as any).__pendingUploadTargetPage
 
-      console.log('[Analytics Statement Upload] Checking for pending upload:', {
-        hasPendingFile: !!pendingFile,
-        targetPage,
-        alreadyProcessed: uploadProcessedRef.current,
-      })
-
       if (pendingFile && targetPage === "analytics" && !uploadProcessedRef.current) {
-        console.log('[Analytics Statement Upload] Processing pending upload:', pendingFile.name)
-
         // Mark as processed to prevent re-running
         uploadProcessedRef.current = true
 
         // Clear the pending upload markers
         delete (window as any).__pendingUploadFile
         delete (window as any).__pendingUploadTargetPage
+        delete (window as any).__pendingUploadNeedsDetection
 
         // Open the upload dialog with the pending file
-        setDroppedFile(pendingFile)
+        setPendingFiles([pendingFile])
         const fileNameWithoutExt = pendingFile.name.replace(/\.[^/.]+$/, "")
         setProjectName(fileNameWithoutExt)
         setIsUploadDialogOpen(true)
 
-        console.log('[Analytics Statement Upload] Dialog state set to open')
         return true
       }
       return false
     }
 
-    // Check immediately
-    if (checkPendingUpload()) return
+    checkPendingUpload()
 
     // Also check after a short delay in case of timing issues
     const timeoutId = setTimeout(() => {
       checkPendingUpload()
     }, 100)
 
-    return () => clearTimeout(timeoutId)
+    window.addEventListener("trakzi:pending-upload", checkPendingUpload)
+
+    return () => {
+      clearTimeout(timeoutId)
+      window.removeEventListener("trakzi:pending-upload", checkPendingUpload)
+    }
   }, [])
 
   // Reset upload processed ref when dialog closes to allow re-uploading
@@ -271,7 +255,7 @@ export function useStatementImport({ refreshAnalyticsData }: UseStatementImportO
     const fileType = file.type || file.name.split(".").pop()?.toLowerCase() || "unknown"
 
     // Track file import started
-    safeCapture("file_import_started", {
+    typedCapture("file_import_started", {
       file_name: file.name,
       file_size: file.size,
       file_type: fileType,
@@ -515,14 +499,11 @@ export function useStatementImport({ refreshAnalyticsData }: UseStatementImportO
     dragCounterRef.current = 0
 
     const files = Array.from(e.dataTransfer.files)
-    if (files && files.length > 0) {
-      const file = files[0]
-      setDroppedFile(file)
+    if (files.length > 0) {
+      setPendingFiles(files)
       setIsUploadDialogOpen(true)
-      // Auto-fill project name with filename (without extension)
-      const fileNameWithoutExt = file.name.replace(/\.[^/.]+$/, "")
+      const fileNameWithoutExt = files[0].name.replace(/\.[^/.]+$/, "")
       setProjectName(fileNameWithoutExt)
-      // Don't parse yet - user will click "Parse file" button
     }
   }, [])
 
@@ -544,10 +525,30 @@ export function useStatementImport({ refreshAnalyticsData }: UseStatementImportO
     }
   }, [aiReparseContext, droppedFile, parseFile])
 
-  const handleConfirm = useCallback(async () => {
-    if (!droppedFile || !parsedCsv || !fileId) {
+  const resetAllState = useCallback(() => {
+    setPendingFiles([])
+    setParsedCsv(null)
+    setParsedRows([])
+    setParseQuality(null)
+    setFileId(null)
+    setTransactionCount(0)
+    setParseError(null)
+    setImportProgress(0)
+    setParsingProgress(0)
+    setAccountId(null)
+  }, [])
+
+  const handleConfirm = useCallback(async (force = false) => {
+    if (pendingFiles.length === 0 || !parsedCsv || !fileId) {
       toast.error("Missing data", {
         description: "Please wait for the file to be parsed before confirming.",
+      })
+      return
+    }
+
+    if (!accountId) {
+      toast.error("Account required", {
+        description: "Please select an account before importing.",
       })
       return
     }
@@ -562,39 +563,56 @@ export function useStatementImport({ refreshAnalyticsData }: UseStatementImportO
       })
     }, 200)
 
+    let importSucceeded = false
+
     try {
-      const extension = droppedFile.name.split(".").pop()?.toLowerCase() ?? "other"
+      const firstFile = pendingFiles[0]
+      const extension = firstFile.name.split(".").pop()?.toLowerCase() ?? "other"
       const rawFormat = extension === "pdf" ? "pdf"
         : extension === "csv" ? "csv"
           : (extension === "xls" || extension === "xlsx") ? "xlsx" : "other"
 
-      const response = await fetch("/api/statements/import", {
+      const statementName = projectName.trim() || firstFile.name
+      const importFormData = new FormData()
+      importFormData.append("csv", new Blob([parsedCsv], { type: "text/plain" }))
+      importFormData.append("accountId", accountId ?? "")
+      importFormData.append("force", String(force))
+      importFormData.append("statementMeta", JSON.stringify({
+        bankName: "Unknown",
+        sourceFilename: statementName,
+        rawFormat: rawFormat,
+        fileId: fileId,
+      }))
+      const importUrl = force ? "/api/statements/import?force=true" : "/api/statements/import"
+      const response = await fetch(importUrl, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          csv: parsedCsv,
-          statementMeta: {
-            bankName: "Unknown",
-            sourceFilename: droppedFile.name,
-            rawFormat: rawFormat as "pdf" | "csv" | "xlsx" | "xls" | "other",
-            fileId: fileId,
-          },
-        }),
+        body: importFormData,
       })
 
       clearInterval(progressInterval)
       setImportProgress(95)
 
       if (!response.ok) {
+        if (response.status === 409) {
+          setImportProgress(0)
+          setIsImporting(false)
+          toast.warning("Already imported", {
+            description: "This statement looks like it was imported before. Import again anyway?",
+            duration: 12000,
+            action: {
+              label: "Import Anyway",
+              onClick: () => { void handleConfirm(true) },
+            },
+          })
+          return
+        }
+
         let errorMessage = `HTTP error! status: ${response.status}`
         const responseText = await response.text()
 
         try {
           const errorData = JSON.parse(responseText)
 
-          // Check for transaction limit exceeded
           if (response.status === 403 && errorData.code === "LIMIT_EXCEEDED") {
             clearInterval(progressInterval)
             setImportProgress(0)
@@ -621,39 +639,32 @@ export function useStatementImport({ refreshAnalyticsData }: UseStatementImportO
       const data = await response.json()
       setImportProgress(100)
 
-      toast.success("File Imported Successfully", {
-        description: `${data.inserted} transactions imported from ${droppedFile.name}`,
+      const fileDesc = pendingFiles.length > 1
+        ? `${pendingFiles.length} files`
+        : firstFile.name
+      toast.success("Import Successful", {
+        description: `${data.inserted} transactions imported from ${fileDesc}`,
       })
+      onImportSuccess?.()
       if (data.skippedInvalidDates) {
         toast.warning("Some rows were skipped", {
           description: `${data.skippedInvalidDates} transaction(s) had missing or invalid dates and were not imported.`,
         })
       }
 
-      // Track file import completed
-      safeCapture("file_import_completed", {
-        file_name: droppedFile.name,
-        file_size: droppedFile.size,
-        file_type: droppedFile.type || droppedFile.name.split(".").pop()?.toLowerCase() || "unknown",
+      typedCapture("file_import_completed", {
+        file_name: statementName,
+        file_count: pendingFiles.length,
         transaction_count: data.inserted,
       })
 
+      resetAllState()
       setIsReviewDialogOpen(false)
-      setDroppedFile(null)
-      setParsedCsv(null)
-      setParseQuality(null)
-      setFileId(null)
-      setTransactionCount(0)
-      setParseError(null)
-      setImportProgress(0)
 
-      // Clear all caches and notify charts that data has changed
       clearResponseCache()
       clearAnalyticsCache()
       window.dispatchEvent(new CustomEvent("transactionsUpdated"))
-
-      // Refresh analytics data after import
-      await refreshAnalyticsData()
+      importSucceeded = true
     } catch (error) {
       clearInterval(progressInterval)
       console.error("Import error:", error)
@@ -664,11 +675,8 @@ export function useStatementImport({ refreshAnalyticsData }: UseStatementImportO
         description: errorMessage,
       })
 
-      // Track file import failed during import
-      safeCapture("file_import_failed", {
-        file_name: droppedFile.name,
-        file_size: droppedFile.size,
-        file_type: droppedFile.type || droppedFile.name.split(".").pop()?.toLowerCase() || "unknown",
+      typedCapture("file_import_failed", {
+        file_name: projectName || pendingFiles[0]?.name || "unknown",
         error_message: errorMessage,
         stage: "import",
         transaction_count: transactionCount,
@@ -678,23 +686,25 @@ export function useStatementImport({ refreshAnalyticsData }: UseStatementImportO
     } finally {
       setIsImporting(false)
     }
-  }, [droppedFile, parsedCsv, fileId, refreshAnalyticsData, transactionCount])
+
+    if (importSucceeded) {
+      try {
+        await refreshAnalyticsData()
+      } catch {
+        // Non-critical: import succeeded; analytics refresh failure should not surface as an error
+      }
+    }
+  }, [pendingFiles, parsedCsv, fileId, projectName, accountId, resetAllState, refreshAnalyticsData, onImportSuccess, transactionCount])
 
   const handleCancelUpload = useCallback(() => {
     if (csvRegenerationTimerRef.current) {
       clearTimeout(csvRegenerationTimerRef.current)
       csvRegenerationTimerRef.current = null
     }
-    // Reset the upload processed ref to allow re-uploading
     uploadProcessedRef.current = false
     setIsUploadDialogOpen(false)
-    setDroppedFile(null)
-    setParsedCsv(null)
-    setParseQuality(null)
-    setFileId(null)
-    setTransactionCount(0)
-    setParseError(null)
-  }, [])
+    resetAllState()
+  }, [resetAllState])
 
   const handleCancelReview = useCallback(() => {
     if (csvRegenerationTimerRef.current) {
@@ -702,28 +712,186 @@ export function useStatementImport({ refreshAnalyticsData }: UseStatementImportO
       csvRegenerationTimerRef.current = null
     }
     setIsReviewDialogOpen(false)
-    setDroppedFile(null)
-    setParsedCsv(null)
-    setParseQuality(null)
-    setFileId(null)
-    setTransactionCount(0)
-    setParseError(null)
-  }, [])
+    resetAllState()
+  }, [resetAllState])
 
   const handleFilesChange = useCallback((files: File[]) => {
     if (files.length > 0) {
-      const file = files[0]
-      setDroppedFile(file)
-      // Auto-fill project name with filename (without extension)
-      const fileNameWithoutExt = file.name.replace(/\.[^/.]+$/, "")
+      setPendingFiles(files)
+      const fileNameWithoutExt = files[0].name.replace(/\.[^/.]+$/, "")
       setProjectName(fileNameWithoutExt)
     }
   }, [])
 
   const handleContinueUpload = useCallback(async () => {
-    if (!droppedFile) return
-    await parseFile(droppedFile, { parseMode: "auto" })
-  }, [droppedFile, parseFile])
+    if (pendingFiles.length === 0) return
+
+    setIsParsing(true)
+    setParsingProgress(0)
+    setParseError(null)
+    setParsedCsv(null)
+    setParseQuality(null)
+    setFileId(null)
+    setTransactionCount(0)
+    setSelectedParsedRowIds(new Set())
+    resetPreferenceUpdates()
+
+    let parseSucceeded = false
+    try {
+      let currentCategories = DEFAULT_CATEGORIES
+      try {
+        const categoriesResponse = await fetch("/api/categories")
+        if (categoriesResponse.ok) {
+          const payload = await categoriesResponse.json()
+          const categoriesArray: Array<{ name?: string }> = Array.isArray(payload) ? payload : []
+          const names = categoriesArray
+            .map((cat) => cat?.name)
+            .filter((name): name is string => typeof name === "string" && name.trim().length > 0)
+          if (names.length > 0) {
+            currentCategories = names
+          }
+        }
+      } catch {
+        // Use defaults
+      }
+
+      const allRows: TxRow[] = []
+      let firstFileId: string | null = null
+
+      for (let i = 0; i < pendingFiles.length; i++) {
+        const file = pendingFiles[i]
+        const progressBase = (i / pendingFiles.length) * 100
+        const progressRange = 100 / pendingFiles.length
+
+        setParsingProgress(progressBase + progressRange * 0.05)
+
+        typedCapture("file_import_started", {
+          file_name: file.name,
+          file_size: file.size,
+          file_type: file.type || file.name.split(".").pop()?.toLowerCase() || "unknown",
+          parse_mode: "auto",
+        })
+
+        const formData = new FormData()
+        formData.append("file", file)
+        formData.append("bankName", "Unknown")
+        formData.append("parseMode", "auto")
+
+        const response = await fetch("/api/statements/parse", {
+          method: "POST",
+          headers: {
+            "X-Custom-Categories": JSON.stringify(currentCategories),
+          },
+          body: formData,
+        })
+
+        if (!response.ok) {
+          const responseText = await response.text()
+          let errorMessage = `HTTP error! status: ${response.status}`
+          try {
+            const errorData = JSON.parse(responseText)
+            errorMessage = errorData.error || errorMessage
+          } catch {
+            errorMessage = responseText || errorMessage
+          }
+          throw new Error(`${file.name}: ${errorMessage}`)
+        }
+
+        let responseText = ""
+        if (response.body) {
+          const reader = response.body.getReader()
+          const decoder = new TextDecoder()
+          const chunks: string[] = []
+          let received = 0
+          const contentLength = response.headers.get("content-length")
+          const total = contentLength ? parseInt(contentLength, 10) : 0
+
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            chunks.push(decoder.decode(value, { stream: true }))
+            received += value.length
+
+            if (total > 0) {
+              setParsingProgress(progressBase + progressRange * 0.1 + (received / total) * progressRange * 0.85)
+            } else {
+              const estimated = Math.min(received / (file.size * 1.2), 0.85)
+              setParsingProgress(progressBase + progressRange * 0.1 + estimated * progressRange)
+            }
+          }
+          responseText = chunks.join("")
+        } else {
+          responseText = await response.text()
+        }
+
+        const contentType = response.headers.get("content-type") || ""
+        if (contentType.includes("application/json")) {
+          try {
+            const data = JSON.parse(responseText)
+            if (!data.parseable) {
+              throw new Error(`${file.name}: ${data.message || "File format not supported"}`)
+            }
+          } catch (e) {
+            if (e instanceof Error && e.message.startsWith(file.name)) throw e
+            throw new Error(`${file.name}: Invalid response from server`)
+          }
+        }
+
+        const idHeader = response.headers.get("X-File-Id")
+        if (idHeader && !firstFileId) firstFileId = idHeader
+
+        if (response.headers.get("X-Categorization-Warning")) {
+          toast.warning("Categorization Warning", {
+            description: `Some transactions in ${file.name} may have inaccurate categories.`,
+            duration: 8000,
+          })
+        }
+
+        const fileRows = parseCsvToRows(responseText)
+        allRows.push(...fileRows)
+        setParsingProgress(progressBase + progressRange)
+      }
+
+      if (allRows.length === 0) {
+        throw new Error("No transactions found in any of the uploaded files.")
+      }
+
+      const combinedCsv = rowsToCanonicalCsv(allRows)
+      const rowsWithId: ParsedRow[] = allRows.map((row, index) => ({
+        ...row,
+        id: index,
+        category: row.category || undefined,
+      }))
+
+      setParsedCsv(combinedCsv)
+      setParsedRows(rowsWithId)
+      setTransactionCount(rowsWithId.length)
+      setFileId(firstFileId)
+
+      const quality = buildStatementParseQuality({
+        rows: allRows,
+        diagnostics: undefined,
+        parseMode: "auto",
+      })
+      setParseQuality(quality)
+
+      parseSucceeded = true
+    } catch (error) {
+      console.error("Parsing error:", error)
+      const errorMessage = error instanceof Error
+        ? error.message
+        : "Failed to parse files. Please try again."
+      setParseError(errorMessage)
+      toast.error("Parse Error", { description: errorMessage, duration: 8000 })
+      setParsingProgress(0)
+    } finally {
+      setIsParsing(false)
+      if (parseSucceeded) {
+        setIsUploadDialogOpen(false)
+        setIsReviewDialogOpen(true)
+      }
+    }
+  }, [pendingFiles, resetPreferenceUpdates])
 
   useEffect(() => {
     return () => {
@@ -773,5 +941,8 @@ export function useStatementImport({ refreshAnalyticsData }: UseStatementImportO
     setIsUploadDialogOpen,
     setProjectName,
     transactionCount,
+    pendingFiles,
+    accountId,
+    setAccountId,
   }
 }

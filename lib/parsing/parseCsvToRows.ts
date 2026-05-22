@@ -69,6 +69,10 @@ const BALANCE_REGEX = /balance|bal|running.*balance|saldo|solde|available/i;
 const DEBIT_REGEX = /\b(debit|debito|debe|cargo|dr)\b/i;
 const CREDIT_REGEX = /\b(credit|credito|haber|abono|cr)\b/i;
 const TYPE_REGEX = /\b(type|movement|movimiento|transaction type|debit\/credit|dr\/cr|dc)\b/i;
+const CURRENCY_REGEX = /\b(currency|curr|ccy|moneda|devise|w.hrung|valuta|iso_currency|transaction_currency|tx_currency|orig_currency|original_currency)\b/i;
+
+// Keywords that strongly suggest an internal account transfer (not a real expense/income)
+const TRANSFER_REGEX = /\b(transfer|trf|trnsfer|virement|virements|überweisung|ueberweisung|traslado|traspaso|own\s+transfer|internal\s+transfer|between\s+accounts|from\s+savings|to\s+savings|savings\s+account|account\s+transfer|cuenta\s+propia|compte\s+propre)\b/i;
 
 function normalizeHeaderText(value: string): string {
     return value
@@ -772,6 +776,7 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
     const debitHeaderColumn = findColumnByRegex(columns, normalizedColumns, DEBIT_REGEX);
     const creditHeaderColumn = findColumnByRegex(columns, normalizedColumns, CREDIT_REGEX);
     const typeHeaderColumn = findColumnByRegex(columns, normalizedColumns, TYPE_REGEX);
+    const currencyHeaderColumn = findColumnByRegex(columns, normalizedColumns, CURRENCY_REGEX);
 
     const dateSamples: string[] = [];
     for (let i = 0; i < Math.min(rowsData.length, 120); i++) {
@@ -980,6 +985,14 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
         const rawReviewReason =
             r.review_reason ?? r.Review_Reason ?? r.REVIEW_REASON ?? r.reviewReason ?? r.ReviewReason ?? r.REVIEWREASON;
 
+        // Extract currency: check the detected header column, then common fallback names.
+        // Only accept exactly 3 uppercase ASCII letters (ISO 4217).
+        const rawCurrencyVal = currencyHeaderColumn
+            ? String(r[currencyHeaderColumn] ?? "")
+            : String(r.currency ?? r.Currency ?? r.CURRENCY ?? r.CCY ?? r.Ccy ?? r.ccy ?? "")
+        const parsedCurrency = rawCurrencyVal.trim().toUpperCase()
+        const rowCurrency = /^[A-Z]{3}$/.test(parsedCurrency) ? parsedCurrency : undefined
+
         return {
             date: normalizedDate || "",
             time: normalizedTime ?? null,
@@ -987,6 +1000,7 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
             amount: parsedAmount ?? 0,
             balance: parsedBalance ?? null,
             category: (r.category ?? r.Category ?? r.CATEGORY ?? "").trim() || undefined,
+            currency: rowCurrency,
             needsReview: parseBoolean(rawNeedsReview),
             reviewReason: String(rawReviewReason ?? "").trim() || null,
             __rowIndex: index,
@@ -1038,18 +1052,32 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
         return false;
     });
 
-    // Detect duplicates (same date, description, amount)
+    // Detect duplicates (same date, description, amount) and flag them
     const seen = new Set<string>();
     for (const row of validRows) {
         const key = `${row.date}|${row.description}|${row.amount}`;
         if (seen.has(key)) {
             diagnostics.duplicatesDetected++;
+            row.isDuplicate = true;
         } else {
             seen.add(key);
         }
     }
     if (diagnostics.duplicatesDetected > 0) {
         diagnostics.warnings.push(`${diagnostics.duplicatesDetected} potential duplicate transaction(s) detected.`);
+    }
+
+    // Detect likely internal account transfers and flag them for user review
+    for (const row of validRows) {
+        if (TRANSFER_REGEX.test(row.description)) {
+            row.tx_type = 'transfer'
+            row.needsReview = true
+            if (!row.reviewReason?.includes('Possible transfer')) {
+                row.reviewReason = row.reviewReason
+                    ? `${row.reviewReason}; Possible transfer — delete if this is an internal account move`
+                    : 'Possible transfer — delete if this is an internal account move'
+            }
+        }
     }
 
     diagnostics.rowsAfterFiltering = validRows.length;

@@ -105,8 +105,14 @@ export async function deduplicatedFetch<T>(
     return cached;
   }
 
+  // Use request-deduplicator to manage concurrent requests
+  // but use the demo-aware fetcher inside
   return requestDeduplicator.deduplicate(cacheKey, async () => {
-    const response = await fetch(url, options);
+    // Dynamically import demoFetch to avoid circular deps if any (though unlikely here)
+    // Actually, static import is fine given the file structure
+    const { demoFetch } = await import("@/lib/demo/demo-fetch");
+
+    const response = await demoFetch(url, options);
     if (!response.ok) {
       throw new Error(`Fetch failed: ${response.statusText}`);
     }

@@ -1,10 +1,40 @@
 import { useMemo, useState } from "react"
 
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
+import { buildCashFlowGraphFromTransactions } from "@/lib/charts/cash-flow-graph"
+import { computeWeeklyNet, type WeeklyNetPoint } from "@/lib/charts/weekly-net"
 import { useChartCategoryVisibility } from "@/hooks/use-chart-category-visibility"
+import { computeMonthsElapsed } from "@/lib/date-filter"
+import type { ChartDataStatusMap } from "@/lib/types/chart-data-status"
 
 import type { ActivityRingsConfig, ActivityRingsData, AnalyticsTransaction } from "../types"
-import { getDefaultRingLimit, normalizeCategoryName } from "../utils/categories"
+import { getDefaultRingLimit, getSuggestedDemoRingLimit, normalizeCategoryName } from "../utils/categories"
+
+/** Every calendar month from start through end (YYYY-MM), inclusive. */
+function expandYYYYMMRangeInclusive(startKey: string, endKey: string): string[] {
+  const parse = (k: string) => {
+    const m = k.match(/^(\d{4})-(\d{1,2})$/)
+    if (!m) return null
+    const y = Number(m[1])
+    const mo = Number(m[2]) - 1
+    const d = new Date(y, mo, 1)
+    return Number.isNaN(d.getTime()) ? null : d
+  }
+  const start = parse(startKey)
+  const end = parse(endKey)
+  if (!start || !end) {
+    return Array.from(new Set([startKey, endKey])).sort((a, b) => a.localeCompare(b))
+  }
+  const lo = start.getTime() <= end.getTime() ? start : end
+  const hi = start.getTime() <= end.getTime() ? end : start
+  const out: string[] = []
+  const cur = new Date(lo)
+  while (cur.getTime() <= hi.getTime()) {
+    out.push(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}`)
+    cur.setMonth(cur.getMonth() + 1)
+  }
+  return out
+}
 
 type BundleDailySpending = {
   date: string
@@ -63,6 +93,13 @@ type BundleTransaction = {
   color?: string | null
 }
 
+type BundleTreeMapData = {
+  name: string
+  loc?: number
+  fullDescription?: string
+  children?: BundleTreeMapData[]
+}
+
 type BundleData = {
   dailySpending?: BundleDailySpending[]
   categorySpending?: BundleCategorySpending[]
@@ -72,6 +109,7 @@ type BundleData = {
   cashFlow?: BundleCashFlow
   kpis?: BundleKpis
   transactionHistory?: BundleTransaction[]
+  treeMapData?: BundleTreeMapData
 }
 
 type UseAnalyticsChartDataParams = {
@@ -80,6 +118,7 @@ type UseAnalyticsChartDataParams = {
   dateFilter: string | null
   palette: string[] | undefined
   ringLimits: Record<string, number>
+  isDemoMode?: boolean
   savedChartSizes: Record<string, { w: number; h: number; x?: number; y?: number }>
   resolvedTheme?: string
 }
@@ -90,6 +129,7 @@ export function useAnalyticsChartData({
   dateFilter,
   palette,
   ringLimits,
+  isDemoMode = false,
   savedChartSizes,
   resolvedTheme,
 }: UseAnalyticsChartDataParams) {
@@ -210,30 +250,59 @@ export function useAnalyticsChartData({
       .sort((a, b) => b[1] - a[1])
       .map(([category]) => category)
 
+    // Categories the user has budgeted (single source of truth for which
+    // rings to show — if you set a budget for "Restaurants", you want to see
+    // that ring even when you didn't eat out this period).
+    const budgetedCategories = Object.keys(ringLimits).filter(
+      (name) => typeof ringLimits[name] === "number" && ringLimits[name]! > 0
+    )
+
+    // Selection precedence: manual ringCategories > budgeted categories >
+    // top-spend fallback. Mixing budgeted + top-spend keeps the chart useful
+    // for users with <5 budgets set.
     const categoriesToUse =
       ringCategories && ringCategories.length > 0
         ? ringCategories
+        : budgetedCategories.length > 0
+        ? Array.from(
+            new Set([...budgetedCategories, ...defaultTopCategories])
+          ).slice(0, 5)
         : defaultTopCategories.slice(0, 5)
 
-    // Build [category, amount] pairs for the chosen categories
+    // Build [category, amount] pairs. Keep budgeted categories even when
+    // current-period spend is zero so the user sees "$0 / $cap" — celebrating
+    // staying under budget is the whole point.
+    const budgetedSet = new Set(budgetedCategories)
     const selectedCategories = categoriesToUse
       .map((category) => {
         const amount = categoryTotals.get(category) || 0
         return [category, amount] as [string, number]
       })
-      .filter(([, amount]) => amount > 0)
+      .filter(([category, amount]) => amount > 0 || budgetedSet.has(category))
+
+    // Period scaling: budget in /api/budgets is the MONTHLY cap. The spend
+    // numbers above are summed across the active filter window. So we
+    // multiply the monthly cap by the fractional months in this period to
+    // compare apples-to-apples (matches the Budgets tab math exactly).
+    const monthsElapsed = computeMonthsElapsed(dateFilter)
+    const safeMonths = monthsElapsed > 0 ? monthsElapsed : 1
 
     return selectedCategories.map(([category, amount], index) => {
       const storedLimit = ringLimits[category]
-      const effectiveLimit =
+      const rawMonthlyLimit =
         typeof storedLimit === "number" && storedLimit > 0
           ? storedLimit
-          : getDefaultRingLimit(dateFilter)
+          : (isDemoMode
+              ? (getSuggestedDemoRingLimit(amount) ?? getDefaultRingLimit(dateFilter, true))
+              : getDefaultRingLimit(dateFilter))
+
+      const monthlyLimit: number | null =
+        typeof rawMonthlyLimit === "number" && rawMonthlyLimit > 0 ? rawMonthlyLimit : null
+      const periodLimit: number | null =
+        monthlyLimit !== null ? monthlyLimit * safeMonths : null
 
       const ratioToLimit =
-        effectiveLimit && effectiveLimit > 0
-          ? Math.min(amount / effectiveLimit, 1)
-          : null
+        periodLimit !== null ? Math.min(amount / periodLimit, 1) : null
 
       const value = ratioToLimit !== null ? ratioToLimit : 0
 
@@ -242,24 +311,26 @@ export function useAnalyticsChartData({
           ? palette[index % palette.length]
           : undefined) || "#a1a1aa"
 
-      const exceeded = ratioToLimit !== null && amount > effectiveLimit
+      const exceeded = periodLimit !== null && amount > periodLimit
       const pct = ratioToLimit !== null ? (ratioToLimit * 100).toFixed(1) : '0'
 
       return {
-        // Label is used by the ActivityRings tooltip on hover
+        // Label is used by the ActivityRings tooltip on hover. Shows the
+        // period-scaled cap so the math the user sees matches the ring fill.
         label:
-          ratioToLimit !== null
-            ? `Category: ${category}\nUsed: ${pct}%\nSpent: $${amount.toFixed(2)}\nBudget: $${effectiveLimit.toFixed(2)}${exceeded ? '\n⚠ Exceeded' : ''}`
+          periodLimit !== null && monthlyLimit !== null
+            ? `Category: ${category}\nUsed: ${pct}%\nSpent: $${amount.toFixed(2)}\nBudget: $${periodLimit.toFixed(2)} ($${monthlyLimit.toFixed(0)}/mo)${exceeded ? '\n⚠ Exceeded' : ''}`
             : `Category: ${category}\nSpent: $${amount.toFixed(2)}\nNo budget set`,
         // Store the raw category name separately for our own legend
         // (extra fields are ignored by the library)
         category,
         spent: amount,
+        budget: periodLimit,
         value,
         color,
       }
     })
-  }, [rawTransactions, palette, ringCategories, ringLimits, dateFilter])
+  }, [rawTransactions, palette, ringCategories, ringLimits, dateFilter, isDemoMode])
 
   const incomeExpenseChart = useMemo(() => {
     // Use bundle data if available (pre-computed by server)
@@ -434,79 +505,58 @@ export function useAnalyticsChartData({
       return a.localeCompare(b)
     }
 
-    // Use bundle data if available for monthly data
+    // Use bundle data if available for monthly data — only when there are multiple months.
+    // With a single month, we fall through to rawTransactions for weekly granularity.
     if (bundleData?.monthlyCategories && bundleData.monthlyCategories.length > 0) {
       const categorySet = new Set<string>(bundleData.monthlyCategories.map(m => m.category))
 
-      // Group by month - collect totals per category per month
-      const monthTotals = new Map<string, Map<string, number>>()
+      // Group by month — collect totals per category per month (expenses only)
+      const categoryMonthMap = new Map<string, Map<string, number>>()
+      const allMonths = new Set<string>()
 
       bundleData.monthlyCategories.forEach(m => {
         const monthKey = String(m.month).padStart(2, '0')
-        if (!monthTotals.has(monthKey)) monthTotals.set(monthKey, new Map())
-        monthTotals.get(monthKey)!.set(m.category, m.total)
+        allMonths.add(monthKey)
+        const category = m.category
+        if (categoryFlowVisibility.hiddenCategorySet.has(category)) return
+        if (!categoryMonthMap.has(category)) categoryMonthMap.set(category, new Map())
+        const monthMap = categoryMonthMap.get(category)!
+        monthMap.set(monthKey, (monthMap.get(monthKey) || 0) + m.total)
       })
 
-      let sortedPeriods = Array.from(monthTotals.keys()).sort(sortPeriodKeys)
+      const sortedPeriods = Array.from(allMonths).sort(sortPeriodKeys)
 
-      // Get all unique categories (filtered by visibility)
-      const visibleCategories = Array.from(categorySet).filter(c => !categoryFlowVisibility.hiddenCategorySet.has(c))
-
-      // Calculate rankings and percentages per period (higher y = higher spending = appears at top)
-      const categoryRankings = new Map<string, { x: string; y: number; percentage: number }[]>()
-      visibleCategories.forEach(cat => categoryRankings.set(cat, []))
-
-      sortedPeriods.forEach(period => {
-        const catMap = monthTotals.get(period)!
-        // Get totals for all visible categories
-        const totals: { category: string; total: number }[] = []
-        let periodTotal = 0
-        visibleCategories.forEach(cat => {
-          const catTotal = catMap.get(cat) || 0
-          totals.push({ category: cat, total: catTotal })
-          periodTotal += catTotal
+      // Only use monthly bundle data when there are multiple distinct periods.
+      // Single period → fall through to rawTransactions for weekly within-month breakdown.
+      if (sortedPeriods.length > 1) {
+        // Compute percentage-based y values per period (same as Home page)
+        const periodTotals = new Map<string, number>()
+        sortedPeriods.forEach(period => {
+          let total = 0
+          categoryMonthMap.forEach(months => { total += months.get(period) || 0 })
+          periodTotals.set(period, total)
         })
-        // Sort by total descending to assign ranks
-        totals.sort((a, b) => b.total - a.total)
-        const numCategories = totals.length
-        // Assign inverted ranks and percentages (higher y = higher spending = top of chart)
-        totals.forEach((item, index) => {
-          const percentage = periodTotal > 0 ? (item.total / periodTotal) * 100 : 0
-          // Invert rank so highest spending has highest y value (appears at top)
-          const invertedRank = numCategories - index
-          categoryRankings.get(item.category)!.push({ x: period, y: invertedRank, percentage })
-        })
-      })
 
-      // Area Bump needs 2 distinct x-points to draw the band
-      if (sortedPeriods.length === 1) {
-        const sole = sortedPeriods[0]
-        const soleContinuation = sole + "\u200B" // zero-width space = distinct key, same display
-        sortedPeriods = [sole, soleContinuation]
-        // Duplicate rankings for continuation (including percentage)
-        visibleCategories.forEach(cat => {
-          const rankings = categoryRankings.get(cat)!
-          if (rankings.length > 0) {
-            rankings.push({ x: soleContinuation, y: rankings[0].y, percentage: rankings[0].percentage })
-          }
-        })
+        const data = Array.from(categoryMonthMap.entries())
+          .map(([category, months]) => ({
+            id: category,
+            data: sortedPeriods.map(period => {
+              const value = months.get(period) || 0
+              const total = periodTotals.get(period) || 1
+              const percentage = total > 0 ? (value / total) * 100 : 0
+              return { x: period, y: Math.max(percentage, 0.1) }
+            }),
+          }))
+          .filter(series =>
+            series.data.some(d => {
+              const originalValue = categoryMonthMap.get(series.id)?.get(d.x) || 0
+              return originalValue > 0
+            })
+          )
+
+        return { data, categories: Array.from(categorySet) }
       }
-
-      // Get top 5 categories by total spending
-      const categoryTotals: { category: string; total: number }[] = []
-      visibleCategories.forEach(cat => {
-        let total = 0
-        monthTotals.forEach(catMap => total += catMap.get(cat) || 0)
-        categoryTotals.push({ category: cat, total })
-      })
-      categoryTotals.sort((a, b) => b.total - a.total)
-
-      const data = categoryTotals.slice(0, 5).map(item => ({
-        id: item.category,
-        data: categoryRankings.get(item.category) || []
-      })).filter(series => series.data.length > 0)
-
-      return { data, categories: Array.from(categorySet) }
+      // Single month — fall through to rawTransactions for weekly breakdown
     }
 
     // Fallback to rawTransactions
@@ -526,9 +576,6 @@ export function useAnalyticsChartData({
       }
 
       switch (dateFilter) {
-        case "last7days":
-          // Daily grouping for 7 days
-          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
         case "last30days":
           // Weekly grouping for 30 days
           const weekStart = new Date(date)
@@ -571,64 +618,59 @@ export function useAnalyticsChartData({
       return { data: [], categories: Array.from(categorySet) }
     }
 
-    let sortedTimePeriods = Array.from(allTimePeriods).sort(sortPeriodKeys)
+    // Weekly fallback: if only 1 time period was detected (e.g. all data in one month),
+    // rebuild the map using week-of-month buckets so the chart shows within-month trends.
+    if (allTimePeriods.size <= 1) {
+      categoryMap.clear()
+      allTimePeriods.clear()
 
-    // Get all visible categories
-    const visibleCategories = Array.from(categoryMap.keys())
+      rawTransactions.forEach((tx) => {
+        if (tx.amount >= 0) return
+        const rawCategory = (tx.category || "Other").trim()
+        const category = normalizeCategoryName(rawCategory)
+        if (categoryFlowVisibility.hiddenCategorySet.has(category)) return
 
-    // Calculate rankings and percentages per period (higher y = higher spending = appears at top)
-    const categoryRankings = new Map<string, { x: string; y: number; percentage: number }[]>()
-    visibleCategories.forEach(cat => categoryRankings.set(cat, []))
+        const date = new Date(tx.date)
+        if (Number.isNaN(date.getTime())) return
 
-    sortedTimePeriods.forEach(period => {
-      // Get totals for all visible categories for this period
-      const totals: { category: string; total: number }[] = []
-      let periodTotal = 0
-      visibleCategories.forEach(category => {
-        const periodMap = categoryMap.get(category)
-        const catTotal = periodMap?.get(period) || 0
-        totals.push({ category, total: catTotal })
-        periodTotal += catTotal
-      })
-      // Sort by total descending to assign ranks
-      totals.sort((a, b) => b.total - a.total)
-      const numCategories = totals.length
-      // Assign inverted ranks and percentages (higher y = higher spending = top of chart)
-      totals.forEach((item, index) => {
-        const percentage = periodTotal > 0 ? (item.total / periodTotal) * 100 : 0
-        // Invert rank so highest spending has highest y value (appears at top)
-        const invertedRank = numCategories - index
-        categoryRankings.get(item.category)!.push({ x: period, y: invertedRank, percentage })
-      })
-    })
+        // Week bucket keyed by Sunday start date (YYYY-MM-DD)
+        const weekStart = new Date(date)
+        weekStart.setDate(date.getDate() - date.getDay())
+        const weekKey = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, "0")}-${String(weekStart.getDate()).padStart(2, "0")}`
 
-    // Area Bump needs 2 distinct x-points to draw the band
-    if (sortedTimePeriods.length === 1) {
-      const sole = sortedTimePeriods[0]
-      const soleContinuation = sole + "\u200B"
-      sortedTimePeriods = [sole, soleContinuation]
-      // Duplicate rankings for continuation (including percentage)
-      visibleCategories.forEach(cat => {
-        const rankings = categoryRankings.get(cat)!
-        if (rankings.length > 0) {
-          rankings.push({ x: soleContinuation, y: rankings[0].y, percentage: rankings[0].percentage })
-        }
+        allTimePeriods.add(weekKey)
+        if (!categoryMap.has(category)) categoryMap.set(category, new Map())
+        const timeMap = categoryMap.get(category)!
+        timeMap.set(weekKey, (timeMap.get(weekKey) || 0) + Math.abs(tx.amount))
       })
     }
 
-    // Get top 5 categories by total spending
-    const categoryTotals: { category: string; total: number }[] = []
-    visibleCategories.forEach(category => {
-      let total = 0
-      categoryMap.get(category)?.forEach(amount => total += amount)
-      categoryTotals.push({ category, total })
-    })
-    categoryTotals.sort((a, b) => b.total - a.total)
+    const sortedTimePeriods = Array.from(allTimePeriods).sort(sortPeriodKeys)
 
-    const data = categoryTotals.slice(0, 5).map(item => ({
-      id: item.category,
-      data: categoryRankings.get(item.category) || []
-    })).filter(series => series.data.length > 0)
+    // Compute percentage-based y values per period (same as Home page)
+    const periodTotals = new Map<string, number>()
+    sortedTimePeriods.forEach(period => {
+      let total = 0
+      categoryMap.forEach(timeMap => { total += timeMap.get(period) || 0 })
+      periodTotals.set(period, total)
+    })
+
+    const data = Array.from(categoryMap.entries())
+      .map(([category, timeMap]) => ({
+        id: category,
+        data: sortedTimePeriods.map(period => {
+          const value = timeMap.get(period) || 0
+          const total = periodTotals.get(period) || 1
+          const percentage = total > 0 ? (value / total) * 100 : 0
+          return { x: period, y: Math.max(percentage, 0.1) }
+        }),
+      }))
+      .filter(series =>
+        series.data.some(d => {
+          const originalValue = categoryMap.get(series.id)?.get(d.x) || 0
+          return originalValue > 0
+        })
+      )
 
     return {
       data,
@@ -953,33 +995,39 @@ export function useAnalyticsChartData({
   )
 
   const polarBarData = useMemo(() => {
-    // Use bundle data if available for monthly category data
-    if (bundleData?.monthlyCategories && bundleData.monthlyCategories.length > 0 && bundleData?.categorySpending) {
+    // Use bundle data if available for monthly category data.
+    // Require categorySpending to be non-empty so an empty array doesn't
+    // block the rawTransactions fallback below.
+    if (bundleData?.monthlyCategories && bundleData.monthlyCategories.length > 0 && bundleData?.categorySpending && bundleData.categorySpending.length > 0) {
       const categorySet = new Set<string>(bundleData.categorySpending.map(c => c.category))
       const topCategories = bundleData.categorySpending
         .filter(c => !polarBarVisibility.hiddenCategorySet.has(c.category))
         .slice(0, 5)
         .map(c => c.category)
 
-      // Group by month
-      const timePeriodMap = new Map<string, Record<string, number>>()
-      bundleData.monthlyCategories
-        .filter(m => topCategories.includes(m.category))
-        .forEach(m => {
-          const monthKey = String(m.month).padStart(2, '0')
-          if (!timePeriodMap.has(monthKey)) {
-            const initialData: Record<string, number> = {}
-            topCategories.forEach(cat => { initialData[cat] = 0 })
-            timePeriodMap.set(monthKey, initialData)
-          }
-          timePeriodMap.get(monthKey)![m.category] = m.total
-        })
+      if (topCategories.length > 0) {
+        // Group by month
+        const timePeriodMap = new Map<string, Record<string, number>>()
+        bundleData.monthlyCategories
+          .filter(m => topCategories.includes(m.category))
+          .forEach(m => {
+            const monthKey = String(m.month).padStart(2, '0')
+            if (!timePeriodMap.has(monthKey)) {
+              const initialData: Record<string, number> = {}
+              topCategories.forEach(cat => { initialData[cat] = 0 })
+              timePeriodMap.set(monthKey, initialData)
+            }
+            timePeriodMap.get(monthKey)![m.category] = m.total
+          })
 
-      const data = Array.from(timePeriodMap.entries())
-        .map(([period, values]) => ({ month: period, ...values }))
-        .sort((a, b) => (a.month as string).localeCompare(b.month as string))
+        const data = Array.from(timePeriodMap.entries())
+          .map(([period, values]) => ({ month: period, ...values }))
+          .sort((a, b) => (a.month as string).localeCompare(b.month as string))
 
-      return { data, keys: topCategories, categories: Array.from(categorySet) }
+        if (data.length > 0) {
+          return { data, keys: topCategories, categories: Array.from(categorySet) }
+        }
+      }
     }
 
     // Fallback to rawTransactions
@@ -995,9 +1043,6 @@ export function useAnalyticsChartData({
       }
 
       switch (dateFilter) {
-        case "last7days":
-          // Daily grouping for 7 days
-          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
         case "last30days":
           // Weekly grouping for 30 days
           const weekStart = new Date(date)
@@ -1108,9 +1153,6 @@ export function useAnalyticsChartData({
       }
 
       switch (dateFilter) {
-        case "last7days":
-          // Daily grouping for 7 days
-          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
         case "last30days": {
           // Weekly grouping for 30 days
           const weekStart = new Date(date)
@@ -1132,7 +1174,7 @@ export function useAnalyticsChartData({
     }
 
     // Check if we need finer granularity (bypass bundle for short timeframes)
-    const needsFinerGranularity = dateFilter === "last7days" || dateFilter === "last30days"
+    const needsFinerGranularity = dateFilter === "last30days"
 
     // Use bundle data if available for monthly category data (pre-aggregated by SQL)
     // Skip bundle for short timeframes that need daily/weekly granularity
@@ -1154,24 +1196,27 @@ export function useAnalyticsChartData({
         .slice(0, 7)
         .map(([cat]) => cat)
 
-      let sortedMonths = Array.from(monthMap.keys()).sort((a, b) => a.localeCompare(b))
+      const rawMonthKeys = Array.from(monthMap.keys()).sort((a, b) => a.localeCompare(b))
+      const sortedMonths =
+        rawMonthKeys.length > 0
+          ? expandYYYYMMRangeInclusive(rawMonthKeys[0]!, rawMonthKeys[rawMonthKeys.length - 1]!)
+          : []
 
-      // Streamgraph needs at least 2 time points to render - duplicate single point
-      if (sortedMonths.length === 1) {
-        const sole = sortedMonths[0]
-        const soleContinuation = sole + "\u200B" // zero-width space = distinct key, same display
-        sortedMonths = [sole, soleContinuation]
-        monthMap.set(soleContinuation, monthMap.get(sole)!)
-      }
-
-      const data = sortedMonths.map((month) => {
-        const cats = monthMap.get(month)!
-        const row: Record<string, string | number> = { month }
-        topCategories.forEach(cat => { row[cat] = cats.get(cat) || 0 })
-        return row
+      sortedMonths.forEach((m) => {
+        if (!monthMap.has(m)) monthMap.set(m, new Map())
       })
 
-      return { data, keys: topCategories, categories: Array.from(categorySet) }
+      // Match category rankings: single calendar month → use raw txs for weekly buckets (like category flow)
+      if (sortedMonths.length > 1) {
+        const data = sortedMonths.map((month) => {
+          const cats = monthMap.get(month)!
+          const row: Record<string, string | number> = { month }
+          topCategories.forEach(cat => { row[cat] = cats.get(cat) || 0 })
+          return row
+        })
+
+        return { data, keys: topCategories, categories: Array.from(categorySet) }
+      }
     }
 
     // Use rawTransactions for finer granularity or as fallback
@@ -1193,6 +1238,7 @@ export function useAnalyticsChartData({
     const periodMap = new Map<string, Map<string, number>>()
     const categoryTotals = new Map<string, number>()
     const categorySet = new Set<string>()
+    const allPeriodKeys = new Set<string>()
 
     rawTransactions
       .filter((tx) => tx.amount < 0)
@@ -1206,6 +1252,7 @@ export function useAnalyticsChartData({
         if (streamgraphVisibility.hiddenCategorySet.has(rawCategory)) return
         const amount = Math.abs(Number(tx.amount)) || 0
 
+        allPeriodKeys.add(periodKey)
         if (!periodMap.has(periodKey)) {
           periodMap.set(periodKey, new Map())
         }
@@ -1217,6 +1264,30 @@ export function useAnalyticsChartData({
 
     if (!periodMap.size || !categoryTotals.size) {
       return { data: [], keys: [], categories: Array.from(categorySet) }
+    }
+
+    // One month (or one week) of buckets — subdivide by week like Spending Category Rankings
+    if (allPeriodKeys.size <= 1) {
+      periodMap.clear()
+      allPeriodKeys.clear()
+
+      rawTransactions
+        .filter((tx) => tx.amount < 0)
+        .forEach((tx) => {
+          const date = new Date(tx.date)
+          if (isNaN(date.getTime())) return
+          const rawCategory = normalizeCategory(tx.category)
+          if (streamgraphVisibility.hiddenCategorySet.has(rawCategory)) return
+
+          const weekStart = new Date(date)
+          weekStart.setDate(date.getDate() - date.getDay())
+          const weekKey = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, "0")}-${String(weekStart.getDate()).padStart(2, "0")}`
+
+          allPeriodKeys.add(weekKey)
+          if (!periodMap.has(weekKey)) periodMap.set(weekKey, new Map())
+          const weekData = periodMap.get(weekKey)!
+          weekData.set(rawCategory, (weekData.get(rawCategory) || 0) + Math.abs(Number(tx.amount)) || 0)
+        })
     }
 
     const sortedCategories = Array.from(categoryTotals.entries()).sort((a, b) => b[1] - a[1])
@@ -1270,8 +1341,14 @@ export function useAnalyticsChartData({
 
 
   const sankeyData = useMemo(() => {
-    // Bundle-only mode: Use pre-computed data from Redis cache
-    // No fallback to rawTransactions to avoid race conditions
+    if (rawTransactions.length > 0) {
+      return buildCashFlowGraphFromTransactions({
+        transactions: rawTransactions,
+        normalizeCategory: normalizeCategoryName,
+        hiddenExpenseCategories: sankeyVisibility.hiddenCategorySet,
+      })
+    }
+
     if (!bundleData?.cashFlow || bundleData.cashFlow.nodes.length === 0) {
       return {
         graph: { nodes: [], links: [] as Array<{ source: string; target: string; value: number }> },
@@ -1281,11 +1358,12 @@ export function useAnalyticsChartData({
 
     const categorySet = new Set<string>(
       bundleData.cashFlow.nodes
-        .filter(n => n.id !== 'income' && n.id !== 'savings' && n.id !== 'expenses')
-        .map(n => n.id)
+        .filter((node) => node.id.startsWith("expense-"))
+        .map((node) => node.id.replace(/^expense-/, ""))
     )
+
     return { graph: bundleData.cashFlow, categories: Array.from(categorySet) }
-  }, [bundleData?.cashFlow])
+  }, [bundleData?.cashFlow, rawTransactions, sankeyVisibility.hiddenCategorySet])
 
   const sankeyControls = sankeyVisibility.buildCategoryControls(sankeyData.categories, {
     description: "Hide sources to remove them from the cash-flow Sankey.",
@@ -1353,7 +1431,116 @@ export function useAnalyticsChartData({
     }))
   }, [rawTransactions, incomeExpenseTopVisibility.hiddenCategorySet, normalizeCategoryName, dateFilter])
 
+  /**
+   * Cumulative expenses view for the Income & Expenses chart (incomeExpensesTracking2).
+   * Expenses accumulate over time, and income reduces that running expense total.
+   */
+  const incomeExpenseCumulativeData = useMemo(() => {
+    const filteredSource =
+      incomeExpenseVisibility.hiddenCategorySet.size === 0
+        ? rawTransactions
+        : rawTransactions.filter((tx) => {
+          const category = normalizeCategoryName(tx.category)
+          return !incomeExpenseVisibility.hiddenCategorySet.has(category)
+        })
+
+    if (filteredSource.length > 0) {
+      const dailyTotals = filteredSource.reduce((acc, tx) => {
+        const date = tx.date.split("T")[0]
+        if (!acc[date]) {
+          acc[date] = { date, income: 0, expenses: 0 }
+        }
+
+        if (tx.amount > 0) {
+          acc[date].income += tx.amount
+        } else if (tx.amount < 0) {
+          acc[date].expenses += Math.abs(tx.amount)
+        }
+
+        return acc
+      }, {} as Record<string, { date: string; income: number; expenses: number }>)
+
+      let cumulativeExpenses = 0
+      let hasSeenExpense = false
+
+      return Object.values(dailyTotals)
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .map((day) => {
+          if (day.expenses > 0) {
+            hasSeenExpense = true
+            cumulativeExpenses += day.expenses
+          }
+
+          if (hasSeenExpense && day.income > 0) {
+            cumulativeExpenses -= day.income
+          }
+
+          cumulativeExpenses = Math.round(cumulativeExpenses * 100) / 100
+
+          return {
+            date: day.date,
+            desktop: day.income,
+            mobile: cumulativeExpenses,
+          }
+        })
+    }
+
+    const source = incomeExpenseChart.data
+    if (!source || source.length === 0) return [] as Array<{ date: string; desktop: number; mobile: number }>
+
+    let cumulativeExpenses = 0
+    let hasSeenExpense = false
+
+    return source.map((d) => {
+      const dayIncome = d.desktop || 0
+      const dayExpenses = Math.abs(d.mobile || 0)
+
+      if (dayExpenses > 0) {
+        hasSeenExpense = true
+        cumulativeExpenses += dayExpenses
+      }
+
+      if (hasSeenExpense && dayIncome > 0) {
+        cumulativeExpenses -= dayIncome
+      }
+
+      cumulativeExpenses = Math.round(cumulativeExpenses * 100) / 100
+
+      return {
+        date: d.date,
+        desktop: dayIncome,
+        mobile: cumulativeExpenses,
+      }
+    })
+  }, [rawTransactions, incomeExpenseVisibility.hiddenCategorySet, normalizeCategoryName, incomeExpenseChart.data])
+
+  /** Weekly net (income − expenses) for the Net tab of the Income & Expenses chart. */
+  const weeklyNetDiffData = useMemo((): WeeklyNetPoint[] => {
+    if (!rawTransactions || rawTransactions.length === 0) return []
+    return computeWeeklyNet(
+      rawTransactions,
+      incomeExpenseVisibility.hiddenCategorySet,
+      normalizeCategoryName,
+    )
+  }, [rawTransactions, incomeExpenseVisibility.hiddenCategorySet, normalizeCategoryName, dateFilter])
+
   const treeMapData = useMemo(() => {
+    // Use bundle data if available (pre-computed by server)
+    if (bundleData?.treeMapData?.children) {
+      const children = bundleData.treeMapData.children.filter(c =>
+        !treeMapVisibility.hiddenCategorySet.has(normalizeCategoryName(c.name))
+      )
+      return {
+        ...bundleData.treeMapData,
+        children
+      }
+    }
+
+    // Fallback to rawTransactions
+    if (!rawTransactions || rawTransactions.length === 0) {
+      return { name: "Expenses", children: [] }
+    }
+
     const filteredSource =
       treeMapVisibility.hiddenCategorySet.size === 0
         ? rawTransactions
@@ -1367,7 +1554,7 @@ export function useAnalyticsChartData({
       if (!description) return "Misc"
       const delimiterSplit = description.split(/[-??"|]/)[0] ?? description
       const trimmed = delimiterSplit.trim()
-      return trimmed.length > 24 ? `${trimmed.slice(0, 21)}???` : (trimmed || "Misc")
+      return trimmed.length > 24 ? `${trimmed.slice(0, 21)}...` : (trimmed || "Misc")
     }
     filteredSource
       .filter(tx => tx.amount < 0)
@@ -1416,8 +1603,8 @@ export function useAnalyticsChartData({
           const bTotal = b.children.reduce((sum, child) => sum + (child.loc || 0), 0)
           return bTotal - aTotal
         }),
-    }
-  }, [rawTransactions, treeMapVisibility.hiddenCategorySet, normalizeCategoryName, dateFilter])
+    } as any
+  }, [bundleData?.treeMapData, rawTransactions, treeMapVisibility.hiddenCategorySet, normalizeCategoryName, dateFilter])
 
   const dayOfWeekSpendingControls = useMemo(() => {
     const categories = Array.from(
@@ -1440,6 +1627,17 @@ export function useAnalyticsChartData({
     ).sort()
     return monthOfYearSpendingVisibility.buildCategoryControls(categories)
   }, [rawTransactions, monthOfYearSpendingVisibility, normalizeCategoryName])
+
+  const categorySpendingByPeriodControls = useMemo(() => {
+    const categories = Array.from(
+      new Set(
+        rawTransactions
+          .filter((tx) => Number(tx.amount) < 0)
+          .map((tx) => normalizeCategoryName(tx.category)),
+      ),
+    ).sort()
+    return dayOfWeekSpendingVisibility.buildCategoryControls(categories)
+  }, [rawTransactions, dayOfWeekSpendingVisibility, normalizeCategoryName])
 
   const swarmPlotData = useMemo(() => {
     // Use bundle data if available (pre-computed by server)
@@ -1474,16 +1672,19 @@ export function useAnalyticsChartData({
       }))
   }, [bundleData?.transactionHistory, rawTransactions, dateFilter])
 
-  // ── Chart data status map ────────────────────────────────────────────
-  const chartDataStatusMap = useMemo(() => {
+  // Build a status map so ChartsGrid knows which charts have data
+  const chartDataStatusMap = useMemo<ChartDataStatusMap>(() => {
     const hasArr = (arr: unknown[] | undefined | null) => Array.isArray(arr) && arr.length > 0
+    const hasObj = (obj: { children?: unknown[] } | undefined | null) =>
+      !!obj && Array.isArray(obj.children) && obj.children.length > 0
 
     return {
       incomeExpensesTracking1: hasArr(incomeExpenseTopChartData) ? "has-data" : "empty",
-      incomeExpensesTracking2: hasArr(incomeExpenseChart.data) ? "has-data" : "empty",
-      categoryFlow: hasArr(categoryFlowChart.data) ? "has-data" : "empty",
-      netWorthAllocation: hasArr(treeMapData) ? "has-data" : "empty",
-      spendingFunnel: hasArr(spendingFunnelChart.data) ? "has-data" : "empty",
+      incomeExpensesTracking2:
+        hasArr(incomeExpenseChart.data) || hasArr(incomeExpenseCumulativeData) ? "has-data" : "empty",
+      spendingCategoryRankings: hasArr(categoryFlowChart.data) ? "has-data" : "empty",
+      netWorthAllocation: hasObj(treeMapData) ? "has-data" : "empty",
+      moneyFlow: hasArr(spendingFunnelChart.data) ? "has-data" : "empty",
       expenseBreakdown: hasArr(expensesPieData.slices) ? "has-data" : "empty",
       needsWantsBreakdown: hasArr(needsWantsPieData.slices) ? "has-data" : "empty",
       categoryBubbleMap: hasArr(circlePackingData.tree.children) ? "has-data" : "empty",
@@ -1492,15 +1693,21 @@ export function useAnalyticsChartData({
       spendingStreamgraph: hasArr(spendingStreamData.data) ? "has-data" : "empty",
       cashFlowSankey: hasArr(sankeyData.graph.links) ? "has-data" : "empty",
       transactionHistory: hasArr(swarmPlotData) ? "has-data" : "empty",
-      dayOfWeekSpending: hasArr(rawTransactions) ? "has-data" : "empty",
-      allMonthsCategorySpending: hasArr(rawTransactions) ? "has-data" : "empty",
+      categorySpendingByPeriod: hasArr(rawTransactions) ? "has-data" : "empty",
       singleMonthCategorySpending: hasArr(bundleData?.monthlyCategories) ? "has-data" : "empty",
       dailyTransactionActivity: hasArr(bundleData?.dailySpending) ? "has-data" : "empty",
       dayOfWeekCategory: hasArr(rawTransactions) ? "has-data" : "empty",
       financialHealthScore: hasArr(rawTransactions) ? "has-data" : "empty",
-    } as Record<string, "has-data" | "empty">
+      incomeExpenseRatio: hasArr(rawTransactions) ? "has-data" : "empty",
+      weekendVsWeekday: hasArr(rawTransactions) ? "has-data" : "empty",
+      monthlyBudgetPace: hasArr(rawTransactions) ? "has-data" : "empty",
+      budgetBurndown: hasArr(rawTransactions) ? "has-data" : "empty",
+      purchaseSizeBreakdown: hasArr(rawTransactions) ? "has-data" : "empty",
+      recurringVsOneTime: hasArr(rawTransactions) ? "has-data" : "empty",
+    }
   }, [
     incomeExpenseTopChartData,
+    incomeExpenseCumulativeData,
     incomeExpenseChart.data,
     categoryFlowChart.data,
     treeMapData,
@@ -1531,6 +1738,7 @@ export function useAnalyticsChartData({
     categoryFlowChart,
     categoryFlowControls,
     chartDataStatusMap,
+    categorySpendingByPeriodControls,
     circlePackingControls,
     circlePackingData,
     dayOfWeekSpendingControls,
@@ -1540,6 +1748,8 @@ export function useAnalyticsChartData({
     incomeExpenseControls,
     incomeExpenseTopChartData,
     incomeExpenseTopControls,
+    incomeExpenseCumulativeData,
+    weeklyNetDiffData,
     moneyFlowMaxExpenseCategories,
     monthOfYearSpendingControls,
     needsWantsControls,

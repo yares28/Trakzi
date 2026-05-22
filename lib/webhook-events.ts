@@ -67,27 +67,38 @@ export async function isEventProcessed(eventId: string): Promise<boolean> {
 }
 
 /**
- * Mark an event as processing (prevents concurrent processing)
+ * Atomically claim a webhook event for processing.
+ * Uses INSERT ... ON CONFLICT DO NOTHING so only ONE concurrent caller
+ * gets a returned row — the other(s) get an empty result and must skip.
+ *
+ * Returns true if THIS caller successfully claimed the event (should process).
+ * Returns false if another process already claimed it (must skip).
+ */
+export async function claimWebhookEvent(
+    eventId: string,
+    eventType: string,
+    metadata?: { subscriptionId?: string; customerId?: string }
+): Promise<boolean> {
+    const rows = await neonQuery<{ event_id: string }>(
+        `INSERT INTO webhook_events (event_id, event_type, status, subscription_id, customer_id)
+         VALUES ($1, $2, 'processing', $3, $4)
+         ON CONFLICT (event_id) DO NOTHING
+         RETURNING event_id`,
+        [eventId, eventType, metadata?.subscriptionId ?? null, metadata?.customerId ?? null]
+    );
+    // Non-empty means we inserted (claimed). Empty means conflict — already claimed.
+    return rows.length > 0;
+}
+
+/**
+ * @deprecated Use claimWebhookEvent() instead — it's atomic and race-safe.
  */
 export async function markEventAsProcessing(
     eventId: string,
     eventType: string,
     metadata?: { subscriptionId?: string; customerId?: string }
 ): Promise<void> {
-    // Use INSERT ... ON CONFLICT to handle race conditions
-    await neonQuery(
-        `INSERT INTO webhook_events (event_id, event_type, status, subscription_id, customer_id)
-         VALUES ($1, $2, 'processing', $3, $4)
-         ON CONFLICT (event_id) DO UPDATE SET
-             status = CASE 
-                 WHEN webhook_events.status = 'completed' THEN 'completed' -- Don't overwrite completed
-                 ELSE 'processing'
-             END,
-             event_type = COALESCE(EXCLUDED.event_type, webhook_events.event_type),
-             subscription_id = COALESCE(EXCLUDED.subscription_id, webhook_events.subscription_id),
-             customer_id = COALESCE(EXCLUDED.customer_id, webhook_events.customer_id)`,
-        [eventId, eventType, metadata?.subscriptionId ?? null, metadata?.customerId ?? null]
-    );
+    await claimWebhookEvent(eventId, eventType, metadata);
 }
 
 /**
@@ -130,12 +141,37 @@ export async function markEventAsFailed(
 }
 
 /**
- * Get failure count for an event (for monitoring/alerting)
+ * Count rows for this event where status = 'failed'.
+ * Because `event_id` is the primary key, there is at most one row per id — so this is
+ * 0 or 1, not a Stripe retry counter. Use logs or a dedicated counter column if you need attempt counts.
  */
 export async function getEventFailureCount(eventId: string): Promise<number> {
-    // This would require tracking retry attempts separately
-    // For now, we can check if event exists and has failed status
-    const event = await getWebhookEvent(eventId);
-    return event?.status === 'failed' ? 1 : 0;
+    const rows = await neonQuery<{ cnt: string }>(
+        `SELECT COUNT(*) AS cnt FROM webhook_events WHERE event_id = $1 AND status = 'failed'`,
+        [eventId]
+    );
+    return parseInt(rows[0]?.cnt ?? '0', 10);
+}
+
+/**
+ * Delete webhook_events rows older than `olderThanDays` days.
+ * Stripe retries window is 3 days, so 30 days retention is more than enough.
+ * Call from a scheduled job or cron API route (e.g. /api/cron/cleanup-webhooks).
+ *
+ * @returns Number of rows deleted
+ */
+export async function deleteOldWebhookEvents(olderThanDays = 30): Promise<number> {
+    const rows = await neonQuery<{ deleted: string }>(
+        `WITH deleted AS (
+            DELETE FROM webhook_events
+            WHERE created_at < NOW() - ($1 || ' days')::INTERVAL
+            RETURNING 1
+         )
+         SELECT COUNT(*) AS deleted FROM deleted`,
+        [String(olderThanDays)]
+    );
+    const count = parseInt(rows[0]?.deleted ?? '0', 10);
+    console.log(`[WebhookEvents] Deleted ${count} old rows (older than ${olderThanDays} days)`);
+    return count;
 }
 

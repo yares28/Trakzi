@@ -16,6 +16,7 @@
 import { PlanType, getUserPlan } from '../subscriptions';
 import { getPlanLimits, getUpgradePlans } from '../plan-limits';
 import { neonQuery } from '../neonClient';
+import { getWalletCapacity } from './transaction-wallet';
 
 // ============================================================================
 // TYPES
@@ -106,23 +107,20 @@ export function getTransactionCap(plan: PlanType): number {
 }
 
 /**
- * Get remaining capacity for a user
- * This is the main function to check before any transaction write.
+ * Get remaining capacity for a user.
+ * Uses the wallet system for dynamic capacity (base + monthly earned + purchased).
  */
 export async function getRemainingCapacity(userId: string): Promise<TransactionCapacity> {
-    const plan = await getUserPlan(userId);
-    const cap = getTransactionCap(plan);
+    const walletCapacity = await getWalletCapacity(userId);
+
+    // Count breakdown for backward compatibility
     const counts = await getTransactionCount(userId);
 
-    const remaining = cap === Infinity
-        ? Infinity
-        : Math.max(0, cap - counts.total);
-
     return {
-        plan,
-        cap,
-        used: counts.total,
-        remaining,
+        plan: walletCapacity.plan,
+        cap: walletCapacity.totalCapacity,
+        used: walletCapacity.used,
+        remaining: walletCapacity.remaining,
         bankTransactions: counts.bankTransactions,
         receiptTrips: counts.receiptTrips,
     };

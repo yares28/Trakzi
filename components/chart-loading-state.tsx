@@ -5,6 +5,7 @@ import { FileUp, ChartLine, Receipt, Info } from "lucide-react"
 import { ShimmeringText } from "@/components/ui/shimmering-text"
 import { cn } from "@/lib/utils"
 import { ChartSkeleton, type ChartSkeletonType } from "@/components/chart-skeletons"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface ChartLoadingStateProps {
   isLoading?: boolean
@@ -18,6 +19,8 @@ interface ChartLoadingStateProps {
   skeletonType?: ChartSkeletonType
   /** Maximum loading time in ms before transitioning to empty state (default: 15000) */
   maxLoadingTime?: number
+  /** When true, shows an enhanced "Waiting for data" empty state for favorited charts */
+  isFavorite?: boolean
 }
 
 export function ChartLoadingState({
@@ -28,13 +31,14 @@ export function ChartLoadingState({
   emptyIcon = "chart",
   height = "h-full",
   skeletonType = "bar",
-  maxLoadingTime = 15000
+  maxLoadingTime = 15000,
+  isFavorite = false,
 }: ChartLoadingStateProps) {
   const [timedOut, setTimedOut] = useState(false)
   const [showContent, setShowContent] = useState(!isLoading)
   const prevLoadingRef = useRef(isLoading)
 
-  // Timeout protection - transition to empty state if loading takes too long
+  // Track slow loading — keep skeleton visible, just change the label
   useEffect(() => {
     if (!isLoading) {
       setTimedOut(false)
@@ -51,24 +55,12 @@ export function ChartLoadingState({
   // Handle transition from loading to content
   useEffect(() => {
     if (prevLoadingRef.current && !isLoading) {
-      // Was loading, now stopped - trigger content enter animation
       setShowContent(true)
     }
     prevLoadingRef.current = isLoading
   }, [isLoading])
 
-  // If timed out, silently transition to empty state
-  if (timedOut) {
-    return <EmptyState
-      emptyTitle={emptyTitle}
-      emptyDescription={emptyDescription}
-      emptyIcon={emptyIcon}
-      height={height}
-      className={className}
-    />
-  }
-
-  // Loading state with appropriate skeleton — min-h-0 so it fits the card (doesn't overflow)
+  // Keep showing skeleton while loading — never switch to empty during an active fetch
   if (isLoading) {
     return (
       <div className={cn("flex min-h-0 flex-col w-full", height, className)}>
@@ -77,7 +69,7 @@ export function ChartLoadingState({
             <ChartSkeleton type={skeletonType} />
           </div>
           <ShimmeringText
-            text="Loading .."
+            text={timedOut ? "Still loading..." : "Loading .."}
             className="text-muted-foreground font-medium text-sm text-center mt-1.5 shrink-0"
             duration={1.8}
             repeatDelay={0.3}
@@ -85,6 +77,17 @@ export function ChartLoadingState({
           />
         </div>
       </div>
+    )
+  }
+
+  // Enhanced empty state for favorited charts — more prominent "waiting" look
+  if (isFavorite) {
+    return (
+      <FavoriteEmptyState
+        emptyIcon={emptyIcon}
+        height={height}
+        className={cn(showContent && "chart-content-enter", className)}
+      />
     )
   }
 
@@ -139,6 +142,40 @@ function EmptyState({
 }
 
 /**
+ * Enhanced empty state for favorited charts — uses primary tint to signal "waiting for data".
+ */
+function FavoriteEmptyState({
+  emptyIcon,
+  height,
+  className,
+}: {
+  emptyIcon: "chart" | "upload" | "receipt" | "info"
+  height: string
+  className?: string
+}) {
+  const IconComponent = {
+    chart: ChartLine,
+    upload: FileUp,
+    receipt: Receipt,
+    info: Info,
+  }[emptyIcon]
+
+  return (
+    <div className={cn("flex flex-col items-center justify-center text-center px-4 w-full", height, className)}>
+      <div className="p-3 rounded-full bg-primary/10 mb-3">
+        <IconComponent className="h-6 w-6 text-primary/60" />
+      </div>
+      <p className="text-sm font-medium text-foreground mb-1">
+        Waiting for data
+      </p>
+      <p className="text-xs text-muted-foreground max-w-[200px]">
+        Import statements to populate this chart
+      </p>
+    </div>
+  )
+}
+
+/**
  * Shimmer skeleton for chart cards while data is loading
  * Can be used as a full card replacement during initial load
  */
@@ -152,18 +189,18 @@ export function ChartCardSkeleton({
   skeletonType?: ChartSkeletonType
 }) {
   return (
-    <div className={cn("rounded-xl border bg-card p-6 flex flex-col", height, className)}>
+    <div className={cn("rounded-xl border bg-card p-6 flex flex-col overflow-hidden min-w-0", height, className)}>
       {/* Header skeleton */}
       <div className="flex items-center justify-between mb-4">
         <div className="space-y-2">
-          <div className="h-4 w-32 rounded bg-muted animate-pulse" />
-          <div className="h-3 w-48 rounded bg-muted animate-pulse" />
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-3 w-48" />
         </div>
-        <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />
+        <Skeleton className="h-8 w-8 rounded-full" />
       </div>
 
       {/* Chart area skeleton - use appropriate type */}
-      <div className="flex-1 flex items-center justify-center pt-4">
+      <div className="flex-1 min-h-0 flex items-center justify-center pt-4">
         <ChartSkeleton type={skeletonType} />
       </div>
     </div>

@@ -1,11 +1,13 @@
 export type SubscriptionStatus = {
-    plan: "free" | "basic" | "pro" | "max";
+    plan: "free" | "pro" | "max";
     status: string;
     limits: {
         maxTotalTransactions: number;
         aiChatEnabled: boolean;
-        aiChatMessagesPerDay: number;
+        aiChatMessages: number;
+        aiChatPeriod: 'day' | 'week' | 'month';
         aiInsightsEnabled: boolean;
+        aiInsightsFreePreviewCount: number;
         customTransactionCategoriesLimit: number;
         customFridgeCategoriesLimit: number;
     };
@@ -22,4 +24,4 @@ export type SubscriptionStatus = {
     } | null;
 };
 
-export type PlanType = "free" | "basic" | "pro" | "max";
+export type PlanType = "free" | "pro" | "max";

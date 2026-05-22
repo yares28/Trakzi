@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { mutate } from "swr";
-import { safeCapture } from "@/lib/posthog-safe";
+import { typedCapture } from "@/types/posthog-events";
 
 export const dynamic = 'force-dynamic';
 
@@ -46,34 +46,34 @@ export default function BillingReturnPage() {
                 if (checkoutStatus === "success") {
                     setMessage(`You're now subscribed to ${plan?.toUpperCase() || "PRO"}!`);
                     // Track successful checkout completion
-                    safeCapture('checkout_completed', {
+                    typedCapture('checkout_completed', {
                         plan_name: plan || 'unknown',
                         billing_period: searchParams.get("period") || 'monthly'
                     });
                 } else if (checkoutStatus === "canceled") {
                     setMessage("Checkout was cancelled.");
                     // Track checkout cancellation
-                    safeCapture('checkout_canceled', {
+                    typedCapture('checkout_canceled', {
                         plan_name: plan || 'unknown'
                     });
                 } else {
                     setMessage("Your subscription has been updated.");
                     // Track subscription update
-                    safeCapture('subscription_updated', {});
+                    typedCapture('subscription_updated', {});
                 }
 
                 // Redirect after short delay
                 setTimeout(() => {
-                    router.push("/dashboard");
+                    router.push("/home");
                 }, 1500);
             } catch (error: any) {
                 console.error("[BillingReturn] Error:", error);
                 setStatus("error");
                 setMessage(error.message || "Something went wrong. Redirecting...");
 
-                // Still redirect to dashboard after error
+                // Still redirect to home after error
                 setTimeout(() => {
-                    router.push("/dashboard");
+                    router.push("/home");
                 }, 2000);
             }
         }

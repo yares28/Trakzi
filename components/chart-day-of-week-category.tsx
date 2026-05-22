@@ -1,13 +1,19 @@
 "use client"
 
 import * as React from "react"
-import ReactECharts from "echarts-for-react"
 import { useTheme } from "next-themes"
+import { ResponsiveBar } from "@nivo/bar"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
-import { DEFAULT_FALLBACK_PALETTE, getChartTextColor, getEChartsBackground, getEChartsSplitLineColor } from "@/lib/chart-colors"
+import {
+  DEFAULT_FALLBACK_PALETTE,
+  getChartTextColor,
+  getChartAxisLineColor,
+} from "@/lib/chart-colors"
+import { NivoChartTooltip } from "@/components/chart-tooltip"
+import { HoverableBar } from "@/components/chart-hoverable-bar"
 import { deduplicatedFetch, getCachedResponse } from "@/lib/request-deduplication"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
@@ -18,7 +24,6 @@ import {
   Card,
   CardAction,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -36,7 +41,6 @@ import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
 
 interface ChartDayOfWeekCategoryProps {
   dateFilter?: string | null
-  // Optional: pass bundle data directly (for context-based rendering)
   bundleData?: Array<{ dayOfWeek: number; category: string; total: number }>
   bundleLoading?: boolean
   emptyTitle?: string
@@ -51,6 +55,37 @@ type DayOfWeekData = {
 
 const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
+interface DayOfWeekCategoryInfoTriggerProps {
+  forFullscreen?: boolean
+}
+
+const DayOfWeekCategoryInfoTrigger = React.memo(function DayOfWeekCategoryInfoTrigger({
+  forFullscreen = false,
+}: DayOfWeekCategoryInfoTriggerProps) {
+  return (
+    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
+      <ChartInfoPopover
+        title="Day of Week Category Spending"
+        description="Compare spending across categories for a selected day of the week."
+        details={[
+          "Each bar represents total spending in a category for the selected day of the week.",
+          "Only the most spent categories are shown for each day.",
+          "Use the day selector to switch between different days of the week.",
+        ]}
+        ignoredFootnote="Only expense transactions (amount < 0) are included."
+      />
+      <ChartAiInsightButton
+        chartId="dayOfWeekCategory"
+        chartTitle="Day of Week Category Spending"
+        chartDescription="Compare spending across categories for a selected day of the week."
+        size="sm"
+      />
+    </div>
+  )
+})
+
+DayOfWeekCategoryInfoTrigger.displayName = "DayOfWeekCategoryInfoTrigger"
+
 const buildDayOfWeekUrl = (params: URLSearchParams) =>
   `/api/analytics/day-of-week-category?${params.toString()}`
 
@@ -62,7 +97,7 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
   emptyDescription
 }: ChartDayOfWeekCategoryProps) {
   const { resolvedTheme } = useTheme()
-  const { getPalette } = useColorScheme()
+  const { getShuffledPalette, colorScheme } = useColorScheme()
   const { formatCurrency } = useCurrency()
   const buildDayParams = React.useCallback(
     (day?: number | null) => {
@@ -92,8 +127,6 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
     }>(buildDayOfWeekUrl(buildDayParams(initialSelectedDay)))
     : undefined
   const [mounted, setMounted] = React.useState(false)
-  // Track if initial animation has completed to prevent replay on theme hydration
-  const hasAnimatedRef = React.useRef(false)
   const [data, setData] = React.useState<DayOfWeekData[]>(
     () => cachedSelected?.data ?? [],
   )
@@ -106,29 +139,18 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
   const [loading, setLoading] = React.useState(
     () => initialAvailableDays.length > 0 && cachedSelected === undefined,
   )
-  const chartRef = React.useRef<any>(null)
-  const containerRef = React.useRef<HTMLDivElement>(null)
-  const [tooltip, setTooltip] = React.useState<{ label: string; value: number; color: string } | null>(null)
-  const [tooltipPosition, setTooltipPosition] = React.useState<{ x: number; y: number } | null>(null)
-  const mousePositionRef = React.useRef<{ x: number; y: number } | null>(null)
   const [isFullscreen, setIsFullscreen] = React.useState(false)
 
   React.useEffect(() => {
-    // Mark as mounted to avoid rendering chart on server
     setMounted(true)
   }, [])
 
-  // Fetch available days first (without selected day) when dateFilter changes
   React.useEffect(() => {
-    // If parent provides bundleLoading prop, it's using the bundle system
-    // Skip individual API calls and wait for bundleData
     if (bundleLoading !== undefined) {
-      // Still loading - wait
       if (bundleLoading) {
         setLoading(true)
         return
       }
-      // Not loading - use bundleData if available
       if (bundleData && bundleData.length > 0) {
         const days = [...new Set(bundleData.map(d => d.dayOfWeek))].sort((a, b) => a - b)
         setAvailableDays(days)
@@ -145,15 +167,7 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
         setLoading(false)
         return
       }
-      // bundleLoading is false but no bundleData - bundle returned empty
-      // This is valid (no data), set empty state
-      setAvailableDays([])
-      setSelectedDay(null)
-      setLoading(false)
-      return
     }
-
-    // Fallback: parent doesn't use bundle system - fetch from individual API
 
     const fetchAvailableDays = async () => {
       try {
@@ -163,7 +177,6 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
         if (cached) {
           const days = cached.availableDays || []
           setAvailableDays(days)
-
           if (days.length > 0) {
             setSelectedDay((prev) => {
               if (prev === null || !days.includes(prev)) {
@@ -183,23 +196,18 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
         )
         const days = result.availableDays || []
         setAvailableDays(days)
-
-        // Reset selected day to first available when date filter changes
         if (days.length > 0) {
           setSelectedDay((prev) => {
-            // Only update if current selection is not in the new list
             if (prev === null || !days.includes(prev)) {
               return days[0]
             }
             return prev
           })
         } else {
-          // No days available - set loading to false so we show empty state
           setSelectedDay(null)
           setLoading(false)
         }
-      } catch (error) {
-        console.error("Error fetching available days:", error)
+      } catch {
         setAvailableDays([])
         setSelectedDay(null)
         setLoading(false)
@@ -212,15 +220,11 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateFilter, mounted, availableUrl, bundleData, bundleLoading])
 
-  // Fetch data when selectedDay changes
   React.useEffect(() => {
-    // If parent provides bundleLoading prop, it's using the bundle system
     if (bundleLoading !== undefined) {
-      // Still loading - wait
       if (bundleLoading) {
         return
       }
-      // Use bundleData if available
       if (bundleData && bundleData.length > 0) {
         if (selectedDay === null) {
           setData([])
@@ -231,13 +235,7 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
         setLoading(false)
         return
       }
-      // Bundle returned empty - set empty state
-      setData([])
-      setLoading(false)
-      return
     }
-
-    // Fallback: parent doesn't use bundle system
 
     const fetchData = async () => {
       if (selectedDay === null) {
@@ -263,10 +261,7 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
         )
         const fetchedData = result.data || []
 
-        // If data is empty and there are other available days, try to find one with data
         if (fetchedData.length === 0 && availableDays.length > 1) {
-          const currentIndex = availableDays.indexOf(selectedDay)
-          // Try other days in order (starting from the first)
           for (const day of availableDays) {
             if (day === selectedDay) continue
 
@@ -295,8 +290,7 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
         }
 
         setData(fetchedData)
-      } catch (error) {
-        console.error("Error fetching day of week category data:", error)
+      } catch {
         setData([])
       } finally {
         setLoading(false)
@@ -308,280 +302,106 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
     }
   }, [selectedDay, dateFilter, mounted, availableDays, buildDayParams, bundleData, bundleLoading])
 
-  // getPalette() already filters neutral #c3c3c3 and trims by theme
   const palette = React.useMemo(() => {
-    const p = getPalette()
+    const p = getShuffledPalette("analytics:dayOfWeekCategory")
     return p.length ? p : DEFAULT_FALLBACK_PALETTE
-  }, [getPalette])
+  }, [getShuffledPalette])
 
+  const isDark = resolvedTheme === "dark"
+  const textColor = getChartTextColor(isDark)
+  const gridColor = getChartAxisLineColor(isDark)
 
+  const topCategories = React.useMemo(() => data.slice(0, 10), [data])
 
-  // ECharts event handlers for custom tooltip
-  const handleChartMouseOver = React.useCallback(
-    (params: any) => {
-      if (!containerRef.current) return
-
-      const rect = containerRef.current.getBoundingClientRect()
-      let mouseX = 0
-      let mouseY = 0
-      const ecEvent = (params && (params.event?.event || params.event)) as
-        | (MouseEvent & { offsetX?: number; offsetY?: number })
-        | undefined
-
-      if (ecEvent) {
-        if (
-          typeof ecEvent.clientX === "number" &&
-          typeof ecEvent.clientY === "number"
-        ) {
-          mouseX = ecEvent.clientX - rect.left
-          mouseY = ecEvent.clientY - rect.top
-        } else if (
-          typeof ecEvent.offsetX === "number" &&
-          typeof ecEvent.offsetY === "number"
-        ) {
-          mouseX = ecEvent.offsetX
-          mouseY = ecEvent.offsetY
-        }
-      }
-
-      const position = { x: mouseX, y: mouseY }
-      mousePositionRef.current = position
-      setTooltipPosition(position)
-
-      if (params && params.name) {
-        const category = params.name || ""
-        let value = 0
-        if (Array.isArray(params.value)) {
-          value = params.value[1] || params.value[0] || 0
-        } else if (params.data && Array.isArray(params.data)) {
-          value = params.data[1] || 0
-        } else {
-          value = params.value || 0
-        }
-        const index = params.dataIndex || 0
-        const color = palette[index % palette.length]
-
-        setTooltip({
-          label: category,
-          value,
-          color,
-        })
-      }
-    },
-    [palette],
+  // Sort descending by total so largest segments are at top (Nivo renders first key at top)
+  const sortedCategories = React.useMemo(() =>
+    [...topCategories].sort((a, b) => b.total - a.total),
+    [topCategories]
   )
 
-  const handleChartMouseOut = React.useCallback(() => {
-    setTooltip(null)
-    setTooltipPosition(null)
-    mousePositionRef.current = null
-  }, [])
-
-  const chartEvents = React.useMemo(
-    () => ({
-      mouseover: handleChartMouseOver,
-      mouseout: handleChartMouseOut,
-      // Ensure tooltip clears even if the cursor leaves the chart entirely
-      globalout: handleChartMouseOut,
-    }),
-    [handleChartMouseOver, handleChartMouseOut],
+  const categoryKeys = React.useMemo(() =>
+    sortedCategories.map(d => d.category),
+    [sortedCategories]
   )
 
-  // Track mouse movement continuously for tooltip positioning
-  React.useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
-
-    const handleMouseMove = (e: MouseEvent) => {
-      const rect = container.getBoundingClientRect()
-      const position = {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-      }
-      mousePositionRef.current = position
-      if (tooltip) {
-        setTooltipPosition(position)
-      }
-    }
-
-    const handleMouseLeave = () => {
-      setTooltip(null)
-      setTooltipPosition(null)
-      mousePositionRef.current = null
-    }
-
-    container.addEventListener('mousemove', handleMouseMove)
-    container.addEventListener('mouseleave', handleMouseLeave)
-
-    return () => {
-      container.removeEventListener('mousemove', handleMouseMove)
-      container.removeEventListener('mouseleave', handleMouseLeave)
-    }
-  }, [tooltip])
-
-  const renderInfoTrigger = (forFullscreen = false) => (
-    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
-      <ChartInfoPopover
-        title="Day of Week Category Spending"
-        description="Compare spending across categories for a selected day of the week."
-        details={[
-          "Each bar represents total spending in a category for the selected day of the week.",
-          "Only the most spent categories are shown for each day.",
-          "Use the day selector to switch between different days of the week.",
-        ]}
-        ignoredFootnote="Only expense transactions (amount < 0) are included."
-      />
-      <ChartAiInsightButton
-        chartId="dayOfWeekCategory"
-        chartTitle="Day of Week Category Spending"
-        chartDescription="Compare spending across categories for a selected day of the week."
-        size="sm"
-      />
-    </div>
-  )
-
-  const option = React.useMemo(() => {
-    if (!data.length || selectedDay === null) return null
-
-    // Data is already filtered to selected day and sorted by total descending
-    // Get top categories (already sorted by API)
-    const topCategories = data.slice(0, 10) // Show top 10 categories
-
-    if (!topCategories.length) return null
-
-    // Precompute a stable color for each category index so we don't
-    // recalculate it inside render paths.
-    const barColors = topCategories.map((_, index) => palette[index % palette.length])
-
-    // Build dataset source
-    const datasetSource: any[] = [["category", "Amount"]]
-    topCategories.forEach((item) => {
-      datasetSource.push([item.category, item.total])
+  const categoryColors = React.useMemo(() => {
+    const colorMap = new Map<string, string>()
+    sortedCategories.forEach((d, index) => {
+      colorMap.set(d.category, palette[index % palette.length])
     })
+    return colorMap
+  }, [sortedCategories, palette])
 
-    const isDark = resolvedTheme === "dark"
-    const backgroundColor = getEChartsBackground(isDark)
+  const nivoData = React.useMemo(() => {
+    if (selectedDay === null || sortedCategories.length === 0) return []
+    const row: Record<string, number | string> = { day: DAY_NAMES[selectedDay] }
+    sortedCategories.forEach(d => {
+      row[d.category] = d.total
+    })
+    return [row]
+  }, [sortedCategories, selectedDay])
 
-    // Use muted-foreground color for axis labels
-    const textColor = getChartTextColor(isDark)
+  const dayTotal = React.useMemo(() =>
+    topCategories.reduce((sum, item) => sum + item.total, 0),
+    [topCategories]
+  )
 
-    // Disable animation after first render to prevent replay on theme hydration
-    // Set ref synchronously to prevent race condition with theme changes
-    const shouldAnimate = !hasAnimatedRef.current
-    if (shouldAnimate) {
-      hasAnimatedRef.current = true
-    }
+  const dayOfWeekSelectRowEl =
+    availableDays.length > 0 ? (
+      <div className="flex w-full shrink-0 justify-center px-2 sm:px-6">
+        <Select
+          value={selectedDay !== null ? selectedDay.toString() : ""}
+          onValueChange={(value) => setSelectedDay(parseInt(value, 10))}
+        >
+          <SelectTrigger
+            className="w-32"
+            size="sm"
+            aria-label="Select day of week"
+          >
+            <SelectValue placeholder="Select day" />
+          </SelectTrigger>
+          <SelectContent className="rounded-xl">
+            {availableDays.map((day) => (
+              <SelectItem key={day} value={day.toString()} className="rounded-lg">
+                {DAY_NAMES[day]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    ) : null
 
-    return {
-      backgroundColor,
-      animation: shouldAnimate,
-      animationDuration: shouldAnimate ? 1000 : 0,
-      textStyle: {
-        color: textColor,
-      },
-      legend: {
-        show: false,
-      },
-      tooltip: {
-        show: false, // Disable default ECharts tooltip
-      },
-      dataset: {
-        source: datasetSource,
-      },
-      xAxis: {
-        type: "category",
-        axisLabel: {
-          rotate: 45,
-          interval: 0,
-          color: textColor,
-        },
-        axisTick: {
-          lineStyle: {
-            color: textColor,
-          },
-        },
-        axisLine: {
-          lineStyle: {
-            color: textColor,
-          },
-        },
-      },
-      yAxis: {
-        type: "value",
-        axisLabel: {
-          formatter: (value: number) => formatCurrency(value, { maximumFractionDigits: 0 }),
-          color: textColor,
-        },
-        axisTick: {
-          lineStyle: {
-            color: textColor,
-          },
-        },
-        axisLine: {
-          lineStyle: {
-            color: textColor,
-          },
-        },
-        splitLine: {
-          lineStyle: {
-            color: getEChartsSplitLineColor(isDark),
-          },
-        },
-      },
-      series: [
-        {
-          type: "bar",
-          itemStyle: {
-            color: (params: any) => {
-              const index = params.dataIndex
-              return barColors[index] ?? palette[index % palette.length]
-            },
-          },
-        },
-      ],
-    }
-  }, [data, selectedDay, palette, resolvedTheme])
-
-  // Ensure tooltip clears when leaving the chart canvas entirely
-  React.useEffect(() => {
-    if (!chartRef.current) return
-    const instance = chartRef.current.getEchartsInstance?.()
-    if (!instance || !instance.getZr) return
-
-    const zr = instance.getZr()
-    const handleGlobalOut = () => {
-      setTooltip(null)
-      setTooltipPosition(null)
-      mousePositionRef.current = null
-    }
-
-    zr.on("globalout", handleGlobalOut)
-    return () => {
-      zr.off("globalout", handleGlobalOut)
-    }
-  }, [])
-
-
-  // Memoize the heavy chart element so tooltip state changes
-  // do not cause the ECharts instance to be recreated.
-  const chartElement = React.useMemo(() => {
-    if (!option) return null
-    return (
-      <ReactECharts
-        ref={chartRef}
-        option={option}
-        style={{ height: "100%", width: "100%" }}
-        opts={{ renderer: "svg" }}
-        notMerge={true}
-        onEvents={chartEvents}
-      />
-    )
-  }, [option, chartEvents])
+  const dayOfWeekHeaderActionsEl = (
+    <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+      {availableDays.length > 0 ? (
+        <Select
+          value={selectedDay !== null ? selectedDay.toString() : ""}
+          onValueChange={(value) => setSelectedDay(parseInt(value, 10))}
+        >
+          <SelectTrigger
+            className="w-32"
+            size="sm"
+            aria-label="Select day of week"
+          >
+            <SelectValue placeholder="Select day" />
+          </SelectTrigger>
+          <SelectContent className="rounded-xl">
+            {availableDays.map((day) => (
+              <SelectItem key={day} value={day.toString()} className="rounded-lg">
+                {DAY_NAMES[day]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : null}
+      <DayOfWeekCategoryInfoTrigger />
+    </CardAction>
+  )
 
   if (!mounted) {
     return (
-      <Card className="@container/card">
-        <CardHeader>
+      <Card className="@container/card gap-[20px]">
+        <CardHeader className="pb-0">
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />
             <ChartFavoriteButton
@@ -591,11 +411,9 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
             />
             <CardTitle>Day of Week Category Spending</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
-          </CardAction>
+          {dayOfWeekHeaderActionsEl}
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+        <CardContent className="px-2 pt-0 sm:px-6 h-[250px]">
           <ChartLoadingState
             isLoading
             skeletonType="bar"
@@ -609,8 +427,8 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
 
   if (loading) {
     return (
-      <Card className="@container/card">
-        <CardHeader>
+      <Card className="@container/card gap-[20px]">
+        <CardHeader className="pb-0">
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />
             <ChartFavoriteButton
@@ -620,11 +438,9 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
             />
             <CardTitle>Day of Week Category Spending</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
-          </CardAction>
+          {dayOfWeekHeaderActionsEl}
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+        <CardContent className="px-2 pt-0 sm:px-6 h-[250px]">
           <ChartLoadingState
             isLoading
             skeletonType="bar"
@@ -638,8 +454,8 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
 
   if (!availableDays.length || selectedDay === null) {
     return (
-      <Card className="@container/card">
-        <CardHeader>
+      <Card className="@container/card gap-[20px]">
+        <CardHeader className="pb-0">
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />
             <ChartFavoriteButton
@@ -649,11 +465,9 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
             />
             <CardTitle>Day of Week Category Spending</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
-          </CardAction>
+          {dayOfWeekHeaderActionsEl}
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+        <CardContent className="px-2 pt-0 sm:px-6 h-[250px]">
           <ChartLoadingState
             skeletonType="bar"
             emptyTitle={emptyTitle || "No spending data"}
@@ -664,6 +478,56 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
     )
   }
 
+  const renderChart = () => (
+    <ResponsiveBar
+      data={nivoData}
+      keys={categoryKeys}
+      indexBy="day"
+      groupMode="stacked"
+      margin={{ top: 16, right: 16, bottom: 40, left: 60 }}
+      padding={0.3}
+      colors={({ id }) => categoryColors.get(id as string) ?? palette[0]}
+      borderRadius={4}
+      enableLabel={false}
+      axisBottom={{ tickSize: 0, tickPadding: 8 }}
+      axisLeft={{
+        tickSize: 0,
+        tickPadding: 8,
+        format: (v: number) => {
+          if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`
+          if (v >= 1_000) return `${(v / 1_000).toFixed(0)}K`
+          return formatCurrency(v, { maximumFractionDigits: 0 })
+        },
+      }}
+      enableGridY={true}
+      gridYValues={5}
+      theme={{
+        text: { fill: textColor, fontSize: 11 },
+        axis: {
+          ticks: { text: { fill: textColor } },
+          domain: { line: { stroke: gridColor } },
+        },
+        grid: {
+          line: {
+            stroke: gridColor,
+            strokeWidth: 0.5,
+            strokeDasharray: "3,3",
+          },
+        },
+      }}
+      tooltip={({ id, value, color }) => (
+        <NivoChartTooltip
+          title={String(id)}
+          titleColor={color}
+          value={formatCurrency(value as number)}
+        />
+      )}
+      animate={true}
+      motionConfig="gentle"
+      barComponent={HoverableBar}
+    />
+  )
+
   return (
     <>
       <ChartFullscreenModal
@@ -671,15 +535,32 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
         onClose={() => setIsFullscreen(false)}
         title="Day of Week Category Spending"
         description="Compare spending across categories by day"
-        headerActions={renderInfoTrigger(true)}
+        headerActions={<DayOfWeekCategoryInfoTrigger forFullscreen />}
       >
-        <div className="h-full w-full min-h-[400px] text-center flex items-center justify-center text-muted-foreground">
-          Fullscreen view - Select a day to see category spending
+        <div className="h-full w-full min-h-[400px] flex flex-col">
+          {dayOfWeekSelectRowEl ? (
+            <div className="shrink-0 pb-2">{dayOfWeekSelectRowEl}</div>
+          ) : null}
+          <div className="flex-1 min-h-0" key={`${selectedDay}-${colorScheme}`}>
+            {renderChart()}
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-2">
+            {categoryKeys.map((cat) => (
+              <div key={cat} className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: categoryColors.get(cat) }} />
+                <span className="font-medium text-foreground truncate max-w-[120px]" title={cat}>{cat}</span>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center justify-end gap-1 px-4 py-2 text-xs text-muted-foreground border-t">
+            <span>Total:</span>
+            <span className="font-semibold text-foreground">{formatCurrency(dayTotal)}</span>
+          </div>
         </div>
       </ChartFullscreenModal>
 
-      <Card className="@container/card">
-        <CardHeader>
+      <Card className="@container/card gap-[20px]">
+        <CardHeader className="pb-0">
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />
             <ChartExpandButton onClick={() => setIsFullscreen(true)} />
@@ -690,65 +571,35 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
             />
             <CardTitle>Day of Week Category Spending</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            <Select
-              value={selectedDay !== null ? selectedDay.toString() : ""}
-              onValueChange={(value) => setSelectedDay(parseInt(value, 10))}
-            >
-              <SelectTrigger
-                className="w-32"
-                size="sm"
-                aria-label="Select day of week"
-              >
-                <SelectValue placeholder="Select day" />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl">
-                {availableDays.map((day) => (
-                  <SelectItem key={day} value={day.toString()} className="rounded-lg">
-                    {DAY_NAMES[day]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {renderInfoTrigger()}
-          </CardAction>
+          {dayOfWeekHeaderActionsEl}
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
-          {option && data.length > 0 ? (
-            <div className="h-full w-full flex flex-col">
-              <div className="mb-2 text-sm font-medium text-foreground text-center">
-                Total: {formatCurrency(data.reduce((sum, item) => sum + item.total, 0))}
+        <CardContent className="px-2 pt-0 sm:px-6 flex-1 min-h-0 flex flex-col">
+          {topCategories.length > 0 ? (
+            <>
+              <div className="h-full w-full min-h-[210px]" key={`${selectedDay}-${colorScheme}`}>
+                {renderChart()}
               </div>
-              <div ref={containerRef} className="relative flex-1 min-h-0" style={{ minHeight: 0, minWidth: 0 }}>
-                {chartElement}
-                {tooltip && tooltipPosition && (
-                  <div
-                    className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
-                    style={{
-                      left: Math.min(Math.max(tooltipPosition.x + 16, 8), (containerRef.current?.clientWidth || 800) - 8),
-                      top: Math.min(Math.max(tooltipPosition.y - 16, 8), (containerRef.current?.clientHeight || 250) - 8),
-                    }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="h-2.5 w-2.5 rounded-full border border-border/50"
-                        style={{ backgroundColor: tooltip.color, borderColor: tooltip.color }}
-                      />
-                      <span className="font-medium text-foreground whitespace-nowrap">{tooltip.label}</span>
-                    </div>
-                    <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
-                      {formatCurrency(tooltip.value)}
-                    </div>
+              <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-2">
+                {categoryKeys.map((cat) => (
+                  <div key={cat} className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: categoryColors.get(cat) }} />
+                    <span className="font-medium text-foreground truncate max-w-[120px]" title={cat}>{cat}</span>
                   </div>
-                )}
+                ))}
               </div>
-            </div>
+              <div className="flex items-center justify-end gap-1 pt-2 text-xs text-muted-foreground">
+                <span>Total:</span>
+                <span className="font-semibold text-foreground">{formatCurrency(dayTotal)}</span>
+              </div>
+            </>
           ) : (
-            <ChartLoadingState
-              skeletonType="bar"
-              emptyTitle={emptyTitle || "No spending data"}
-              emptyDescription={emptyDescription || "No transactions recorded for this day yet"}
-            />
+            <div className="h-[250px]">
+              <ChartLoadingState
+                skeletonType="bar"
+                emptyTitle={emptyTitle || "No spending data"}
+                emptyDescription={emptyDescription || "No transactions recorded for this day yet"}
+              />
+            </div>
           )}
         </CardContent>
       </Card>

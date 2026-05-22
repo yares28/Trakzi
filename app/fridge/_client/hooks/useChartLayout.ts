@@ -142,6 +142,30 @@ export function useChartLayout() {
     [saveChartSizes]
   )
 
+  // -----------------------------------------------------------------
+  // Reset to defaults — restores order and sizes.
+  // -----------------------------------------------------------------
+  const resetLayout = useCallback(() => {
+    const defaultOrder = [...DEFAULT_CHART_ORDER] as FridgeChartId[]
+    const defaultSizes = { ...DEFAULT_CHART_SIZES } as Record<FridgeChartId, ChartSize>
+
+    setChartOrder(defaultOrder)
+    setSavedChartSizes(defaultSizes)
+    savedChartSizesRef.current = defaultSizes
+
+    updatePagePreferences("fridge", {
+      order: defaultOrder,
+      sizes: defaultSizes,
+      sizes_version: DEFAULT_SIZES_VERSION,
+    })
+  }, [updatePagePreferences])
+
+  useEffect(() => {
+    const handler = () => resetLayout()
+    window.addEventListener("gridstack:reset", handler)
+    return () => window.removeEventListener("gridstack:reset", handler)
+  }, [resetLayout])
+
   return {
     chartOrder,
     handleChartOrderChange,

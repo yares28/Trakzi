@@ -1,12 +1,10 @@
 "use client"
-
 import { useMemo, useState, useEffect } from "react"
 import { useTheme } from "next-themes"
 import { ResponsiveLine } from "@nivo/line"
 import {
     Card,
     CardContent,
-    CardDescription,
     CardHeader,
     CardTitle,
     CardAction,
@@ -18,7 +16,6 @@ import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
-
 interface ChartWeeklyComparisonProps {
     data: Array<{
         date: string
@@ -26,7 +23,6 @@ interface ChartWeeklyComparisonProps {
     }>
     isLoading?: boolean
 }
-
 export function ChartWeeklyComparison({
     data,
     isLoading = false,
@@ -36,17 +32,13 @@ export function ChartWeeklyComparison({
     const { formatCurrency } = useCurrency()
     const palette = getPalette()
     const [mounted, setMounted] = useState(false)
-
     useEffect(() => {
         setMounted(true)
     }, [])
-
     const chartData = useMemo(() => {
         if (!data || data.length === 0) return []
-
         // Group by ISO week
         const weeklyTotals = new Map<string, number>()
-
         data.forEach((tx) => {
             if (tx.amount >= 0) return
             const date = new Date(tx.date)
@@ -55,17 +47,14 @@ export function ChartWeeklyComparison({
             const weekKey = `${year}-W${week.toString().padStart(2, '0')}`
             weeklyTotals.set(weekKey, (weeklyTotals.get(weekKey) || 0) + Math.abs(tx.amount))
         })
-
         const sortedWeeks = Array.from(weeklyTotals.entries())
             .sort((a, b) => a[0].localeCompare(b[0]))
             .slice(-12)
-
         return [{
             id: "Weekly Spending",
             data: sortedWeeks.map(([week, total]) => ({ x: week, y: total })),
         }]
     }, [data])
-
     // ISO week calculation
     function getISOWeek(date: Date): number {
         const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
@@ -74,16 +63,12 @@ export function ChartWeeklyComparison({
         const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
         return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7)
     }
-
     const isDark = resolvedTheme === "dark"
     const textColor = isDark ? "#9ca3af" : "#6b7280"
     const gridColor = isDark ? "#374151" : "#e5e7eb"
-
     const chartTitle = "Weekly Comparison"
     const chartDescription = "Compare your spending week over week. Spot patterns and anomalies in your weekly budget."
-
     const avgWeekly = chartData[0]?.data ? chartData[0].data.reduce((sum, d) => sum + d.y, 0) / chartData[0].data.length : 0
-
     const renderInfoTrigger = () => (
         <div className="flex flex-col items-center gap-2">
             <ChartInfoPopover
@@ -104,7 +89,6 @@ export function ChartWeeklyComparison({
             />
         </div>
     )
-
     if (!mounted || !chartData[0]?.data?.length) {
         return (
             <Card className="@container/card h-full flex flex-col">
@@ -122,7 +106,6 @@ export function ChartWeeklyComparison({
             </Card>
         )
     }
-
     return (
         <Card className="@container/card h-full flex flex-col">
             <CardHeader>
@@ -131,10 +114,6 @@ export function ChartWeeklyComparison({
                     <ChartFavoriteButton chartId="testCharts:weeklyComparison" chartTitle={chartTitle} size="md" />
                     <CardTitle>{chartTitle}</CardTitle>
                 </div>
-                <CardDescription>
-                    <span className="hidden @[540px]/card:block">{chartDescription}</span>
-                    <span className="@[540px]/card:hidden">Week over week spending</span>
-                </CardDescription>
                 <CardAction>{renderInfoTrigger()}</CardAction>
             </CardHeader>
             <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">

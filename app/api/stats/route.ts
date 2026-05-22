@@ -24,18 +24,6 @@ function getDateRange(filter: string | null): { startDate: string | null; endDat
     let endDate: Date = today;
 
     switch (filter) {
-        case "last7days": {
-            startDate = new Date(today);
-            startDate.setDate(startDate.getDate() - 7);
-            const previousStartDate = new Date(startDate);
-            previousStartDate.setDate(previousStartDate.getDate() - 7);
-            return {
-                startDate: formatDate(startDate),
-                endDate: formatDate(endDate),
-                previousStartDate: formatDate(previousStartDate),
-                previousEndDate: formatDate(new Date(startDate.getTime() - 1))
-            };
-        }
         case "last30days": {
             startDate = new Date(today);
             startDate.setDate(startDate.getDate() - 30);
@@ -98,6 +86,23 @@ function getDateRange(filter: string | null): { startDate: string | null; endDat
             };
         }
         default: {
+            // Handle custom date range: custom:YYYY-MM-DD:YYYY-MM-DD
+            if (filter.startsWith("custom:")) {
+                const parts = filter.split(":");
+                if (parts.length === 3) {
+                    const start = new Date(parts[1]);
+                    const end = new Date(parts[2]);
+                    const durationMs = end.getTime() - start.getTime();
+                    const previousEnd = new Date(start.getTime() - 1);
+                    const previousStart = new Date(start.getTime() - durationMs);
+                    return {
+                        startDate: parts[1],
+                        endDate: parts[2],
+                        previousStartDate: formatDate(previousStart),
+                        previousEndDate: formatDate(previousEnd),
+                    };
+                }
+            }
             // Assume it's a year string (e.g., "2024")
             const year = parseInt(filter);
             if (!isNaN(year)) {

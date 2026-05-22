@@ -12,9 +12,8 @@ import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
   Card,
-  CardAction,
   CardContent,
-  CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -330,13 +329,13 @@ export const ChartDayOfWeekSpendingFridge = React.memo(function ChartDayOfWeekSp
             />
             <CardTitle>Day of Week Spending</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
-          </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
           <ChartLoadingState isLoading />
         </CardContent>
+        <CardFooter className="pb-3 gap-2">
+          {renderInfoTrigger()}
+        </CardFooter>
       </Card>
     )
   }
@@ -354,13 +353,13 @@ export const ChartDayOfWeekSpendingFridge = React.memo(function ChartDayOfWeekSp
             />
             <CardTitle>Day of Week Spending</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
-          </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
           <ChartLoadingState isLoading />
         </CardContent>
+        <CardFooter className="pb-3 gap-2">
+          {renderInfoTrigger()}
+        </CardFooter>
       </Card>
     )
   }
@@ -377,9 +376,6 @@ export const ChartDayOfWeekSpendingFridge = React.memo(function ChartDayOfWeekSp
           />
           <CardTitle>Day of Week Spending</CardTitle>
         </div>
-        <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-          {renderInfoTrigger()}
-        </CardAction>
       </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
         {option && data.length > 0 ? (
@@ -418,12 +414,14 @@ export const ChartDayOfWeekSpendingFridge = React.memo(function ChartDayOfWeekSp
           </div>
         )}
       </CardContent>
+      <CardFooter className="pb-3 gap-2">
+        {renderInfoTrigger()}
+      </CardFooter>
     </Card>
   )
 })
 
 ChartDayOfWeekSpendingFridge.displayName = "ChartDayOfWeekSpendingFridge"
-
 
 
 

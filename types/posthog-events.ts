@@ -1,8 +1,10 @@
 /**
  * TypeScript type definitions for PostHog events
- * 
+ *
  * This provides type safety for event names and their properties
  */
+
+import { safeCapture as rawSafeCapture } from "@/lib/posthog-safe"
 
 export interface PostHogEventProperties {
   // Dashboard Events
@@ -13,9 +15,21 @@ export interface PostHogEventProperties {
     card_href: string
   }
   
+  /** Suggested chip, anomaly chip, or free-text suggestion — `prompt_type` when it maps to a known template */
   'quick_ai_prompt_clicked': {
-    prompt_type: 'monthly_summary' | 'top_expenses' | 'seasonal_patterns' | 'year_over_year'
     prompt_text: string
+    prompt_type?: 'monthly_summary' | 'top_expenses' | 'seasonal_patterns' | 'year_over_year'
+    is_anomaly?: boolean
+  }
+
+  'faq_question_expanded': {
+    question: string
+    question_index: number
+  }
+
+  'statement_transactions_saved': {
+    category_updates: number
+    deletions: number
   }
 
   // Analytics/File Import Events
@@ -23,20 +37,24 @@ export interface PostHogEventProperties {
     file_name: string
     file_size: number
     file_type: string
+    parse_mode?: 'auto' | 'ai'
   }
 
   'file_import_completed': {
     file_name: string
-    file_size: number
-    file_type: string
+    file_count?: number
+    transaction_count?: number
+    file_size?: number
+    file_type?: string
   }
 
   'file_import_failed': {
     file_name: string
-    file_size: number
-    file_type: string
     error_message?: string
-    stage?: 'parsing' | 'upload' | 'processing'
+    stage?: 'parsing' | 'upload' | 'processing' | 'import'
+    transaction_count?: number
+    file_size?: number
+    file_type?: string
   }
 
   'budget_limit_set': {
@@ -67,7 +85,7 @@ export interface PostHogEventProperties {
   'pricing_plan_clicked': {
     plan_name: string
     billing_period: 'monthly' | 'annual'
-    price: string | number
+    price?: string | number
     is_popular?: boolean
     is_signed_in: boolean
   }
@@ -110,7 +128,8 @@ export interface PostHogEventProperties {
   'ai_chat_message_sent': {
     message_length: number
     message_word_count: number
-    is_first_message: boolean
+    is_first_message?: boolean
+    is_regenerate?: boolean
   }
 }
 
@@ -139,9 +158,6 @@ export function typedCapture<K extends PostHogEventName>(
   event: K,
   properties: PostHogEventProperties[K]
 ): boolean {
-  // Dynamic import to avoid circular dependencies
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { safeCapture } = require('../lib/posthog-safe')
-  return safeCapture(event, properties)
+  return rawSafeCapture(event, properties as Record<string, unknown>)
 }
 

@@ -1,12 +1,10 @@
 "use client"
-
 import { useMemo, useState, useEffect } from "react"
 import { useTheme } from "next-themes"
 import { ResponsiveLine } from "@nivo/line"
 import {
     Card,
     CardContent,
-    CardDescription,
     CardHeader,
     CardTitle,
     CardAction,
@@ -18,7 +16,6 @@ import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
-
 interface ChartCumulativeSpendingProps {
     data: Array<{
         date: string
@@ -26,7 +23,6 @@ interface ChartCumulativeSpendingProps {
     }>
     isLoading?: boolean
 }
-
 export function ChartCumulativeSpending({
     data,
     isLoading = false,
@@ -36,26 +32,20 @@ export function ChartCumulativeSpending({
     const { formatCurrency } = useCurrency()
     const palette = getPalette()
     const [mounted, setMounted] = useState(false)
-
     useEffect(() => {
         setMounted(true)
     }, [])
-
     const chartData = useMemo(() => {
         if (!data || data.length === 0) return []
-
         const dailyTotals = new Map<string, number>()
-
         data.forEach((tx) => {
             if (tx.amount >= 0) return
             const date = tx.date.split("T")[0]
             const current = dailyTotals.get(date) || 0
             dailyTotals.set(date, current + Math.abs(tx.amount))
         })
-
         const sortedDates = Array.from(dailyTotals.keys()).sort()
         let cumulative = 0
-
         return [{
             id: "Cumulative Spending",
             data: sortedDates.map(date => {
@@ -64,16 +54,12 @@ export function ChartCumulativeSpending({
             }),
         }]
     }, [data])
-
     const isDark = resolvedTheme === "dark"
     const textColor = isDark ? "#9ca3af" : "#6b7280"
     const gridColor = isDark ? "#374151" : "#e5e7eb"
-
     const chartTitle = "Cumulative Spending"
     const chartDescription = "Watch your total spending accumulate over time. Steeper slopes indicate faster spending periods."
-
     const totalSpending = chartData[0]?.data?.[chartData[0].data.length - 1]?.y ?? 0
-
     const renderInfoTrigger = () => (
         <div className="flex flex-col items-center gap-2">
             <ChartInfoPopover
@@ -94,7 +80,6 @@ export function ChartCumulativeSpending({
             />
         </div>
     )
-
     if (!mounted || !chartData[0]?.data?.length) {
         return (
             <Card className="@container/card h-full flex flex-col">
@@ -112,7 +97,6 @@ export function ChartCumulativeSpending({
             </Card>
         )
     }
-
     return (
         <Card className="@container/card h-full flex flex-col">
             <CardHeader>
@@ -121,10 +105,6 @@ export function ChartCumulativeSpending({
                     <ChartFavoriteButton chartId="testCharts:cumulativeSpending" chartTitle={chartTitle} size="md" />
                     <CardTitle>{chartTitle}</CardTitle>
                 </div>
-                <CardDescription>
-                    <span className="hidden @[540px]/card:block">{chartDescription}</span>
-                    <span className="@[540px]/card:hidden">Running total over time</span>
-                </CardDescription>
                 <CardAction>{renderInfoTrigger()}</CardAction>
             </CardHeader>
             <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">

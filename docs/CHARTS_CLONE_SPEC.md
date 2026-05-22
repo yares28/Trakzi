@@ -1,7 +1,11 @@
 # Chart Card Clone Specification
 
-> **Last Updated**: February 2025
-> **Reference Chart**: `ChartTreeMap` — "Net Worth Allocation" (`components/chart-treemap.tsx`)
+> **Last Updated**: March 2026
+> **Reference Charts**:
+> - **Pie / Donut** → `ChartExpenseBreakdownFridge` (`components/fridge/chart-expense-breakdown-fridge.tsx`)
+> - **Bar** → `ChartPurchaseSizeBreakdown` (`components/chart-purchase-size-breakdown.tsx`)
+> - **TreeMap** → `ChartTreeMap` (`components/chart-treemap.tsx`)
+>
 > **Purpose**: Definitive source of truth for creating any new chart card that is identical in structure, API integration, theming, interactivity, and performance to every other chart in Trakzi.
 
 ---
@@ -34,7 +38,7 @@
 24. [Step 22 — ChartsGrid Integration](#24-step-22--chartsgrid-integration)
 25. [Step 23 — Cache Invalidation](#25-step-23--cache-invalidation)
 26. [Complete Template (Copy-Paste Ready)](#26-complete-template-copy-paste-ready)
-27. [Library-Specific Configurations](#27-library-specific-configurations)
+27. [Library-Specific Configurations](#27-library-specific-configurations) ← Pie, Bar, Area templates with exact props
 28. [Testing Checklist](#28-testing-checklist)
 29. [Anti-Patterns](#29-anti-patterns)
 
@@ -83,10 +87,11 @@ Every chart component starts with these exact imports. Copy this block, then add
 import { useMemo, useState, memo } from "react"
 import { useTheme } from "next-themes"
 // ↓ YOUR CHART LIBRARY — pick ONE per chart
-// import { ResponsivePie } from "@nivo/pie"
-// import { ResponsiveTreeMap } from "@nivo/treemap"
-// import { ResponsiveRadar } from "@nivo/radar"
-// import { AreaChart, Area, CartesianGrid, XAxis } from "recharts"
+// Pie / Donut  → import { ResponsivePie } from "@nivo/pie"            (see §27a)
+// Bar          → import { ResponsiveBar } from "@nivo/bar"            (see §27b)
+// TreeMap      → import { ResponsiveTreeMap } from "@nivo/treemap"
+// Radar        → import { ResponsiveRadar } from "@nivo/radar"
+// Area / Line  → import { AreaChart, Area, CartesianGrid, XAxis } from "recharts"  (see §27d)
 
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { ChartInfoPopover, type ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
@@ -1329,10 +1334,275 @@ ChartYourChart.displayName = "ChartYourChart"
 
 ## 27. Library-Specific Configurations
 
-### Nivo Charts (Pie, TreeMap, Radar, Sankey, CirclePacking)
+> **Reference charts** for each type are the canonical implementation to clone from:
+> - **Pie / Donut** → `components/fridge/chart-expense-breakdown-fridge.tsx` ("Expense Breakdown")
+> - **Bar** → `components/chart-purchase-size-breakdown.tsx` ("Purchase Size Breakdown")
+
+---
+
+### 27a. Nivo Pie / Donut Charts
+
+**Reference**: `ChartExpenseBreakdownFridge` — `components/fridge/chart-expense-breakdown-fridge.tsx`
+
+#### Required import
+```tsx
+import { ResponsivePie } from "@nivo/pie"
+import { getContrastTextColor, getChartTextColor } from "@/lib/chart-colors"
+```
+
+#### Color setup (darker = larger values)
+```tsx
+const { colorScheme, getShuffledPalette } = useColorScheme()
+
+const dataWithColors = useMemo(() => {
+  const numParts = Math.min(sanitizedData.length, 7)
+  const palette = getShuffledPalette()
+  const sorted = [...sanitizedData].sort((a, b) => b.value - a.value)
+  return sorted.map((item, index) => ({
+    ...item,
+    color: palette[index % numParts],
+  }))
+}, [sanitizedData, colorScheme, getShuffledPalette])
+
+// Pass colors from data objects:
+const colorConfig = { datum: "data.color" as const }
+```
+
+#### ResponsivePie config (copy exactly)
+```tsx
+const total = useMemo(
+  () => sanitizedData.reduce((sum, d) => sum + d.value, 0),
+  [sanitizedData]
+)
+
+<ResponsivePie
+  data={dataWithColors}
+  margin={{ top: 40, right: 40, bottom: 40, left: 40 }}
+  innerRadius={0.5}          // donut hole — keep at 0.5
+  padAngle={0.6}             // gap between slices
+  cornerRadius={2}           // subtle rounding on slice ends
+  activeOuterRadiusOffset={8} // ← HOVER ZOOM: active slice expands 8px outward
+  enableArcLinkLabels={false} // no link labels (too cluttered at small sizes)
+  arcLabelsSkipAngle={15}    // hide label on slices narrower than 15°
+  arcLabelsTextColor={(d: { color: string }) => getContrastTextColor(d.color)}
+  valueFormat={(value) => formatCurrency(value)}
+  colors={colorConfig}
+  tooltip={({ datum }) => {
+    const percentage = total > 0 ? (Number(datum.value) / total) * 100 : 0
+    return (
+      <NivoChartTooltip
+        title={datum.label as string}
+        titleColor={datum.color as string}
+        value={formatCurrency(Number(datum.value))}
+        subValue={`${percentage.toFixed(1)}%`}
+      />
+    )
+  }}
+  theme={{
+    text: { fill: textColor, fontSize: 12 },
+  }}
+  // Animation: Nivo default spring animation — slices grow from center outward on mount.
+  // No extra props needed; it is enabled by default.
+/>
+```
+
+#### Legend (below the chart — required for pie/donut)
+```tsx
+// Place this directly below the ResponsivePie wrapper div, inside CardContent:
+<div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-2">
+  {dataWithColors.slice(0, 6).map((item) => (
+    <div key={item.id} className="flex items-center gap-1.5">
+      <span
+        className="h-2.5 w-2.5 rounded-full shrink-0"
+        style={{ backgroundColor: item.color }}
+      />
+      <span className="font-medium text-foreground truncate max-w-[80px]" title={item.label}>
+        {item.label}
+      </span>
+      <span className="text-[0.7rem]">
+        {total > 0 ? `${((item.value / total) * 100).toFixed(0)}%` : "0%"}
+      </span>
+    </div>
+  ))}
+  {dataWithColors.length > 6 && (
+    <span className="text-[0.65rem] text-muted-foreground">
+      +{dataWithColors.length - 6} more
+    </span>
+  )}
+</div>
+```
+
+#### CardContent layout for pie (flex column — chart + legend)
+```tsx
+<CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0 flex flex-col">
+  <div className="flex-1 min-h-[140px] md:min-h-[200px]" key={colorScheme}>
+    <ResponsivePie {/* ...props above... */} />
+  </div>
+  {/* Legend here */}
+</CardContent>
+```
+
+---
+
+### 27b. Nivo Bar Charts
+
+**Reference**: `ChartPurchaseSizeBreakdown` — `components/chart-purchase-size-breakdown.tsx`
+
+#### Required imports
+```tsx
+import { ResponsiveBar } from "@nivo/bar"
+import { memo, useMemo, useState, useEffect } from "react"
+import { getChartTextColor, getChartAxisLineColor } from "@/lib/chart-colors"
+import { HoverableBar } from "@/components/chart-hoverable-bar"
+// For horizontal bar charts use:
+// import { HoverableHorizontalBar } from "@/components/chart-hoverable-bar"
+```
+
+#### Custom bar component — mount animation + hover zoom
+`HoverableBar` provides two effects via CSS (no `@react-spring/web` required):
+
+1. **Mount animation** — bars grow from their base using a `clip-path: inset()` reveal keyframe (`nivo-bar-grow` defined in `app/globals.css`). Bars stagger by `bar.index * 40ms` for a left-to-right wave.
+2. **Hover zoom** — `scaleY(1.05)` CSS transform from `transformOrigin: "bottom center"` on mouse-enter.
+
+`clip-path` and `transform` are separate CSS properties so they never conflict.
+
+The shared component lives in `components/chart-hoverable-bar.tsx`. **Do not re-define it locally in chart files.**
+
+- `HoverableBar` — vertical bars, grows upward and zooms upward (`transformOrigin: "bottom center"`)
+- `HoverableHorizontalBar` — horizontal bars, grows rightward and zooms rightward (`transformOrigin: "left center"`)
+
+Pass the shared component via `barComponent`:
+```tsx
+barComponent={HoverableBar}
+```
+
+#### Triggering re-animation on data change (selector charts)
+When a selector (day, month, income type…) changes the displayed data, re-mount the chart wrapper div with a `key` so the CSS animation reruns. **Put the `key` on the wrapper `<div>`, not on `<ResponsiveBar>` directly** — this lets `ResponsiveWrapper`'s resize observer settle before the bars paint, preventing a race condition between dimension measurement and the animation start.
 
 ```tsx
-// Common Nivo theme object (dark/light aware)
+// ✅ Correct — key on wrapper div
+<div className="h-full w-full min-h-[210px]" key={`${colorScheme}-${selectedItem}`}>
+  {renderChart()}   {/* renderChart() returns <ResponsiveBar> with no key */}
+</div>
+
+// ❌ Wrong — key on ResponsiveBar; resize observer may not be ready
+<ResponsiveBar key={selectedItem} ... />
+```
+
+Include `colorScheme` in the key so the animation also fires when the user switches color palettes:
+```tsx
+key={`${colorScheme}-${selectedItem}`}
+```
+
+#### Extract chart as a sub-component (pattern from reference)
+Avoids re-creating the component inside JSX on every render:
+```tsx
+const MyBarChart = memo(function MyBarChart({
+  chartData,
+  palette,
+  textColor,
+  gridColor,
+  formatCurrency,
+}: MyBarChartProps) {
+  return (
+    <ResponsiveBar
+      data={chartData}
+      keys={BAR_KEYS as unknown as string[]}
+      indexBy="month"
+      margin={{ top: 20, right: 20, bottom: 50, left: 60 }}
+      padding={0.3}             // gap between bar groups (0 = no gap, 1 = all gap)
+      groupMode="stacked"       // or "grouped" — match your data shape
+      colors={[palette[2], palette[1], palette[0]]}
+      borderRadius={10}         // rounded bar tops (matches reference)
+      enableLabel={false}       // no value labels on bars
+      // ── Axes ────────────────────────────────────────────────────────────────
+      axisBottom={{
+        tickSize: 0,
+        tickPadding: 8,
+        format: (v: string) => {
+          const [, month] = v.split("-")
+          const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+          return months[parseInt(month) - 1]
+        },
+      }}
+      axisLeft={{
+        tickSize: 0,
+        tickPadding: 8,
+        format: (v: number) => {
+          if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`
+          if (v >= 1_000)     return `${(v / 1_000).toFixed(0)}K`
+          return formatCurrency(v, { maximumFractionDigits: 0 })
+        },
+      }}
+      // ── Grid ────────────────────────────────────────────────────────────────
+      enableGridY={true}
+      gridYValues={5}
+      // ── Theme ────────────────────────────────────────────────────────────────
+      theme={{
+        text: { fill: textColor, fontSize: 11 },
+        axis: { ticks: { text: { fill: textColor } } },
+        grid: { line: { stroke: gridColor, strokeDasharray: "4 4" } },
+      }}
+      // ── Tooltip ──────────────────────────────────────────────────────────────
+      tooltip={({ id, value, indexValue, color }) => (
+        <NivoChartTooltip
+          title={String(id)}
+          titleColor={color}
+          value={formatCurrency(value as number)}
+          subValue={indexValue as string}
+        />
+      )}
+      // ── Animations ───────────────────────────────────────────────────────────
+      animate={true}              // bars animate from base (height 0) upward on mount
+      motionConfig="gentle"       // spring physics: slow start, smooth settle
+      // ── Hover zoom ───────────────────────────────────────────────────────────
+      barComponent={HoverableBar} // custom component for zoom-on-hover effect
+    />
+  )
+})
+MyBarChart.displayName = "MyBarChart"
+```
+
+#### Legend (below bar chart — required)
+```tsx
+<div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-2 mb-2">
+  {BAR_KEYS.map((key, i) => (
+    <div key={key} className="flex items-center gap-1.5">
+      <span
+        className="h-2.5 w-2.5 rounded-full shrink-0"
+        style={{ backgroundColor: [palette[2], palette[1], palette[0]][i] }}
+      />
+      <span className="font-medium text-foreground truncate max-w-[120px]">{key}</span>
+    </div>
+  ))}
+</div>
+```
+
+#### CardContent layout for bar (flex column — chart + legend)
+```tsx
+<CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex flex-col flex-1 min-h-0">
+  {/* key includes colorScheme so animation fires on palette change too.
+      For selector charts (day/month/type pickers), also include the selected value:
+      key={`${colorScheme}-${selectedItem}`} */}
+  <div className="h-full w-full min-h-[210px]" key={colorScheme}>
+    <MyBarChart
+      chartData={chartData}
+      palette={palette}
+      textColor={textColor}
+      gridColor={gridColor}
+      formatCurrency={formatCurrency}
+    />
+  </div>
+  {/* Legend here */}
+</CardContent>
+```
+
+---
+
+### 27c. Nivo Common Theme Object (all Nivo chart types)
+
+```tsx
+// Common Nivo theme object (dark/light aware) — use for Radar, TreeMap, Sankey, etc.
 const nivoTheme = useMemo(() => ({
   text: { fill: textColor, fontSize: 12 },
   axis: {
@@ -1343,18 +1613,52 @@ const nivoTheme = useMemo(() => ({
     line: {
       stroke: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
       strokeWidth: 1,
+      strokeDasharray: "4 4",
     },
   },
 }), [textColor, isDark])
 ```
 
-**Key Nivo props:**
-- `colors={chartColors}` — always from palette
+**Shared Nivo rules:**
+- `colors={chartColors}` — always from palette, never hard-coded
 - `theme={nivoTheme}` — dark/light aware
 - `tooltip` — always `NivoChartTooltip`
-- `margin` — `{ top: 10-40, right: 10-80, bottom: 10-40, left: 10-80 }` (adjust per chart)
+- `margin` — adjust per chart shape (taller = more bottom margin for labels)
+- For hover interactions on chart types without built-in active states, use `onMouseEnter` / `onMouseLeave` props with a `useState` hover tracker
 
-### Recharts Charts (Area, Bar, Line)
+---
+
+### 27c-i. Nivo Line Chart Animation Standard
+
+Line Chart Animation Standard (matches "Income & Expenses" chart):
+
+```tsx
+<ResponsiveLine
+  // ... data, margin, axes, etc.
+  animate={true}
+  motionConfig="gentle"
+  curve="monotoneX"
+  enableArea={true}        // single-series only — omit for multi-series to avoid overlap
+  areaOpacity={0.15}
+  pointSize={8}
+  pointBorderWidth={2}
+  lineWidth={3}
+  // activePointSize={12}  // check installed @nivo/line version before enabling
+/>
+```
+
+**Rules:**
+- `animate={true}` + `motionConfig="gentle"` — required on all Nivo line charts
+- `curve="monotoneX"` — smooth interpolation, prevents sharp corners
+- `enableArea={true}` + `areaOpacity={0.15}` — single-series only; skip for multi-series charts where areas would overlap
+- Do not add `enableArea` to charts that already set `areaBaselineValue` to a meaningful value
+- `activePointSize={12}` requires verifying the installed `@nivo/line` version supports the prop
+
+---
+
+### 27d. Recharts Charts (Area, Line)
+
+> Use Recharts for **area** and **line** charts only. For bar charts, use Nivo (see 27b above).
 
 ```tsx
 import { ChartContainer, ChartConfig, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
@@ -1389,12 +1693,17 @@ const chartConfig: ChartConfig = {
       stroke={chartColors[0]}
       fill="url(#grad1)"
       fillOpacity={1}
+      isAnimationActive={true}        // area draws from left to right on mount
+      animationDuration={800}
+      animationEasing="ease-out"
     />
   </AreaChart>
 </ChartContainer>
 ```
 
-### ECharts Charts (Heatmap, Calendar)
+---
+
+### 27e. ECharts Charts (Heatmap, Calendar)
 
 ECharts renders its own canvas-based tooltips — no portal needed. Use `echarts-for-react` or raw `useEffect` with `echarts.init()`.
 
@@ -1457,6 +1766,12 @@ ECharts renders its own canvas-based tooltips — no portal needed. Use `echarts
 | 8 | Add `overflow-hidden` to Card | Leave Card overflow visible for tooltips |
 | 9 | Add `CardDescription` | Title only — description goes in `ChartInfoPopover` |
 | 10 | Transform data inside JSX | Use `useMemo` with proper dependencies |
+| 11 | Use Nivo `ResponsiveBar` without `barComponent` | Import `HoverableBar` from `@/components/chart-hoverable-bar` and pass as `barComponent` (see §27b) |
+| 12 | Omit `animate={true}` + `motionConfig="gentle"` on bar charts | Always include — required by Nivo for data-change transitions (the CSS mount animation is handled separately by `HoverableBar`) |
+| 15 | Put `key` on `<ResponsiveBar>` to trigger re-animation | Put `key` on the wrapper `<div>` instead — prevents a race with `ResponsiveWrapper`'s resize observer (see §27b) |
+| 16 | Import `@react-spring/web` directly | It is a nested dep of `@nivo/bar` and not available at the top level — `HoverableBar` uses CSS animation instead |
+| 13 | Omit `activeOuterRadiusOffset={8}` on pie charts | Always include — this is the hover zoom that expands the active slice |
+| 14 | Use Recharts for bar charts | Use Nivo `ResponsiveBar` for bars — Recharts only for area/line |
 | 11 | Forget the drag handle | Always include `GridStackCardDragHandle` as first element |
 | 12 | Hard-code date filters in SQL | Use the `filter` parameter passed through the bundle |
 | 13 | Skip loading/empty states | Always handle all three render states |

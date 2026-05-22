@@ -4,6 +4,8 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { IconCirclePlusFilled, IconUpload } from "@tabler/icons-react"
 import React, { useContext, useRef } from "react"
+import { toast } from "sonner"
+import { useDemoMode } from "@/lib/demo/demo-context"
 
 import {
   SidebarGroup,
@@ -25,6 +27,7 @@ export function NavMain({
     title: string
     url: string
     icon?: IconComponent
+    rightSlot?: React.ReactNode
   }[]
   onQuickCreate?: () => void
 }) {
@@ -32,10 +35,20 @@ export function NavMain({
   const router = useRouter()
   const dialogContext = useContext(TransactionDialogContext)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { isDemoMode } = useDemoMode()
+
+  const announcePendingUpload = (targetPage: "analytics" | "fridge") => {
+    window.dispatchEvent(new CustomEvent("trakzi:pending-upload", { detail: { targetPage } }))
+  }
 
   const handleQuickCreate = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
+
+    if (isDemoMode) {
+      toast.info("Demo Mode", { description: "Sign up to add transactions!" })
+      return
+    }
 
     // If onQuickCreate is provided (for backward compatibility), use it
     // Otherwise use the global dialog if available
@@ -49,6 +62,10 @@ export function NavMain({
   const handleUploadClick = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
+    if (isDemoMode) {
+      toast.info("Demo Mode", { description: "Sign up to upload files!" })
+      return
+    }
     fileInputRef.current?.click()
   }
 
@@ -125,19 +142,22 @@ export function NavMain({
     if (isImage || (isPDF && isReceiptPDF)) {
       // Receipt files go to fridge
       (window as any).__pendingUploadFile = file
-      ;(window as any).__pendingUploadTargetPage = "fridge"
+        ; (window as any).__pendingUploadTargetPage = "fridge"
+      announcePendingUpload("fridge")
       router.push("/fridge")
     } else if (isCSV || isExcel || (isPDF && isStatementPDF)) {
       // Spending files go to analytics
       (window as any).__pendingUploadFile = file
-      ;(window as any).__pendingUploadTargetPage = "analytics"
+        ; (window as any).__pendingUploadTargetPage = "analytics"
+      announcePendingUpload("analytics")
       router.push("/analytics")
     } else if (isPDF) {
       // PDF without clear indicators - default to analytics (statements are more common in PDF format)
       // The analytics page will detect if it's actually a receipt and handle accordingly
       (window as any).__pendingUploadFile = file
-      ;(window as any).__pendingUploadTargetPage = "analytics"
-      ;(window as any).__pendingUploadNeedsDetection = true // Flag for content detection
+        ; (window as any).__pendingUploadTargetPage = "analytics"
+        ; (window as any).__pendingUploadNeedsDetection = true // Flag for content detection
+      announcePendingUpload("analytics")
       router.push("/analytics")
     }
 
@@ -190,6 +210,7 @@ export function NavMain({
                   <Link href={item.url} prefetch={false}>
                     {item.icon && <item.icon />}
                     <span>{item.title}</span>
+                    {item.rightSlot}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

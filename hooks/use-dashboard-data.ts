@@ -1,6 +1,45 @@
+import { useMemo } from "react"
 import { useAuth } from "@clerk/nextjs"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, keepPreviousData } from "@tanstack/react-query"
 import { useDateFilter } from "@/components/date-filter-provider"
+import { useAccountFilter } from "@/components/account-filter-provider"
+import { UNASSIGNED_SENTINEL } from "@/lib/charts/account-filter"
+import { demoFetch } from "@/lib/demo/demo-fetch"
+import { useDemoMode } from "@/lib/demo/demo-context"
+import type { PocketsBundleResponse } from "@/lib/types/pockets"
+import type { DebtAccountSummary } from "@/lib/types/debts"
+
+/** Build "?accounts=id1,id2" when filter is non-empty; otherwise return ''. */
+function buildAccountsQuery(accountIds: string[]): string {
+    if (!accountIds || accountIds.length === 0) return ""
+    return `accounts=${encodeURIComponent(accountIds.join(","))}`
+}
+
+function appendAccountsToUrl(baseUrl: string, accountIds: string[]): string {
+    const accountsQs = buildAccountsQuery(accountIds)
+    if (!accountsQs) return baseUrl
+    const sep = baseUrl.includes("?") ? "&" : "?"
+    return `${baseUrl}${sep}${accountsQs}`
+}
+
+/** Stable React Query key segment for the account filter. */
+function accountQueryKey(accountIds: string[]): string {
+    return accountIds.length === 0 ? "all" : accountIds.join(",")
+}
+
+/**
+ * Returns the account IDs to use in bundle queries, appending UNASSIGNED_SENTINEL
+ * when the user has opted in to seeing transactions with no linked account.
+ * Only appends sentinel when a specific account filter is active (selected.length > 0),
+ * since "all accounts" mode already includes unassigned rows.
+ */
+export function useEffectiveAccountIds(): string[] {
+    const { selected, includeUnassigned } = useAccountFilter()
+    return useMemo(() => {
+        if (selected.length === 0) return []
+        return includeUnassigned ? [...selected, UNASSIGNED_SENTINEL] : selected
+    }, [selected, includeUnassigned])
+}
 
 // ============================================
 // TYPES - Bundle API Response Types
@@ -28,7 +67,7 @@ export interface AnalyticsBundleData {
         expense: number
     }>
     monthlyCategories: Array<{
-        month: number
+        month: string
         category: string
         total: number
     }>
@@ -72,6 +111,29 @@ export interface AnalyticsBundleData {
         avgTotal: number
         avgPercent: number
     }>
+    treeMapData: {
+        name: string
+        loc?: number
+        fullDescription?: string
+        children?: Array<{
+            name: string
+            loc?: number
+            fullDescription?: string
+            children?: Array<{
+                name: string
+                loc?: number
+                fullDescription?: string
+                children?: any[]
+            }>
+        }>
+    }
+    // Phase 4: effective cost mode
+    effectiveCostMode?: boolean
+    sharedExpenseSummary?: {
+        totalFronted: number
+        totalPendingOwedToYou: number
+        totalYouOwe: number
+    }
 }
 
 // Home Bundle Types
@@ -133,6 +195,13 @@ export interface FridgeBundleData {
         averageReceipt: number
         itemCount: number
     }
+    previousKpis: {
+        totalSpent: number
+        shoppingTrips: number
+        storesVisited: number
+        averageReceipt: number
+        itemCount: number
+    }
     categorySpending: Array<{
         category: string
         total: number
@@ -143,6 +212,7 @@ export interface FridgeBundleData {
     dailySpending: Array<{
         date: string
         total: number
+        count: number
     }>
     storeSpending: Array<{
         storeName: string
@@ -194,6 +264,70 @@ export interface FridgeBundleData {
     }>
 }
 
+// Budgets Bundle Types
+export interface BudgetsBundleData {
+    monthsElapsed: number
+    monthlyTotals: Array<{ month: string; cap: number; spent: number }>
+    categories: Array<{
+        categoryId: number
+        name: string
+        color: string | null
+        monthlyCap: number | null
+        monthlySpends: Array<{ month: string; amount: number }>
+        avgMonthly: number
+        allTimeAvgMonthly: number
+        totalSpent: number
+        overByMonthly: number
+        overBudgetMonths: number
+        status: 'under' | 'warning' | 'over' | 'unset'
+    }>
+    suggestions: Array<{
+        categoryId: number
+        name: string
+        color: string | null
+        monthlyCap: number | null
+        monthlySpends: Array<{ month: string; amount: number }>
+        avgMonthly: number
+        allTimeAvgMonthly: number
+        totalSpent: number
+        overByMonthly: number
+        overBudgetMonths: number
+        status: 'under' | 'warning' | 'over' | 'unset'
+    }>
+}
+
+// Test Charts Bundle Types
+export interface TestChartsBundleData {
+    transactions: Array<{
+        id: number
+        date: string
+        description: string
+        amount: number
+        balance: number | null
+        category: string
+    }>
+    receiptTransactions: Array<{
+        id: number
+        receiptId: string
+        storeName: string | null
+        receiptDate: string
+        receiptTime: string | null
+        receiptTotalAmount: number
+        receiptStatus: string
+        description: string
+        quantity: number
+        pricePerUnit: number
+        totalPrice: number
+        categoryId: number | null
+        categoryTypeId: number | null
+        categoryName: string | null
+        categoryColor: string | null
+        categoryTypeName: string | null
+        categoryTypeColor: string | null
+    }>
+    hasDataInOtherPeriods?: boolean
+}
+
 // Legacy types for backward compatibility
 export interface Transaction {
     id: number
@@ -212,56 +346,119 @@ export interface Category {
     totalSpend: number
 }
 
+export interface DebtsData {
+    debts: DebtAccountSummary[]
+}
+
+function toFiniteNumber(value: unknown, fallback = 0) {
+    const parsed = typeof value === "number" ? value : Number.parseFloat(String(value ?? ""))
+    return Number.isFinite(parsed) ? parsed : fallback
+}
+
+function normalizeDebtSummary(debt: DebtAccountSummary): DebtAccountSummary {
+    return {
+        ...debt,
+        id: Number(debt.id),
+        linked_pocket_id: debt.linked_pocket_id == null ? null : Number(debt.linked_pocket_id),
+        interest_rate: debt.interest_rate == null ? null : toFiniteNumber(debt.interest_rate),
+        minimum_payment: debt.minimum_payment == null ? null : toFiniteNumber(debt.minimum_payment),
+        due_day: debt.due_day == null ? null : Number(debt.due_day),
+        current_balance: toFiniteNumber(debt.current_balance),
+        total_paid: toFiniteNumber(debt.total_paid),
+        total_interest: toFiniteNumber(debt.total_interest),
+        total_fees: toFiniteNumber(debt.total_fees),
+        entry_count: Number(debt.entry_count),
+    }
+}
+
 // ============================================
 // BUNDLE API FETCHERS (with Redis caching)
 // ============================================
 
-async function fetchAnalyticsBundle(filter: string | null): Promise<AnalyticsBundleData> {
-    const url = filter
-        ? `/api/charts/analytics-bundle?filter=${encodeURIComponent(filter)}`
-        : `/api/charts/analytics-bundle`
+async function fetchAnalyticsBundle(filter: string | null, effectiveCost = true, accountIds: string[] = []): Promise<AnalyticsBundleData> {
+    const params = new URLSearchParams()
+    if (filter) params.set('filter', filter)
+    if (!effectiveCost) params.set('effective_cost', '0')
+    if (accountIds.length > 0) params.set('accounts', accountIds.join(','))
+    const qs = params.toString()
+    const url = qs ? `/api/charts/analytics-bundle?${qs}` : `/api/charts/analytics-bundle`
 
-    const response = await fetch(url)
+    const response = await demoFetch(url)
     if (!response.ok) {
         throw new Error(`Failed to fetch analytics bundle: ${response.statusText}`)
     }
     return response.json()
 }
 
-async function fetchHomeBundle(filter: string | null): Promise<HomeBundleData> {
-    const url = filter
+async function fetchHomeBundle(filter: string | null, accountIds: string[] = []): Promise<HomeBundleData> {
+    const baseUrl = filter
         ? `/api/charts/home-bundle?filter=${encodeURIComponent(filter)}`
         : `/api/charts/home-bundle`
+    const url = appendAccountsToUrl(baseUrl, accountIds)
 
-    const response = await fetch(url)
+    const response = await demoFetch(url)
     if (!response.ok) {
         throw new Error(`Failed to fetch home bundle: ${response.statusText}`)
     }
     return response.json()
 }
 
-async function fetchTrendsBundle(filter: string | null): Promise<TrendsBundleData> {
-    const url = filter
+async function fetchTrendsBundle(filter: string | null, accountIds: string[] = []): Promise<TrendsBundleData> {
+    const baseUrl = filter
         ? `/api/charts/trends-bundle?filter=${encodeURIComponent(filter)}`
         : `/api/charts/trends-bundle`
+    const url = appendAccountsToUrl(baseUrl, accountIds)
 
-    const response = await fetch(url)
+    const response = await demoFetch(url)
     if (!response.ok) {
         throw new Error(`Failed to fetch trends bundle: ${response.statusText}`)
     }
     return response.json()
 }
 
-async function fetchSavingsBundle(filter: string | null): Promise<SavingsBundleData> {
-    const url = filter
+async function fetchSavingsBundle(filter: string | null, accountIds: string[] = []): Promise<SavingsBundleData> {
+    const baseUrl = filter
         ? `/api/charts/savings-bundle?filter=${encodeURIComponent(filter)}`
         : `/api/charts/savings-bundle`
+    const url = appendAccountsToUrl(baseUrl, accountIds)
 
-    const response = await fetch(url)
+    const response = await demoFetch(url)
     if (!response.ok) {
         throw new Error(`Failed to fetch savings bundle: ${response.statusText}`)
     }
     return response.json()
+}
+
+async function fetchBudgetsBundle(filter: string | null): Promise<BudgetsBundleData> {
+    const url = filter
+        ? `/api/charts/budgets-bundle?filter=${encodeURIComponent(filter)}`
+        : `/api/charts/budgets-bundle`
+
+    const response = await demoFetch(url)
+    if (!response.ok) {
+        throw new Error(`Failed to fetch budgets bundle: ${response.statusText}`)
+    }
+    return response.json()
+}
+
+async function fetchPocketsBundle(accountIds: string[] = []): Promise<PocketsBundleResponse> {
+    const url = appendAccountsToUrl("/api/charts/pockets-bundle", accountIds)
+    const response = await demoFetch(url)
+    if (!response.ok) {
+        throw new Error(`Failed to fetch pockets bundle: ${response.statusText}`)
+    }
+    return response.json()
+}
+
+async function fetchDebts(): Promise<DebtsData> {
+    const response = await demoFetch("/api/debts")
+    if (!response.ok) {
+        throw new Error(`Failed to fetch debts: ${response.statusText}`)
+    }
+    const payload = await response.json() as DebtsData
+    return {
+        debts: (payload.debts ?? []).map((debt) => normalizeDebtSummary(debt)),
+    }
 }
 
 async function fetchFridgeBundle(filter: string | null): Promise<FridgeBundleData> {
@@ -269,9 +466,21 @@ async function fetchFridgeBundle(filter: string | null): Promise<FridgeBundleDat
         ? `/api/charts/fridge-bundle?filter=${encodeURIComponent(filter)}`
         : `/api/charts/fridge-bundle`
 
-    const response = await fetch(url)
+    const response = await demoFetch(url)
     if (!response.ok) {
         throw new Error(`Failed to fetch fridge bundle: ${response.statusText}`)
+    }
+    return response.json()
+}
+
+async function fetchTestChartsBundle(filter: string | null): Promise<TestChartsBundleData> {
+    const url = filter
+        ? `/api/charts/test-charts-bundle?filter=${encodeURIComponent(filter)}`
+        : `/api/charts/test-charts-bundle`
+
+    const response = await demoFetch(url)
+    if (!response.ok) {
+        throw new Error(`Failed to fetch test charts bundle: ${response.statusText}`)
     }
     return response.json()
 }
@@ -286,7 +495,7 @@ async function fetchTransactions(filter: string | null): Promise<Transaction[]> 
         ? `/api/transactions?${baseParams}&filter=${encodeURIComponent(filter)}`
         : `/api/transactions?${baseParams}`
 
-    const response = await fetch(url)
+    const response = await demoFetch(url)
     if (!response.ok) {
         throw new Error(`Failed to fetch transactions: ${response.statusText}`)
     }
@@ -299,7 +508,7 @@ async function fetchTransactions(filter: string | null): Promise<Transaction[]> 
 }
 
 async function fetchCategories(): Promise<Category[]> {
-    const response = await fetch("/api/categories")
+    const response = await demoFetch("/api/categories")
     if (!response.ok) {
         throw new Error(`Failed to fetch categories: ${response.statusText}`)
     }
@@ -319,7 +528,7 @@ export interface TotalTransactionCount {
 }
 
 async function fetchTotalTransactionCount(): Promise<TotalTransactionCount> {
-    const response = await fetch('/api/transactions/total-count')
+    const response = await demoFetch('/api/transactions/total-count')
     if (!response.ok) {
         throw new Error(`Failed to fetch total transaction count: ${response.statusText}`)
     }
@@ -332,12 +541,13 @@ async function fetchTotalTransactionCount(): Promise<TotalTransactionCount> {
  */
 export function useTotalTransactionCount() {
     const { isLoaded, isSignedIn, userId } = useAuth()
+    const { isDemoMode } = useDemoMode()
 
     return useQuery({
-        queryKey: ["total-transaction-count", userId ?? ""],
+        queryKey: ["total-transaction-count", isDemoMode ? "demo" : (userId ?? "")],
         queryFn: fetchTotalTransactionCount,
         staleTime: 5 * 60 * 1000, // 5 minutes
-        enabled: isLoaded && !!isSignedIn && !!userId,
+        enabled: isDemoMode || (isLoaded && !!isSignedIn && !!userId),
     })
 }
 
@@ -346,16 +556,22 @@ export function useTotalTransactionCount() {
 // ============================================
 
 /**
- * Analytics page bundle - pre-aggregated data with Redis caching
+ * Analytics page bundle - pre-aggregated data with Redis caching.
+ * Pass showEffectiveCosts=false to get raw transaction amounts (no split substitution).
  */
-export function useAnalyticsBundleData() {
+export function useAnalyticsBundleData(showEffectiveCosts = true) {
     const { userId } = useAuth()
     const { filter, isReady } = useDateFilter()
+    const { isReady: accountsReady } = useAccountFilter()
+    const accountIds = useEffectiveAccountIds()
+    const { isDemoMode } = useDemoMode()
 
     return useQuery({
-        queryKey: ["analytics-bundle", userId ?? "", filter],
-        queryFn: () => fetchAnalyticsBundle(filter),
-        enabled: !!userId && isReady,
+        queryKey: ["analytics-bundle", isDemoMode ? "demo" : (userId ?? ""), filter, showEffectiveCosts, accountQueryKey(accountIds)],
+        queryFn: () => fetchAnalyticsBundle(filter, showEffectiveCosts, accountIds),
+        enabled: (isDemoMode || !!userId) && isReady && accountsReady,
+        refetchOnMount: true,
+        placeholderData: keepPreviousData,
     })
 }
 
@@ -365,11 +581,16 @@ export function useAnalyticsBundleData() {
 export function useHomeBundleData() {
     const { userId } = useAuth()
     const { filter, isReady } = useDateFilter()
+    const { isReady: accountsReady } = useAccountFilter()
+    const accountIds = useEffectiveAccountIds()
+    const { isDemoMode } = useDemoMode()
 
     return useQuery({
-        queryKey: ["home-bundle", userId ?? "", filter],
-        queryFn: () => fetchHomeBundle(filter),
-        enabled: !!userId && isReady,
+        queryKey: ["home-bundle", isDemoMode ? "demo" : (userId ?? ""), filter, accountQueryKey(accountIds)],
+        queryFn: () => fetchHomeBundle(filter, accountIds),
+        enabled: (isDemoMode || !!userId) && isReady && accountsReady,
+        refetchOnMount: true,
+        placeholderData: keepPreviousData,
     })
 }
 
@@ -379,11 +600,16 @@ export function useHomeBundleData() {
 export function useTrendsBundleData() {
     const { userId } = useAuth()
     const { filter, isReady } = useDateFilter()
+    const { isReady: accountsReady } = useAccountFilter()
+    const accountIds = useEffectiveAccountIds()
+    const { isDemoMode } = useDemoMode()
 
     return useQuery({
-        queryKey: ["trends-bundle", userId ?? "", filter],
-        queryFn: () => fetchTrendsBundle(filter),
-        enabled: !!userId && isReady,
+        queryKey: ["trends-bundle", isDemoMode ? "demo" : (userId ?? ""), filter, accountQueryKey(accountIds)],
+        queryFn: () => fetchTrendsBundle(filter, accountIds),
+        enabled: (isDemoMode || !!userId) && isReady && accountsReady,
+        refetchOnMount: true,
+        placeholderData: keepPreviousData,
     })
 }
 
@@ -393,11 +619,63 @@ export function useTrendsBundleData() {
 export function useSavingsBundleData() {
     const { userId } = useAuth()
     const { filter, isReady } = useDateFilter()
+    const { isReady: accountsReady } = useAccountFilter()
+    const accountIds = useEffectiveAccountIds()
+    const { isDemoMode } = useDemoMode()
 
     return useQuery({
-        queryKey: ["savings-bundle", userId ?? "", filter],
-        queryFn: () => fetchSavingsBundle(filter),
-        enabled: !!userId && isReady,
+        queryKey: ["savings-bundle", isDemoMode ? "demo" : (userId ?? ""), filter, accountQueryKey(accountIds)],
+        queryFn: () => fetchSavingsBundle(filter, accountIds),
+        enabled: (isDemoMode || !!userId) && isReady && accountsReady,
+        refetchOnMount: true,
+        placeholderData: keepPreviousData,
+    })
+}
+
+/**
+ * Budgets tab bundle — per-category monthly spend vs cap, with Redis caching.
+ */
+export function useBudgetsBundleData() {
+    const { userId } = useAuth()
+    const { filter, isReady } = useDateFilter()
+    const { isDemoMode } = useDemoMode()
+
+    return useQuery({
+        queryKey: ["budgets-bundle", isDemoMode ? "demo" : (userId ?? ""), filter],
+        queryFn: () => fetchBudgetsBundle(filter),
+        enabled: (isDemoMode || !!userId) && isReady,
+        refetchOnMount: true,
+        placeholderData: keepPreviousData,
+    })
+}
+
+/**
+ * Pockets bundle - vehicles, properties, and other pockets for net worth helpers
+ */
+export function usePocketsBundleData() {
+    const { userId } = useAuth()
+    const { isReady: accountsReady } = useAccountFilter()
+    const accountIds = useEffectiveAccountIds()
+    const { isDemoMode } = useDemoMode()
+
+    return useQuery({
+        queryKey: ["pockets-bundle", isDemoMode ? "demo" : (userId ?? ""), accountQueryKey(accountIds)],
+        queryFn: () => fetchPocketsBundle(accountIds),
+        enabled: (isDemoMode || !!userId) && accountsReady,
+    })
+}
+
+/**
+ * Debt accounts and summaries for savings net worth/debt workflows
+ */
+export function useDebtAccountsData() {
+    const { userId } = useAuth()
+    const { isDemoMode } = useDemoMode()
+
+    return useQuery({
+        queryKey: ["debts", isDemoMode ? "demo" : (userId ?? "")],
+        queryFn: fetchDebts,
+        enabled: isDemoMode || !!userId,
     })
 }
 
@@ -407,11 +685,27 @@ export function useSavingsBundleData() {
 export function useFridgeBundleData() {
     const { userId } = useAuth()
     const { filter, isReady } = useDateFilter()
+    const { isDemoMode } = useDemoMode()
 
     return useQuery({
-        queryKey: ["fridge-bundle", userId ?? "", filter],
+        queryKey: ["fridge-bundle", isDemoMode ? "demo" : (userId ?? ""), filter],
         queryFn: () => fetchFridgeBundle(filter),
-        enabled: !!userId && isReady,
+        enabled: (isDemoMode || !!userId) && isReady,
+    })
+}
+
+/**
+ * Test charts page bundle - raw transactions and receipt transactions with Redis caching
+ */
+export function useTestChartsBundleData() {
+    const { userId } = useAuth()
+    const { filter, isReady } = useDateFilter()
+    const { isDemoMode } = useDemoMode()
+
+    return useQuery({
+        queryKey: ["test-charts-bundle", isDemoMode ? "demo" : (userId ?? ""), filter],
+        queryFn: () => fetchTestChartsBundle(filter),
+        enabled: (isDemoMode || !!userId) && isReady,
     })
 }
 
@@ -426,7 +720,7 @@ async function fetchGroceriesTrendsBundle(filter: string | null): Promise<Grocer
         ? `/api/charts/groceries-trends-bundle?filter=${encodeURIComponent(filter)}`
         : `/api/charts/groceries-trends-bundle`
 
-    const response = await fetch(url)
+    const response = await demoFetch(url)
     if (!response.ok) {
         throw new Error(`Failed to fetch groceries trends bundle: ${response.statusText}`)
     }
@@ -439,11 +733,12 @@ async function fetchGroceriesTrendsBundle(filter: string | null): Promise<Grocer
 export function useGroceriesTrendsBundleData() {
     const { userId } = useAuth()
     const { filter, isReady } = useDateFilter()
+    const { isDemoMode } = useDemoMode()
 
     return useQuery({
-        queryKey: ["groceries-trends-bundle", userId ?? "", filter],
+        queryKey: ["groceries-trends-bundle", isDemoMode ? "demo" : (userId ?? ""), filter],
         queryFn: () => fetchGroceriesTrendsBundle(filter),
-        enabled: !!userId && isReady,
+        enabled: (isDemoMode || !!userId) && isReady,
     })
 }
 
@@ -457,12 +752,13 @@ export function useGroceriesTrendsBundleData() {
 export function useTransactions(filter?: string | null) {
     const { userId } = useAuth()
     const { filter: contextFilter, isReady } = useDateFilter()
+    const { isDemoMode } = useDemoMode()
     const effectiveFilter = filter !== undefined ? filter : contextFilter
 
     return useQuery({
-        queryKey: ["transactions", userId ?? "", effectiveFilter],
+        queryKey: ["transactions", isDemoMode ? "demo" : (userId ?? ""), effectiveFilter],
         queryFn: () => fetchTransactions(effectiveFilter),
-        enabled: !!userId && isReady,
+        enabled: (isDemoMode || !!userId) && isReady,
     })
 }
 
@@ -471,12 +767,13 @@ export function useTransactions(filter?: string | null) {
  */
 export function useCategories() {
     const { userId } = useAuth()
+    const { isDemoMode } = useDemoMode()
 
     return useQuery({
-        queryKey: ["categories", userId ?? ""],
+        queryKey: ["categories", isDemoMode ? "demo" : (userId ?? "")],
         queryFn: fetchCategories,
         staleTime: 5 * 60 * 1000,
-        enabled: !!userId,
+        enabled: isDemoMode || !!userId,
     })
 }
 
@@ -566,4 +863,3 @@ export function useFridgeData() {
         error: bundle.error,
     }
 }
-

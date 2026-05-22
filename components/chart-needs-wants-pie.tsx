@@ -1,43 +1,46 @@
-"use client"
+"use client";
 
-import { useEffect, useMemo, useState, memo } from "react"
-import { useTheme } from "next-themes"
-import { ResponsivePie } from "@nivo/pie"
-import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
+import { useEffect, useMemo, useState, memo } from "react";
+import { useTheme } from "next-themes";
+import { ResponsivePie } from "@nivo/pie";
+import { ChartAiInsightButton } from "@/components/chart-ai-insight-button";
 
-import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
-import { NeedsWantsCategoryEditor } from "@/components/needs-wants-category-editor"
-import { useColorScheme } from "@/components/color-scheme-provider"
-import { useCurrency } from "@/components/currency-provider"
-import { toNumericValue } from "@/lib/utils"
-import { ChartLoadingState } from "@/components/chart-loading-state"
-import { NivoChartTooltip } from "@/components/chart-tooltip"
-import { getContrastTextColor, getChartTextColor } from "@/lib/chart-colors"
+import {
+  ChartInfoPopover,
+  ChartInfoPopoverCategoryControls,
+} from "@/components/chart-info-popover";
+import { NeedsWantsCategoryEditor } from "@/components/needs-wants-category-editor";
+import { useColorScheme } from "@/components/color-scheme-provider";
+import { useCurrency } from "@/components/currency-provider";
+import { toNumericValue } from "@/lib/utils";
+import { ChartLoadingState } from "@/components/chart-loading-state";
+import { NivoChartTooltip } from "@/components/chart-tooltip";
+import { getContrastTextColor, getChartTextColor } from "@/lib/chart-colors";
 import {
   Card,
-  CardAction,
   CardContent,
+  CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
-import { ChartFavoriteButton } from "@/components/chart-favorite-button"
-import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
-import { ChartExpandButton } from "@/components/chart-expand-button"
-import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
+} from "@/components/ui/card";
+import { ChartFavoriteButton } from "@/components/chart-favorite-button";
+import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle";
+import { ChartExpandButton } from "@/components/chart-expand-button";
+import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal";
 
 interface ChartNeedsWantsPieProps {
   data?: Array<{
-    id: string
-    label: string
-    value: number
-  }>
-  categoryControls?: ChartInfoPopoverCategoryControls
+    id: string;
+    label: string;
+    value: number;
+  }>;
+  categoryControls?: ChartInfoPopoverCategoryControls;
   // These props are passed by the draggable analytics layout but sizing is handled outside this component.
-  isExpanded?: boolean
-  onToggleExpand?: () => void
-  isLoading?: boolean
-  emptyTitle?: string
-  emptyDescription?: string
+  isExpanded?: boolean;
+  onToggleExpand?: () => void;
+  isLoading?: boolean;
+  emptyTitle?: string;
+  emptyDescription?: string;
 }
 
 export const ChartNeedsWantsPie = memo(function ChartNeedsWantsPie({
@@ -45,13 +48,13 @@ export const ChartNeedsWantsPie = memo(function ChartNeedsWantsPie({
   categoryControls,
   isLoading = false,
   emptyTitle,
-  emptyDescription
+  emptyDescription,
 }: ChartNeedsWantsPieProps) {
-  const { resolvedTheme } = useTheme()
-  const { colorScheme, getShuffledPalette } = useColorScheme()
-  const { formatCurrency } = useCurrency()
-  const [mounted, setMounted] = useState(false)
-  const [isFullscreen, setIsFullscreen] = useState(false)
+  const { resolvedTheme } = useTheme();
+  const { colorScheme, getShuffledPalette } = useColorScheme();
+  const { formatCurrency } = useCurrency();
+  const [mounted, setMounted] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const sanitizedBaseData = useMemo(
     () =>
@@ -60,44 +63,47 @@ export const ChartNeedsWantsPie = memo(function ChartNeedsWantsPie({
         value: toNumericValue(item.value),
       })),
     [baseData],
-  )
+  );
 
   useEffect(() => {
-    setMounted(true)
-  }, [])
+    setMounted(true);
+  }, []);
 
   // We only ever have up to 3 slices (Essentials, Mandatory, Wants)
   // Assign colors from the current palette, using darker colors for larger values.
   const dataWithColors = useMemo(() => {
-    const palette = getShuffledPalette()
-    const sorted = [...sanitizedBaseData].sort((a, b) => b.value - a.value)
-    const colors = palette.slice(0, Math.max(sorted.length, 3))
+    const palette = getShuffledPalette();
+    const sorted = [...sanitizedBaseData].sort((a, b) => b.value - a.value);
+    const colors = palette.slice(0, Math.max(sorted.length, 3));
 
     return sorted.map((item, index) => ({
       ...item,
       color: colors[index % colors.length],
-    }))
-  }, [sanitizedBaseData, getShuffledPalette])
+    }));
+  }, [sanitizedBaseData, getShuffledPalette]);
 
-  const data = dataWithColors
+  const data = dataWithColors;
 
   const total = useMemo(() => {
-    return sanitizedBaseData.reduce((sum, item) => sum + item.value, 0)
-  }, [sanitizedBaseData])
+    return sanitizedBaseData.reduce((sum, item) => sum + item.value, 0);
+  }, [sanitizedBaseData]);
 
-  const colorConfig = { datum: "data.color" as const }
+  const colorConfig = { datum: "data.color" as const };
 
-  const isDark = resolvedTheme === "dark"
+  const isDark = resolvedTheme === "dark";
 
-  const textColor = getChartTextColor(isDark)
+  const textColor = getChartTextColor(isDark);
 
   // Format currency value using user's preferred currency
-  const valueFormatter = useMemo(() => ({
-    format: (value: number) => formatCurrency(value)
-  }), [formatCurrency])
+  const valueFormatter = useMemo(
+    () => ({
+      format: (value: number) => formatCurrency(value),
+    }),
+    [formatCurrency],
+  );
 
-  const renderInfoTrigger = (forFullscreen = false) => (
-    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
+  const renderInfoTrigger = () => (
+    <div className="flex items-center gap-2">
       <ChartInfoPopover
         title="Needs vs Wants"
         description="Groups your spending into essentials, mandatory obligations, and discretionary wants."
@@ -108,6 +114,7 @@ export const ChartNeedsWantsPie = memo(function ChartNeedsWantsPie({
         ]}
         ignoredFootnote="Only expense (negative) transactions are included, and hidden categories are excluded from the totals."
         categoryControls={categoryControls}
+        topContent={legendContent}
         extraContent={<NeedsWantsCategoryEditor />}
       />
       <ChartAiInsightButton
@@ -116,31 +123,53 @@ export const ChartNeedsWantsPie = memo(function ChartNeedsWantsPie({
         chartDescription="Groups your spending into essentials, mandatory obligations, and discretionary wants."
         chartData={{
           total: total,
-          categories: data.map(d => ({ name: d.label, amount: d.value })),
-          needsAmount: data.find(d => d.label.toLowerCase().includes("essential") || d.label.toLowerCase().includes("mandatory"))?.value || 0,
-          wantsAmount: data.find(d => d.label.toLowerCase().includes("want"))?.value || 0
+          categories: data.map((d) => ({ name: d.label, amount: d.value })),
+          needsAmount:
+            data.find(
+              (d) =>
+                d.label.toLowerCase().includes("essential") ||
+                d.label.toLowerCase().includes("mandatory"),
+            )?.value || 0,
+          wantsAmount:
+            data.find((d) => d.label.toLowerCase().includes("want"))?.value ||
+            0,
         }}
         size="sm"
       />
     </div>
-  )
+  );
+
+  const frugalityScore = useMemo(() => {
+    const wants = data
+      .filter((d) => d.label.toLowerCase().includes("want"))
+      .reduce((s, d) => s + d.value, 0);
+    if (total === 0) return null;
+    const wantsPct = (wants / total) * 100;
+    return Math.max(0, Math.min(100, Math.round(100 - wantsPct)));
+  }, [data, total]);
 
   // Render chart function for reuse
   const renderChart = (isCompact = false) => (
     <ResponsivePie
       data={data}
-      margin={isCompact ? { top: 20, right: 20, bottom: 20, left: 20 } : { top: 40, right: 40, bottom: 40, left: 40 }}
+      margin={
+        isCompact
+          ? { top: 0, right: 0, bottom: 0, left: 0 }
+          : { top: 40, right: 40, bottom: 40, left: 40 }
+      }
       innerRadius={0.5}
       padAngle={0.6}
       cornerRadius={2}
       activeOuterRadiusOffset={8}
       enableArcLinkLabels={false}
       arcLabelsSkipAngle={15}
-      arcLabelsTextColor={(d: { color: string }) => getContrastTextColor(d.color)}
+      arcLabelsTextColor={(d: { color: string }) =>
+        getContrastTextColor(d.color)
+      }
       valueFormat={(value) => formatCurrency(toNumericValue(value))}
       colors={colorConfig}
       tooltip={({ datum }) => {
-        const percentage = total > 0 ? (Number(datum.value) / total) * 100 : 0
+        const percentage = total > 0 ? (Number(datum.value) / total) * 100 : 0;
         return (
           <NivoChartTooltip
             title={datum.label as string}
@@ -148,29 +177,29 @@ export const ChartNeedsWantsPie = memo(function ChartNeedsWantsPie({
             value={valueFormatter.format(Number(datum.value))}
             subValue={`${percentage.toFixed(1)}%`}
           />
-        )
+        );
       }}
       theme={{ text: { fill: textColor, fontSize: 12 } }}
     />
-  )
+  );
 
-  // Custom legend component
-  const renderLegend = () => (
-    <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground mt-2">
+  // Legend shown inside the info popover at the top
+  const legendContent = (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-border/60 bg-muted/40 px-2.5 py-2">
       {data.map((item) => (
         <div key={item.id} className="flex items-center gap-1.5">
           <span
-            className="h-2.5 w-2.5 rounded-full shrink-0"
+            className="h-2 w-2 rounded-full shrink-0"
             style={{ backgroundColor: item.color }}
           />
-          <span className="font-medium text-foreground">{item.label}</span>
-          <span className="text-[0.7rem]">
-            {total > 0 ? `${((item.value / total) * 100).toFixed(0)}%` : '0%'}
+          <span className="text-xs font-medium text-foreground">{item.label}</span>
+          <span className="text-[0.7rem] text-muted-foreground">
+            {total > 0 ? `${((item.value / total) * 100).toFixed(0)}%` : "0%"}
           </span>
         </div>
       ))}
     </div>
-  )
+  );
 
   if (!mounted) {
     return (
@@ -186,15 +215,13 @@ export const ChartNeedsWantsPie = memo(function ChartNeedsWantsPie({
             />
             <CardTitle>Needs vs Wants</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
-          </CardAction>
-        </CardHeader>
+          </CardHeader>
         <CardContent className="flex-1 min-h-0">
           <div className="h-full w-full min-h-[180px] md:min-h-[250px]" />
         </CardContent>
+        <CardFooter className="pb-3 gap-2">{renderInfoTrigger()}</CardFooter>
       </Card>
-    )
+    );
   }
 
   if (!sanitizedBaseData || sanitizedBaseData.length === 0) {
@@ -211,10 +238,7 @@ export const ChartNeedsWantsPie = memo(function ChartNeedsWantsPie({
             />
             <CardTitle>Needs vs Wants</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
-          </CardAction>
-        </CardHeader>
+          </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
           <div className="h-full w-full min-h-[180px] md:min-h-[250px]">
             <ChartLoadingState
@@ -225,8 +249,9 @@ export const ChartNeedsWantsPie = memo(function ChartNeedsWantsPie({
             />
           </div>
         </CardContent>
+        <CardFooter className="pb-3 gap-2">{renderInfoTrigger()}</CardFooter>
       </Card>
-    )
+    );
   }
 
   return (
@@ -236,7 +261,8 @@ export const ChartNeedsWantsPie = memo(function ChartNeedsWantsPie({
         onClose={() => setIsFullscreen(false)}
         title="Needs vs Wants"
         description="Essentials, mandatory, and discretionary spending"
-        headerActions={renderInfoTrigger(true)}
+        headerActions={renderInfoTrigger()}
+        orientation="portrait"
       >
         <div className="h-full w-full min-h-[400px]" key={colorScheme}>
           {renderChart()}
@@ -244,7 +270,8 @@ export const ChartNeedsWantsPie = memo(function ChartNeedsWantsPie({
       </ChartFullscreenModal>
 
       <Card className="@container/card">
-        <CardHeader>
+        {/* Compact header on mobile: pull up into card's gap-6 */}
+        <CardHeader className="px-3 py-0 -mt-3 sm:px-6 sm:mt-0 sm:py-0">
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />
             <ChartExpandButton onClick={() => setIsFullscreen(true)} />
@@ -253,21 +280,34 @@ export const ChartNeedsWantsPie = memo(function ChartNeedsWantsPie({
               chartTitle="Needs vs Wants"
               size="md"
             />
-            <CardTitle>Needs vs Wants</CardTitle>
+            <CardTitle className="text-sm sm:text-base">Needs vs Wants</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
-          </CardAction>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0 flex flex-col">
-          <div className="flex-1 min-h-[140px] md:min-h-[200px]" key={colorScheme}>
+        {/* Pull content up on mobile to reclaim gap-6 space */}
+        <CardContent className="px-2 pt-0 sm:px-6 sm:pt-2 flex-1 min-h-0 flex flex-col pb-0 -mt-4 sm:mt-0 overflow-visible relative z-10">
+          <div
+            className="relative z-10 flex-1 min-h-[180px] md:min-h-[100px] overflow-visible [&>div]:overflow-visible [&>div>div]:overflow-visible [&_svg]:overflow-visible"
+            key={colorScheme}
+          >
             {renderChart(true)}
+            {frugalityScore !== null && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-2xl @sm/card:text-3xl @md/card:text-4xl @lg/card:text-5xl font-bold text-foreground leading-none">
+                  {frugalityScore}
+                </span>
+                <span className="text-[0.65rem] @sm/card:text-xs @md/card:text-sm font-medium text-muted-foreground mt-0.5">
+                  Frugality Score
+                </span>
+              </div>
+            )}
           </div>
-          {renderLegend()}
         </CardContent>
+        <CardFooter className="pb-2 pt-0 px-3 sm:px-6 sm:pb-3 -mb-2 sm:mb-0 gap-2">
+          {renderInfoTrigger()}
+        </CardFooter>
       </Card>
     </>
-  )
-})
+  );
+});
 
-ChartNeedsWantsPie.displayName = "ChartNeedsWantsPie"
+ChartNeedsWantsPie.displayName = "ChartNeedsWantsPie";

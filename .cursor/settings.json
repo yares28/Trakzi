@@ -1,0 +1,16 @@
+{
+  "plugins": {
+    "clerk": {
+      "enabled": true
+    },
+    "neon-postgres": {
+      "enabled": true
+    },
+    "posthog": {
+      "enabled": true
+    },
+    "stripe": {
+      "enabled": true
+    }
+  }
+}

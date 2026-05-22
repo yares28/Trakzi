@@ -8,7 +8,7 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="card"
       className={cn(
         // Original structural styling (used in both themes)
-        "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm min-w-0",
+        "bg-card text-card-foreground relative flex flex-col gap-6 rounded-xl border py-6 shadow-sm min-w-0",
         // Light‑mode only 3D hook: small, subtle gray shading
         "card-3d-light",
         className

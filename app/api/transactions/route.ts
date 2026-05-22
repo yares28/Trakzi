@@ -31,14 +31,6 @@ export function getDateRange(filter: string | null): { startDate: string | null;
     };
 
     switch (filter) {
-        case "last7days": {
-            const startDate = new Date(today);
-            startDate.setUTCDate(startDate.getUTCDate() - 7);
-            return {
-                startDate: formatDate(startDate),
-                endDate: formatDate(today)
-            };
-        }
         case "last30days": {
             const startDate = new Date(today);
             startDate.setUTCDate(startDate.getUTCDate() - 30);
@@ -80,6 +72,13 @@ export function getDateRange(filter: string | null): { startDate: string | null;
             };
         }
         default: {
+            // Handle custom date range: custom:YYYY-MM-DD:YYYY-MM-DD
+            if (filter.startsWith("custom:")) {
+                const parts = filter.split(":");
+                if (parts.length === 3) {
+                    return { startDate: parts[1], endDate: parts[2] };
+                }
+            }
             // Assume it's a year string (e.g., "2024")
             const year = parseInt(filter);
             if (!isNaN(year)) {
@@ -106,7 +105,7 @@ export const GET = async (request: Request) => {
         // Pagination parameters (security: limit max page size to prevent DoS)
         // When fetchAll=true, skip pagination (used by dashboard charts)
         const page = Math.max(1, parseInt(searchParams.get("page") || "1") || 1);
-        const limit = fetchAll ? 10000 : Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "50") || 50));
+        const limit = fetchAll ? 2000 : Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "50") || 50));
         const offset = fetchAll ? 0 : (page - 1) * limit;
 
         // Get date range based on filter
@@ -115,19 +114,43 @@ export const GET = async (request: Request) => {
         // Optimized query using covering index for better performance
         // The covering index includes user_id, tx_date DESC, amount, balance, category_id, description
         // This allows the query to use index-only scans
-        let query = `SELECT 
-                        t.id, 
-                        t.tx_date, 
-                        t.description, 
-                        t.amount, 
-                        t.balance, 
-                        t.category_id, 
+        let query = `SELECT
+                        t.id,
+                        t.tx_date,
+                        t.description,
+                        t.amount,
+                        t.balance,
+                        t.category_id,
                         t.raw_csv_row,
-                        c.name as category_name
+                        t.tx_type,
+                        t.pending_import_match,
+                        t.settlement_for_split_id,
+                        c.name as category_name,
+                        share_info.shared_tx_id,
+                        share_info.shared_room_name,
+                        share_info.effective_cost
                      FROM transactions t
                      LEFT JOIN categories c ON t.category_id = c.id
+                     LEFT JOIN LATERAL (
+                         SELECT st.id AS shared_tx_id,
+                                r.name AS shared_room_name,
+                                (-ts.amount) AS effective_cost
+                         FROM shared_transactions st
+                         LEFT JOIN transaction_splits ts
+                             ON ts.shared_tx_id = st.id AND ts.user_id = $1
+                         LEFT JOIN rooms r ON r.id = st.room_id
+                         WHERE st.original_tx_id = t.id
+                         LIMIT 1
+                     ) share_info ON true
                      WHERE t.user_id = $1`;
         const params: any[] = [userId];
+
+        // When fetching for chart consumers, exclude transfer-related rows so
+        // pending/confirmed account transfers do not double-count as spending.
+        // Legacy rows with NULL tx_type are preserved (they predate the field).
+        if (fetchAll) {
+            query += ` AND (t.tx_type IS NULL OR t.tx_type NOT IN ('transfer', 'pending_transfer'))`;
+        }
 
         if (startDate && endDate) {
             query += ` AND t.tx_date >= $${params.length + 1} AND t.tx_date <= $${params.length + 2}`;
@@ -156,7 +179,13 @@ export const GET = async (request: Request) => {
             balance: number | null;
             category_id: number | null;
             raw_csv_row: string | null;
+            tx_type: string | null;
+            pending_import_match: boolean | null;
+            settlement_for_split_id: string | null;
             category_name: string | null;
+            shared_tx_id: string | null;
+            shared_room_name: string | null;
+            effective_cost: number | null;
         }>;
 
         // Declare totalCount for pagination
@@ -182,11 +211,14 @@ export const GET = async (request: Request) => {
                 balance: number | null;
                 category_id: number | null;
                 raw_csv_row: string | null;
+                tx_type: string | null;
+                pending_import_match: boolean | null;
+                settlement_for_split_id: string | null;
                 category_name: string | null;
+                shared_tx_id: string | null;
+                shared_room_name: string | null;
+                effective_cost: number | null;
             }>(query, params);
-            if (transactions.length > 0) {
-                console.log(`[Transactions API] First transaction:`, transactions[0]);
-            }
         } catch (queryError: any) {
             console.error("[Transactions API] Query error:", queryError.message);
             console.error("[Transactions API] Query was:", query);
@@ -267,7 +299,15 @@ export const GET = async (request: Request) => {
                 description: tx.description,
                 amount: Number(tx.amount),
                 balance: tx.balance ? Number(tx.balance) : null,
-                category: category
+                category: category,
+                tx_type: tx.tx_type ?? 'expense',
+                pending_import_match: tx.pending_import_match ?? false,
+                settlement_for_split_id: tx.settlement_for_split_id ?? null,
+                shared_tx_id: tx.shared_tx_id ?? null,
+                shared_room_name: tx.shared_room_name ?? null,
+                effective_cost: tx.effective_cost !== null && tx.effective_cost !== undefined
+                    ? Number(tx.effective_cost)
+                    : null,
             };
         });
 
@@ -425,8 +465,14 @@ export const POST = async (request: Request) => {
         invalidateUserCachePrefix(userId, 'analytics').catch((err) => {
             console.error('[Transactions API] Analytics cache invalidation error:', err)
         })
+        invalidateUserCachePrefix(userId, 'budgets').catch((err) => {
+            console.error('[Transactions API] Budgets cache invalidation error:', err)
+        })
         invalidateUserCachePrefix(userId, 'data-library').catch((err) => {
             console.error('[Transactions API] Data library cache invalidation error:', err)
+        })
+        invalidateUserCachePrefix(userId, 'financial-health').catch((err) => {
+            console.error('[Transactions API] Financial health cache invalidation error:', err)
         })
         revalidatePath('/data-library')
         revalidatePath('/analytics')

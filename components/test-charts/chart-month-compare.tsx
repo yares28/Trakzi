@@ -1,12 +1,10 @@
 "use client"
-
 import { useMemo, useState, useEffect } from "react"
 import { useTheme } from "next-themes"
 import { ResponsiveBar } from "@nivo/bar"
 import {
     Card,
     CardContent,
-    CardDescription,
     CardHeader,
     CardTitle,
     CardAction,
@@ -18,7 +16,6 @@ import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
-
 interface ChartMonthCompareProps {
     data: Array<{
         date: string
@@ -26,7 +23,6 @@ interface ChartMonthCompareProps {
     }>
     isLoading?: boolean
 }
-
 export function ChartMonthCompare({
     data,
     isLoading = false,
@@ -36,51 +32,40 @@ export function ChartMonthCompare({
     const { formatCurrency } = useCurrency()
     const palette = getPalette()
     const [mounted, setMounted] = useState(false)
-
     useEffect(() => {
         setMounted(true)
     }, [])
-
     const chartData = useMemo(() => {
         if (!data || data.length === 0) return []
-
         const now = new Date()
         const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
         const prevDate = new Date(now)
         prevDate.setMonth(prevDate.getMonth() - 1)
         const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`
-
         let currentTotal = 0
         let prevTotal = 0
-
         data.forEach((tx) => {
             if (tx.amount >= 0) return
             const month = tx.date.slice(0, 7)
             if (month === currentMonth) currentTotal += Math.abs(tx.amount)
             else if (month === prevMonth) prevTotal += Math.abs(tx.amount)
         })
-
         const currentMonthName = now.toLocaleDateString('en-US', { month: 'short' })
         const prevMonthName = prevDate.toLocaleDateString('en-US', { month: 'short' })
-
         return [
             { month: prevMonthName, total: prevTotal, color: palette[1] || "#10b981" },
             { month: currentMonthName, total: currentTotal, color: palette[0] || "#fe8339" },
         ]
     }, [data, palette])
-
     const isDark = resolvedTheme === "dark"
     const textColor = isDark ? "#9ca3af" : "#6b7280"
     const gridColor = isDark ? "#374151" : "#e5e7eb"
-
     const chartTitle = "This Month vs Last"
     const chartDescription = "Compare your current month's spending against last month."
-
     const diff = chartData.length === 2 ? chartData[1].total - chartData[0].total : 0
     const diffPercent = chartData.length === 2 && chartData[0].total > 0
         ? ((chartData[1].total - chartData[0].total) / chartData[0].total) * 100
         : 0
-
     const renderInfoTrigger = () => (
         <div className="flex flex-col items-center gap-2">
             <ChartInfoPopover
@@ -101,7 +86,6 @@ export function ChartMonthCompare({
             />
         </div>
     )
-
     if (!mounted || chartData.length === 0) {
         return (
             <Card className="@container/card h-full flex flex-col">
@@ -119,7 +103,6 @@ export function ChartMonthCompare({
             </Card>
         )
     }
-
     return (
         <Card className="@container/card h-full flex flex-col">
             <CardHeader>
@@ -128,10 +111,6 @@ export function ChartMonthCompare({
                     <ChartFavoriteButton chartId="testCharts:monthCompare" chartTitle={chartTitle} size="md" />
                     <CardTitle>{chartTitle}</CardTitle>
                 </div>
-                <CardDescription>
-                    <span className="hidden @[540px]/card:block">{chartDescription}</span>
-                    <span className="@[540px]/card:hidden">Month comparison</span>
-                </CardDescription>
                 <CardAction>{renderInfoTrigger()}</CardAction>
             </CardHeader>
             <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
@@ -172,7 +151,6 @@ export function ChartMonthCompare({
                         motionConfig="gentle"
                     />
                 </div>
-
                 {/* Difference indicator */}
                 <div className="text-center mt-2">
                     <span

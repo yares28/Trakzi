@@ -1,0 +1,537 @@
+"use client"
+
+import { memo, useState, useEffect } from "react"
+import { Plus, Trophy, Globe, Lock, Users, Search, PiggyBank, HeartPulse, Apple, ShoppingBag, Loader2 } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
+import { useUser } from "@clerk/nextjs"
+import { useQueryClient } from "@tanstack/react-query"
+
+import { cn } from "@/lib/utils"
+import { useColorScheme } from "@/components/color-scheme-provider"
+import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { demoFetch } from "@/lib/demo/demo-fetch"
+import type { ChallengeGroupWithMembers, ChallengeMetric } from "@/lib/types/challenges"
+import { CreateChallengeGroupDialog } from "@/components/friends/create-challenge-group-dialog"
+import { AnimatedTooltip } from "@/components/ui/animated-tooltip"
+import { ProfileModal } from "@/components/friends/profile-modal"
+import type { ProfileModalUser } from "@/components/friends/profile-modal"
+
+
+// ─── Inline Join/Discover Dialog ─────────────────────────────────────────────
+
+interface DiscoverGroup {
+    id: string
+    name: string
+    description: string | null
+    metrics: ChallengeMetric[]
+    memberCount: number
+}
+
+const DISCOVER_METRIC_LABELS: Record<ChallengeMetric, string> = {
+    savingsRate: "Savings",
+    financialHealth: "Health",
+    fridgeScore: "Fridge",
+    wantsPercent: "Frugality",
+}
+
+function JoinChallengesDialog({
+    open,
+    onOpenChange,
+    onJoined,
+}: {
+    open: boolean
+    onOpenChange: (open: boolean) => void
+    onJoined: () => void
+}) {
+    const [mode, setMode] = useState<"discover" | "code">("discover")
+    const [groups, setGroups] = useState<DiscoverGroup[]>([])
+    const [loadingGroups, setLoadingGroups] = useState(false)
+    const [joiningId, setJoiningId] = useState<string | null>(null)
+    const [code, setCode] = useState("")
+    const [joiningCode, setJoiningCode] = useState(false)
+
+    useEffect(() => {
+        if (!open || mode !== "discover") return
+        setLoadingGroups(true)
+        demoFetch("/api/challenge-groups/discover")
+            .then(r => r.json())
+            .then(data => { setGroups(data); setLoadingGroups(false) })
+            .catch(() => setLoadingGroups(false))
+    }, [open, mode])
+
+    const handleJoinGroup = async (groupId: string) => {
+        setJoiningId(groupId)
+        try {
+            const res = await demoFetch("/api/challenge-groups/join", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ group_id: groupId }),
+            })
+            const data = await res.json()
+            if (!res.ok) {
+                if (res.status === 403 && data.error?.includes("privacy settings")) {
+                    toast.error(data.error, {
+                        action: {
+                            label: "Privacy Settings →",
+                            onClick: () => window.dispatchEvent(new CustomEvent("open-settings", { detail: { section: "privacy" } })),
+                        },
+                    })
+                } else {
+                    toast.error(data.error || "Failed to join")
+                }
+                return
+            }
+            toast.success("Joined group!")
+            setGroups(prev => prev.filter(g => g.id !== groupId))
+            onJoined()
+        } catch {
+            toast.error("Failed to join group")
+        } finally {
+            setJoiningId(null)
+        }
+    }
+
+    const handleJoinByCode = async () => {
+        if (!code.trim()) return
+        setJoiningCode(true)
+        try {
+            const res = await demoFetch("/api/challenge-groups/join", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ invite_code: code.trim() }),
+            })
+            const d = await res.json()
+            if (d.error) {
+                if (d.error?.includes("privacy settings")) {
+                    toast.error(d.error, {
+                        action: {
+                            label: "Privacy Settings →",
+                            onClick: () => window.dispatchEvent(new CustomEvent("open-settings", { detail: { section: "privacy" } })),
+                        },
+                    })
+                } else {
+                    toast.error(d.error)
+                }
+                return
+            }
+            toast.success("Joined group!")
+            setCode("")
+            onJoined()
+            onOpenChange(false)
+        } catch {
+            toast.error("Failed to join")
+        } finally {
+            setJoiningCode(false)
+        }
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-lg max-h-[80vh] flex flex-col overflow-hidden">
+                <DialogHeader>
+                    <DialogTitle>Join a Group</DialogTitle>
+                </DialogHeader>
+
+                {/* Mode toggle */}
+                <div className="flex items-center justify-center">
+                    <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/50 border">
+                        <button
+                            type="button"
+                            onClick={() => setMode("discover")}
+                            className={cn(
+                                "flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200",
+                                mode === "discover"
+                                    ? "bg-background text-foreground shadow-sm"
+                                    : "text-muted-foreground hover:text-foreground"
+                            )}
+                        >
+                            <Globe className="w-3.5 h-3.5" /> Discover
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setMode("code")}
+                            className={cn(
+                                "flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200",
+                                mode === "code"
+                                    ? "bg-background text-foreground shadow-sm"
+                                    : "text-muted-foreground hover:text-foreground"
+                            )}
+                        >
+                            <Search className="w-3.5 h-3.5" /> Enter Code
+                        </button>
+                    </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto min-h-0">
+                    {mode === "discover" && (
+                        <>
+                            {loadingGroups && (
+                                <div className="flex items-center justify-center py-12">
+                                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                                </div>
+                            )}
+                            {!loadingGroups && groups.length === 0 && (
+                                <div className="text-center py-12 text-muted-foreground">
+                                    <Trophy className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                                    <p className="text-sm">No public groups available right now.</p>
+                                    <p className="text-xs mt-1">Check back later or create your own!</p>
+                                </div>
+                            )}
+                            {!loadingGroups && groups.length > 0 && (
+                                <div className="space-y-3 pt-1">
+                                    {groups.map(group => (
+                                        <Card key={group.id} className="border-border/40 bg-card/60 rounded-2xl overflow-hidden">
+                                            <CardContent className="p-4">
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="space-y-1.5 min-w-0 flex-1">
+                                                        <h3 className="font-semibold text-sm truncate">{group.name}</h3>
+                                                        {group.description && (
+                                                            <p className="text-xs text-muted-foreground line-clamp-2">{group.description}</p>
+                                                        )}
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                                                <Users className="w-3 h-3" /> {group.memberCount}
+                                                            </span>
+                                                            {group.metrics.map(m => (
+                                                                <Badge key={m} variant="secondary" className="text-[9px] px-1 py-0">
+                                                                    {DISCOVER_METRIC_LABELS[m]}
+                                                                </Badge>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                    <Button
+                                                        size="sm"
+                                                        className="shrink-0"
+                                                        disabled={joiningId === group.id}
+                                                        onClick={() => handleJoinGroup(group.id)}
+                                                    >
+                                                        {joiningId === group.id ? <Loader2 className="w-4 h-4 animate-spin" /> : "Join"}
+                                                    </Button>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    ))}
+                                </div>
+                            )}
+                        </>
+                    )}
+
+                    {mode === "code" && (
+                        <div className="space-y-4 pt-2">
+                            <p className="text-sm text-muted-foreground">
+                                Enter the invite code shared by the group admin.
+                            </p>
+                            <div className="flex gap-2">
+                                <Input
+                                    placeholder="e.g. ABC-123"
+                                    value={code}
+                                    onChange={e => setCode(e.target.value)}
+                                    onKeyDown={e => e.key === "Enter" && handleJoinByCode()}
+                                    className="font-mono tracking-widest"
+                                />
+                                <Button onClick={handleJoinByCode} disabled={!code.trim() || joiningCode}>
+                                    {joiningCode ? <Loader2 className="w-4 h-4 animate-spin" /> : "Join"}
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
+const METRIC_LABELS: Record<ChallengeMetric, string> = {
+    savingsRate: "Savings",
+    financialHealth: "Health",
+    fridgeScore: "Fridge",
+    wantsPercent: "Frugality",
+}
+
+const METRIC_ICONS: Record<ChallengeMetric, React.ComponentType<{ className?: string }>> = {
+    savingsRate: PiggyBank,
+    financialHealth: HeartPulse,
+    fridgeScore: Apple,
+    wantsPercent: ShoppingBag,
+}
+
+function getChallengesContainerSize(count: number): React.CSSProperties {
+    if (count === 1) return { width: '1em', minHeight: '2em' };
+    if (count === 2) return { width: '2em', minHeight: '2em' };
+    if (count === 3) return { width: '2em', minHeight: '2em' };
+    if (count === 4) return { width: '2.732em', minHeight: '2em' };
+    return { width: `${count}em`, minHeight: '2em' };
+}
+
+function getChallengesClusterStyle(count: number, index: number): React.CSSProperties {
+    const base = { position: 'absolute' as const };
+    if (count === 1) return { ...base, top: 0, left: 0, zIndex: 10 };
+    if (count === 2) return { ...base, top: 0, left: index === 0 ? 0 : '1em', zIndex: 10 };
+    if (count === 3) {
+        if (index === 0) return { ...base, top: 0, left: '0.5em', zIndex: 20 };
+        if (index === 1) return { ...base, top: '0.866em', left: 0, zIndex: 10 };
+        return { ...base, top: '0.866em', left: '1em', zIndex: 10 };
+    }
+    if (count === 4) {
+        if (index === 0) return { ...base, top: '1em', left: '0.866em', zIndex: 30 };
+        if (index === 1) return { ...base, top: 0, left: '0.866em', zIndex: 20 };
+        if (index === 2) return { ...base, top: '0.5em', left: 0, zIndex: 20 };
+        return { ...base, top: '0.5em', left: '1.732em', zIndex: 20 };
+    }
+    return { ...base, top: 0, left: `${index}em`, zIndex: 10 };
+}
+
+interface ChallengeMetricClusterProps {
+    metrics: ChallengeMetric[]
+    cardColor: string
+}
+
+const ChallengeMetricCluster = memo(function ChallengeMetricCluster({ metrics, cardColor }: ChallengeMetricClusterProps) {
+    return (
+        <div className="relative text-[32px] sm:text-[36px] shrink-0 transition-all duration-300" style={getChallengesContainerSize(metrics.length)}>
+            {metrics.map((m, index) => {
+                const Icon = METRIC_ICONS[m]
+                return (
+                    <div
+                        key={m}
+                        className="absolute w-[1em] h-[1em] rounded-full flex items-center justify-center shadow-sm border border-foreground/5 backdrop-blur-sm transition-all duration-300 hover:scale-110 hover:shadow-md group hover:z-50"
+                        style={{ ...getChallengesClusterStyle(metrics.length, index), backgroundColor: `${cardColor}25`, color: cardColor }}
+                        title={METRIC_LABELS[m]}
+                    >
+                        <Icon className="w-[0.45em] h-[0.45em] transition-transform duration-300 group-hover:scale-110" />
+                    </div>
+                )
+            })}
+        </div>
+    )
+})
+
+ChallengeMetricCluster.displayName = "ChallengeMetricCluster"
+
+export default function ChallengesTab() {
+    const { getPalette } = useColorScheme()
+    const router = useRouter()
+    const queryClient = useQueryClient()
+    const [groups, setGroups] = useState<ChallengeGroupWithMembers[]>([])
+    const [loading, setLoading] = useState(true)
+    const [createOpen, setCreateOpen] = useState(false)
+    const [joinOpen, setJoinOpen] = useState(false)
+    const [selectedUser, setSelectedUser] = useState<ProfileModalUser | null>(null)
+    const { user } = useUser()
+
+    const palette = getPalette()
+
+    const getCardColor = (index: number) => {
+        const mid = Math.floor(palette.length / 2)
+        const offset = index % Math.max(palette.length - 2, 1)
+        return palette[Math.min(mid + offset, palette.length - 2)] ?? palette[mid]
+    }
+
+    // Fetch groups on mount
+    useState(() => {
+        demoFetch("/api/challenge-groups")
+            .then(r => r.json())
+            .then(data => { setGroups(data); setLoading(false) })
+            .catch(() => setLoading(false))
+    })
+
+    const handleCreated = (newGroup: ChallengeGroupWithMembers) => {
+        setGroups(prev => [newGroup, ...prev])
+        queryClient.invalidateQueries({ queryKey: ['friends-bundle'] })
+    }
+
+    const refreshGroups = () => {
+        demoFetch("/api/challenge-groups")
+            .then(r => r.json())
+            .then(setGroups)
+            .catch(() => { })
+        queryClient.invalidateQueries({ queryKey: ['friends-bundle'] })
+    }
+
+    if (loading) {
+        return (
+            <div className="w-full h-full flex items-center justify-center p-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            </div>
+        )
+    }
+
+    return (
+        <div className="w-full max-w-5xl mx-auto space-y-6 sm:space-y-8 animate-in fade-in duration-500">
+            {/* Header with actions */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <p className="text-sm text-muted-foreground">
+                    {groups.length > 0
+                        ? `${groups.length} active group${groups.length > 1 ? "s" : ""}`
+                        : "No active groups"}
+                </p>
+                <div className="flex gap-2 w-full sm:w-auto">
+                    <Button variant="outline" size="sm" className="gap-1.5 flex-1 sm:flex-none" onClick={() => setJoinOpen(true)}>
+                        <Globe className="w-4 h-4" /> Join
+                    </Button>
+                    <Button size="sm" className="gap-1.5 flex-1 sm:flex-none" onClick={() => setCreateOpen(true)}>
+                        <Plus className="w-4 h-4" /> Create
+                    </Button>
+                </div>
+            </div>
+
+            {/* Empty State */}
+            {groups.length === 0 && (
+                <Card className="border-border/40 bg-card/60 backdrop-blur-sm rounded-2xl sm:rounded-3xl overflow-hidden">
+                    <CardContent className="py-10 sm:py-16 text-center px-4">
+                        <Trophy className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4 text-muted-foreground/40" />
+                        <h3 className="text-base sm:text-lg font-semibold mb-2">No challenge groups yet</h3>
+                        <p className="text-muted-foreground text-sm max-w-md mx-auto mb-5 sm:mb-6">
+                            Create a group with friends or strangers and battle it out monthly using your real financial stats.
+                        </p>
+                        <Button className="gap-2 w-full sm:w-auto" onClick={() => setCreateOpen(true)}>
+                            <Plus className="w-4 h-4" /> Create your first group
+                        </Button>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Group Cards Grid — identical to Room cards */}
+            {groups.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                    {groups.map((group, idx) => {
+                        const cardColor = getCardColor(idx)
+                        const yourBestRank = Object.values(group.yourRanks).length > 0
+                            ? Math.min(...Object.values(group.yourRanks).filter((r): r is number => r !== undefined))
+                            : null
+
+                        return (
+                            <Card
+                                key={group.id}
+                                onClick={() => router.push(`/challenges/${group.id}`)}
+                                className="relative min-h-[210px] sm:min-h-[260px] rounded-2xl sm:rounded-3xl bg-card/60 backdrop-blur-md shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl cursor-pointer border border-border/50 hover:border-border"
+                            >
+                                {/* Palette-based accent glow */}
+                                <div
+                                    className="absolute -top-12 -right-12 w-24 sm:w-32 h-24 sm:h-32 rounded-full blur-3xl opacity-20"
+                                    style={{ backgroundColor: cardColor }}
+                                />
+                                <CardContent className="p-4 sm:p-6 h-full flex flex-col justify-between z-10 relative">
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div className="space-y-1 max-w-[65%] sm:max-w-[70%]">
+                                            <div className="flex items-center gap-1.5">
+                                                <h3 className="font-semibold text-base sm:text-lg truncate" title={group.name}>{group.name}</h3>
+                                                {group.is_public ? (
+                                                    <Globe className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-muted-foreground shrink-0" />
+                                                ) : (
+                                                    <Lock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-muted-foreground shrink-0" />
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-col shrink-0 justify-end items-end">
+                                            <ChallengeMetricCluster metrics={group.metrics} cardColor={cardColor} />
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-end justify-between mt-auto gap-2">
+                                        <div className="space-y-0.5 sm:space-y-1">
+                                            <span className="text-[10px] sm:text-xs text-muted-foreground block">Current Rank</span>
+                                            <div className={cn(
+                                                "text-base sm:text-xl font-bold font-sans",
+                                                yourBestRank === 1 ? "text-yellow-500" :
+                                                    yourBestRank === 2 ? "text-slate-400" :
+                                                        yourBestRank === 3 ? "text-amber-600" :
+                                                            "text-foreground"
+                                            )}>
+                                                {yourBestRank ? `#${yourBestRank}` : "—"}
+                                            </div>
+                                        </div>
+                                        <Badge variant="secondary" className="bg-background/50 border-border/50 text-[10px] sm:text-xs shadow-none text-muted-foreground">
+                                            {group.daysLeftInMonth}d left
+                                        </Badge>
+                                    </div>
+
+                                    <div className="flex items-center justify-between pt-2 sm:pt-4 border-t border-border/40 mt-2 sm:mt-4">
+                                        {/* Mobile: max 2 avatars */}
+                                        <div className="flex z-20 ml-2 sm:hidden">
+                                            <AnimatedTooltip
+                                                items={group.members.slice(0, 2).map((member, mIdx) => {
+                                                    const memberColor = palette[mIdx % palette.length]
+                                                    const isCurrentUser = member.user_id === user?.id
+                                                    return {
+                                                        id: member.user_id,
+                                                        name: member.display_name,
+                                                        designation: "Challenger",
+                                                        image: isCurrentUser && user?.imageUrl ? user.imageUrl : member.avatar_url,
+                                                        color: memberColor,
+                                                        onClick: () => {
+                                                            setSelectedUser({
+                                                                id: member.user_id,
+                                                                name: member.display_name,
+                                                                avatar: isCurrentUser && user?.imageUrl ? user.imageUrl : member.avatar_url,
+                                                                color: memberColor,
+                                                            })
+                                                        }
+                                                    }
+                                                })}
+                                            />
+                                            {group.members.length > 2 && (
+                                                <div className="w-7 h-7 ml-1 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[9px] font-medium z-10 text-muted-foreground shadow-sm">
+                                                    +{group.members.length - 2}
+                                                </div>
+                                            )}
+                                        </div>
+                                        {/* Desktop: max 3 avatars */}
+                                        <div className="hidden sm:flex z-20 ml-2">
+                                            <AnimatedTooltip
+                                                items={group.members.slice(0, 3).map((member, mIdx) => {
+                                                    const memberColor = palette[mIdx % palette.length]
+                                                    const isCurrentUser = member.user_id === user?.id
+                                                    return {
+                                                        id: member.user_id,
+                                                        name: member.display_name,
+                                                        designation: "Challenger",
+                                                        image: isCurrentUser && user?.imageUrl ? user.imageUrl : member.avatar_url,
+                                                        color: memberColor,
+                                                        onClick: () => {
+                                                            setSelectedUser({
+                                                                id: member.user_id,
+                                                                name: member.display_name,
+                                                                avatar: isCurrentUser && user?.imageUrl ? user.imageUrl : member.avatar_url,
+                                                                color: memberColor,
+                                                            })
+                                                        }
+                                                    }
+                                                })}
+                                            />
+                                            {group.members.length > 3 && (
+                                                <div className="w-9 h-9 ml-1 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[10px] font-medium z-10 text-muted-foreground shadow-sm">
+                                                    +{group.members.length - 3}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <span className="text-[9px] sm:text-[10px] text-muted-foreground font-medium uppercase tracking-wider flex items-center gap-1">
+                                            <Users className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> {group.memberCount}
+                                        </span>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )
+                    })}
+                </div>
+            )}
+
+            <CreateChallengeGroupDialog
+                open={createOpen}
+                onOpenChange={setCreateOpen}
+                onCreated={handleCreated}
+            />
+            <JoinChallengesDialog
+                open={joinOpen}
+                onOpenChange={setJoinOpen}
+                onJoined={refreshGroups}
+            />
+            <ProfileModal open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)} user={selectedUser} />
+        </div>
+    )
+}

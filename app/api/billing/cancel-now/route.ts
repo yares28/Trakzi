@@ -2,11 +2,16 @@
 // Immediately cancel a subscription (not at period end)
 
 import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { auth, clerkClient } from '@clerk/nextjs/server';
 import { getStripe } from '@/lib/stripe';
 import { getUserSubscription, upsertSubscription } from '@/lib/subscriptions';
-import { clerkClient } from '@clerk/nextjs/server';
-import { enforceTransactionCap, getTransactionCap, calculateDeletionsForCap } from '@/lib/limits/transactions-cap';
+import { getTransactionCap } from '@/lib/limits/transactions-cap';
+import { checkRateLimit, createRateLimitResponse } from '@/lib/security/rate-limiter';
+import {
+    buildClerkSubscriptionMetadata,
+    invalidateSubscriptionCaches,
+    getSubscriptionBlockReason,
+} from '@/lib/billing-utils';
 
 export async function POST() {
     try {
@@ -19,19 +24,21 @@ export async function POST() {
             );
         }
 
+        const rateLimitResult = await checkRateLimit(userId, 'mutation');
+        if (rateLimitResult.limited) {
+            return createRateLimitResponse(rateLimitResult.resetIn);
+        }
+
         const subscription = await getUserSubscription(userId);
 
-        console.log('[Cancel Now] Request:', {
-            userId,
-            plan: subscription?.plan,
-            stripeSubscriptionId: subscription?.stripeSubscriptionId,
-        });
+        // Block disputed accounts
+        const blockReason = getSubscriptionBlockReason(subscription?.status);
+        if (blockReason) {
+            return NextResponse.json({ error: blockReason }, { status: 403 });
+        }
 
         if (!subscription) {
-            return NextResponse.json(
-                { error: 'No subscription found.' },
-                { status: 400 }
-            );
+            return NextResponse.json({ error: 'No subscription found.' }, { status: 400 });
         }
 
         if (subscription.plan === 'free') {
@@ -42,74 +49,57 @@ export async function POST() {
         }
 
         if (!subscription.stripeSubscriptionId) {
-            // No Stripe subscription - just update the database
-            await upsertSubscription({
-                userId,
-                plan: 'free',
-                status: 'canceled',
-            });
+            // No Stripe subscription — clean up DB directly.
+            // We deliberately do NOT call enforceTransactionCap here. Per the wallet design
+            // (lib/limits/transaction-wallet.ts: "we never reduce capacity per plan doc"),
+            // a downgrade preserves the user's existing data — new writes are blocked at
+            // /api/transactions via assertCapacityOrExplain once they exceed the free cap,
+            // but historical transactions remain intact and readable.
+            // This matters most for trial users (e.g. Product Hunt redeemers) who tried PRO,
+            // uploaded a year of history, and didn't renew. Silently deleting their data on
+            // downgrade would be a launch-day catastrophe.
+            await upsertSubscription({ userId, plan: 'free', status: 'canceled' });
 
-            // For non-Stripe subscriptions, enforce cap here since no webhook will fire
             const freePlanCap = getTransactionCap('free');
-            console.log(`[Cancel Now] Enforcing free plan cap of ${freePlanCap} for user ${userId} (no Stripe subscription)`);
-            const capResult = await enforceTransactionCap(userId, freePlanCap);
-            
-            if (capResult.deleted > 0) {
-                console.log(`[Cancel Now] Auto-deleted ${capResult.deleted} oldest transactions for user ${userId} to fit free plan cap`);
-            }
 
-            // Update Clerk metadata
             const client = await clerkClient();
-            await client.users.updateUserMetadata(userId, {
-                publicMetadata: {
-                    subscriptionPlan: 'free',
-                    subscriptionStatus: 'canceled',
-                },
-            });
+            await client.users.updateUserMetadata(
+                userId,
+                buildClerkSubscriptionMetadata({ plan: 'free', status: 'canceled' })
+            );
 
-            const message = capResult.deleted > 0
-                ? `Your subscription has been canceled. ${capResult.deleted} oldest transaction(s) were automatically deleted to fit the free plan limit of ${freePlanCap} transactions.`
-                : 'Your subscription has been canceled.';
+            await invalidateSubscriptionCaches(userId);
 
             return NextResponse.json({
                 success: true,
-                message,
-                deletedTransactions: capResult.deleted,
+                message: `Your subscription has been canceled. Your existing transactions are preserved — you can keep viewing them. New uploads will be limited to the free plan cap of ${freePlanCap} transactions.`,
             });
         }
 
-        // Cancel immediately on Stripe (not at period end)
         const stripe = getStripe();
-
-        const canceledSubscription = await stripe.subscriptions.cancel(
-            subscription.stripeSubscriptionId
-        );
+        const canceledSubscription = await stripe.subscriptions.cancel(subscription.stripeSubscriptionId);
 
         console.log('[Cancel Now] Stripe subscription canceled:', {
             id: canceledSubscription.id,
             status: canceledSubscription.status,
         });
 
-        // Update our database
-        await upsertSubscription({
-            userId,
-            plan: 'free',
-            status: 'canceled',
-            cancelAtPeriodEnd: false,
-        });
+        await upsertSubscription({ userId, plan: 'free', status: 'canceled', cancelAtPeriodEnd: false });
 
-        // NOTE: Transaction cap enforcement is handled by the webhook handler
-        // when Stripe sends the customer.subscription.deleted event.
-        // This prevents double deletion (cancel-now + webhook both deleting).
+        // NOTE: Transaction cap enforcement is handled by the customer.subscription.deleted
+        // webhook handler to avoid double-deletion (cancel-now + webhook both deleting).
 
-        // Update Clerk metadata
         const client = await clerkClient();
-        await client.users.updateUserMetadata(userId, {
-            publicMetadata: {
-                subscriptionPlan: 'free',
-                subscriptionStatus: 'canceled',
-            },
-        });
+        await client.users.updateUserMetadata(
+            userId,
+            buildClerkSubscriptionMetadata({
+                plan: 'free',
+                status: 'canceled',
+                stripeCustomerId: subscription.stripeCustomerId,
+            })
+        );
+
+        await invalidateSubscriptionCaches(userId);
 
         return NextResponse.json({
             success: true,
@@ -124,7 +114,6 @@ export async function POST() {
                 { status: 503 }
             );
         }
-
         if (error.type === 'StripeInvalidRequestError') {
             return NextResponse.json(
                 { error: 'Invalid subscription. Please contact support.' },
@@ -133,7 +122,7 @@ export async function POST() {
         }
 
         return NextResponse.json(
-            { error: error.message || 'Failed to cancel subscription' },
+            { error: 'Failed to cancel subscription. Please try again or contact support.' },
             { status: 500 }
         );
     }

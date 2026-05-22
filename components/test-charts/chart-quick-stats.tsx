@@ -1,11 +1,9 @@
 "use client"
-
 import { useMemo, useState, useEffect } from "react"
 import { useTheme } from "next-themes"
 import {
     Card,
     CardContent,
-    CardDescription,
     CardHeader,
     CardTitle,
     CardAction,
@@ -18,7 +16,6 @@ import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { IconArrowUp, IconArrowDown, IconMinus } from "@tabler/icons-react"
-
 interface ChartQuickStatsProps {
     data: Array<{
         date: string
@@ -27,7 +24,6 @@ interface ChartQuickStatsProps {
     }>
     isLoading?: boolean
 }
-
 export function ChartQuickStats({
     data,
     isLoading = false,
@@ -37,31 +33,25 @@ export function ChartQuickStats({
     const { formatCurrency } = useCurrency()
     const palette = getPalette()
     const [mounted, setMounted] = useState(false)
-
     useEffect(() => {
         setMounted(true)
     }, [])
-
     const stats = useMemo(() => {
         if (!data || data.length === 0) return null
-
         const now = new Date()
         const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
         const prevDate = new Date(now)
         prevDate.setMonth(prevDate.getMonth() - 1)
         const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`
-
         let currentMonthTotal = 0
         let prevMonthTotal = 0
         let largestPurchase = 0
         let numTransactions = 0
         let categoryTotals = new Map<string, number>()
-
         data.forEach((tx) => {
             if (tx.amount >= 0) return
             const amount = Math.abs(tx.amount)
             const txMonth = tx.date.slice(0, 7)
-
             if (txMonth === currentMonth) {
                 currentMonthTotal += amount
                 numTransactions++
@@ -72,11 +62,9 @@ export function ChartQuickStats({
                 prevMonthTotal += amount
             }
         })
-
         const monthChange = prevMonthTotal > 0 ? ((currentMonthTotal - prevMonthTotal) / prevMonthTotal) * 100 : 0
         const avgTransaction = numTransactions > 0 ? currentMonthTotal / numTransactions : 0
         const topCategory = Array.from(categoryTotals.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A'
-
         return {
             currentMonthTotal,
             monthChange,
@@ -86,12 +74,9 @@ export function ChartQuickStats({
             topCategory,
         }
     }, [data])
-
     const isDark = resolvedTheme === "dark"
-
     const chartTitle = "Quick Stats"
     const chartDescription = "At-a-glance metrics for your current month spending activity."
-
     const renderInfoTrigger = () => (
         <div className="flex flex-col items-center gap-2">
             <ChartInfoPopover
@@ -112,7 +97,6 @@ export function ChartQuickStats({
             />
         </div>
     )
-
     if (!mounted || !stats) {
         return (
             <Card className="@container/card h-full flex flex-col">
@@ -130,7 +114,6 @@ export function ChartQuickStats({
             </Card>
         )
     }
-
     const statCards = [
         { label: "This Month", value: formatCurrency(stats.currentMonthTotal), sub: `${stats.numTransactions} transactions`, color: palette[0] },
         {
@@ -143,7 +126,6 @@ export function ChartQuickStats({
         { label: "Avg Transaction", value: formatCurrency(stats.avgTransaction), sub: "Per purchase", color: palette[1] },
         { label: "Largest", value: formatCurrency(stats.largestPurchase), sub: "Single purchase", color: palette[2] },
     ]
-
     return (
         <Card className="@container/card h-full flex flex-col">
             <CardHeader>
@@ -152,10 +134,6 @@ export function ChartQuickStats({
                     <ChartFavoriteButton chartId="testCharts:quickStats" chartTitle={chartTitle} size="md" />
                     <CardTitle>{chartTitle}</CardTitle>
                 </div>
-                <CardDescription>
-                    <span className="hidden @[540px]/card:block">{chartDescription}</span>
-                    <span className="@[540px]/card:hidden">Key spending metrics</span>
-                </CardDescription>
                 <CardAction>{renderInfoTrigger()}</CardAction>
             </CardHeader>
             <CardContent className="px-4 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">

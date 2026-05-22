@@ -34,10 +34,10 @@ export function FridgeLayout({
       }
     >
       <AppSidebar variant="inset" />
-      <SidebarInset>
+      <SidebarInset className="md:h-svh md:overflow-hidden flex flex-col">
         <SiteHeader />
         <main
-          className="flex-1 space-y-4 pt-0 lg:pt-2"
+          className="flex-1 space-y-4 pt-[72px] md:pt-0 lg:pt-2 overflow-y-auto overflow-x-hidden"
           onDragEnter={onDragEnter}
           onDragLeave={onDragLeave}
           onDragOver={onDragOver}

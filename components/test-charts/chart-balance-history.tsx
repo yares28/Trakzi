@@ -1,12 +1,10 @@
 "use client"
-
 import { useMemo, useState, useEffect } from "react"
 import { useTheme } from "next-themes"
 import { ResponsiveLine } from "@nivo/line"
 import {
     Card,
     CardContent,
-    CardDescription,
     CardHeader,
     CardTitle,
     CardAction,
@@ -18,7 +16,6 @@ import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
-
 interface ChartBalanceHistoryProps {
     data: Array<{
         date: string
@@ -27,7 +24,6 @@ interface ChartBalanceHistoryProps {
     }>
     isLoading?: boolean
 }
-
 export function ChartBalanceHistory({
     data,
     isLoading = false,
@@ -37,19 +33,15 @@ export function ChartBalanceHistory({
     const { formatCurrency } = useCurrency()
     const palette = getPalette()
     const [mounted, setMounted] = useState(false)
-
     useEffect(() => {
         setMounted(true)
     }, [])
-
     const chartData = useMemo(() => {
         if (!data || data.length === 0) return []
-
         // Sort by date and get daily balances
         const sortedData = [...data]
             .filter(tx => tx.balance !== null && tx.balance !== undefined)
             .sort((a, b) => a.date.localeCompare(b.date))
-
         if (sortedData.length === 0) {
             // If no balance data, calculate running balance
             let balance = 0
@@ -59,44 +51,36 @@ export function ChartBalanceHistory({
                     balance += tx.amount
                     return { date: tx.date.slice(0, 10), balance }
                 })
-
             // Get unique dates with last balance of each day
             const dailyBalances = new Map<string, number>()
             calculated.forEach(({ date, balance }) => {
                 dailyBalances.set(date, balance)
             })
-
             const entries = Array.from(dailyBalances.entries()).slice(-30)
             return [{
                 id: "Balance",
                 data: entries.map(([date, balance]) => ({ x: date, y: balance })),
             }]
         }
-
         // Use actual balance data
         const dailyBalances = new Map<string, number>()
         sortedData.forEach(tx => {
             dailyBalances.set(tx.date.slice(0, 10), tx.balance!)
         })
-
         const entries = Array.from(dailyBalances.entries()).slice(-30)
         return [{
             id: "Balance",
             data: entries.map(([date, balance]) => ({ x: date, y: balance })),
         }]
     }, [data])
-
     const isDark = resolvedTheme === "dark"
     const textColor = isDark ? "#9ca3af" : "#6b7280"
     const gridColor = isDark ? "#374151" : "#e5e7eb"
-
     const chartTitle = "Balance History"
     const chartDescription = "Track your account balance over the last 30 days."
-
     const latestBalance = chartData[0]?.data?.[chartData[0].data.length - 1]?.y ?? 0
     const startBalance = chartData[0]?.data?.[0]?.y ?? 0
     const change = latestBalance - startBalance
-
     const renderInfoTrigger = () => (
         <div className="flex flex-col items-center gap-2">
             <ChartInfoPopover
@@ -117,7 +101,6 @@ export function ChartBalanceHistory({
             />
         </div>
     )
-
     if (!mounted || chartData.length === 0 || !chartData[0]?.data?.length) {
         return (
             <Card className="@container/card h-full flex flex-col">
@@ -135,10 +118,8 @@ export function ChartBalanceHistory({
             </Card>
         )
     }
-
     const minBalance = Math.min(...chartData[0].data.map(d => d.y))
     const maxBalance = Math.max(...chartData[0].data.map(d => d.y))
-
     return (
         <Card className="@container/card h-full flex flex-col">
             <CardHeader>
@@ -147,10 +128,6 @@ export function ChartBalanceHistory({
                     <ChartFavoriteButton chartId="testCharts:balanceHistory" chartTitle={chartTitle} size="md" />
                     <CardTitle>{chartTitle}</CardTitle>
                 </div>
-                <CardDescription>
-                    <span className="hidden @[540px]/card:block">{chartDescription}</span>
-                    <span className="@[540px]/card:hidden">30-day balance</span>
-                </CardDescription>
                 <CardAction>{renderInfoTrigger()}</CardAction>
             </CardHeader>
             <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">

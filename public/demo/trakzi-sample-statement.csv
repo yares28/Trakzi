@@ -1,0 +1,41 @@
+Date,Description,Amount,Balance
+2026-02-02,Salary - Acme Corp,3200.00,5680.00
+2026-02-03,Rent Payment,-1150.00,4530.00
+2026-02-05,Mercadona Groceries,-78.40,4451.60
+2026-02-06,Netflix Subscription,-12.99,4438.61
+2026-02-08,Shell Fuel,-52.30,4386.31
+2026-02-10,Spotify Premium,-10.99,4375.32
+2026-02-12,Restaurant La Tagliatella,-43.50,4331.82
+2026-02-14,Endesa Electricity,-64.20,4267.62
+2026-02-16,Carrefour Groceries,-91.75,4175.87
+2026-02-19,Gym Membership,-34.99,4140.88
+2026-02-22,Amazon Purchase,-56.80,4084.08
+2026-02-25,Transfer to Savings,-400.00,3684.08
+2026-02-27,Coffee Shop,-8.60,3675.48
+2026-03-02,Salary - Acme Corp,3200.00,6875.48
+2026-03-03,Rent Payment,-1150.00,5725.48
+2026-03-05,Mercadona Groceries,-84.20,5641.28
+2026-03-06,Netflix Subscription,-12.99,5628.29
+2026-03-09,Vodafone Mobile,-29.99,5598.30
+2026-03-11,Shell Fuel,-49.10,5549.20
+2026-03-13,Spotify Premium,-10.99,5538.21
+2026-03-15,Restaurant Dinner,-61.40,5476.81
+2026-03-17,Carrefour Groceries,-73.55,5403.26
+2026-03-20,Pharmacy,-18.25,5385.01
+2026-03-23,Refund - Amazon Return,56.80,5441.81
+2026-03-25,Transfer to Savings,-400.00,5041.81
+2026-03-28,Cinema Tickets,-24.00,5017.81
+2026-03-30,Coffee Shop,-9.20,5008.61
+2026-04-02,Salary - Acme Corp,3200.00,8208.61
+2026-04-03,Rent Payment,-1150.00,7058.61
+2026-04-05,Mercadona Groceries,-88.65,6969.96
+2026-04-06,Netflix Subscription,-12.99,6956.97
+2026-04-08,Endesa Electricity,-58.70,6898.27
+2026-04-10,Shell Fuel,-51.40,6846.87
+2026-04-12,Spotify Premium,-10.99,6835.88
+2026-04-15,Freelance Project Payment,450.00,7285.88
+2026-04-17,Restaurant Brunch,-38.90,7246.98
+2026-04-19,Carrefour Groceries,-79.30,7167.68
+2026-04-22,Train Ticket Renfe,-42.50,7125.18
+2026-04-25,Transfer to Savings,-400.00,6725.18
+2026-04-28,Gym Membership,-34.99,6690.19

@@ -1,12 +1,15 @@
 // app/api/statements/import/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
+import { createHash } from "crypto";
 import Papa from "papaparse";
 import { neonInsert, neonQuery } from "@/lib/neonClient";
 import { getCurrentUserId } from "@/lib/auth";
+import { detectTransfers, persistTransferPairs } from "@/lib/accounts/transfer-detection";
 import { TxRow } from "@/lib/types/transactions";
 import { checkRateLimit, createRateLimitResponse } from "@/lib/security/rate-limiter";
-import { invalidateUserCache } from "@/lib/cache/upstash";
+import { invalidateUserCache, invalidateExactKeys, buildCacheKey } from "@/lib/cache/upstash";
+import { fetchRatesForBase, convertWithRates } from "@/lib/fx/converter";
 import {
     assertCapacityOrExplain,
     getRemainingCapacity,
@@ -22,11 +25,16 @@ type ImportBody = {
         rawFormat?: "pdf" | "csv" | "xlsx" | "xls" | "other";
         fileId?: string | null;
     };
+    // Required: bank account to associate this import with. Every CSV must
+    // be tied to an account so transfer detection runs and currency is correct.
+    accountId: string;
     // Optional: allow partial import if over cap
     allowPartialImport?: boolean;
     // Optional: filter by date range
     dateFrom?: string;
     dateTo?: string;
+    // Optional: skip the duplicate-fingerprint check (user confirmed re-import)
+    force?: boolean;
 };
 
 type ImportResponse = {
@@ -35,6 +43,7 @@ type ImportResponse = {
     skipped?: number;
     duplicatesSkipped?: number;
     skippedInvalidDates?: number;
+    fxConverted?: number;
     partialImport?: boolean;
     reachedCap?: boolean;
     capacity?: {
@@ -60,6 +69,72 @@ async function ensureTransactionsTimeColumn(): Promise<void> {
     return ensureTransactionsTimeColumnPromise;
 }
 
+let ensureNormalisationColumnsPromise: Promise<void> | null = null;
+
+async function ensureNormalisationColumns(): Promise<void> {
+    if (ensureNormalisationColumnsPromise) return ensureNormalisationColumnsPromise;
+
+    ensureNormalisationColumnsPromise = (async () => {
+        await neonQuery(`
+            ALTER TABLE transactions
+              ADD COLUMN IF NOT EXISTS simplified_description TEXT,
+              ADD COLUMN IF NOT EXISTS categorisation_source TEXT
+                CHECK (categorisation_source IN
+                  ('preference','statement','pattern','keyword','ai','fallback','manual')),
+              ADD COLUMN IF NOT EXISTS categorisation_confidence NUMERIC(4,3)
+        `);
+    })().catch((error) => {
+        ensureNormalisationColumnsPromise = null;
+        throw error;
+    });
+
+    return ensureNormalisationColumnsPromise;
+}
+
+let ensureFxColumnsPromise: Promise<void> | null = null;
+
+async function ensureFxColumns(): Promise<void> {
+    if (ensureFxColumnsPromise) return ensureFxColumnsPromise;
+
+    ensureFxColumnsPromise = (async () => {
+        await neonQuery(`
+            ALTER TABLE transactions
+              ADD COLUMN IF NOT EXISTS original_amount NUMERIC,
+              ADD COLUMN IF NOT EXISTS original_currency CHAR(3)
+        `);
+    })().catch((error) => {
+        ensureFxColumnsPromise = null;
+        throw error;
+    });
+
+    return ensureFxColumnsPromise;
+}
+
+let ensureFingerprintColumnPromise: Promise<void> | null = null;
+
+async function ensureFingerprintColumn(): Promise<void> {
+    if (ensureFingerprintColumnPromise) return ensureFingerprintColumnPromise;
+
+    ensureFingerprintColumnPromise = (async () => {
+        await neonQuery(`ALTER TABLE statements ADD COLUMN IF NOT EXISTS fingerprint text`);
+    })().catch((error) => {
+        ensureFingerprintColumnPromise = null;
+        throw error;
+    });
+
+    return ensureFingerprintColumnPromise;
+}
+
+// Stable SHA-256 fingerprint of the row set — used to detect re-imports.
+// Rows are sorted before hashing so row order doesn't matter.
+function computeFingerprint(rows: Array<{ date: string; amount: number; description?: string }>): string {
+    const normalized = rows
+        .map(r => `${r.date}|${r.amount}|${(r.description ?? '').trim().toLowerCase()}`)
+        .sort()
+        .join('\n');
+    return createHash('sha256').update(normalized).digest('hex');
+}
+
 function isValidIsoDate(value: string | null | undefined): boolean {
     if (!value) return false;
     const trimmed = value.trim();
@@ -76,13 +151,63 @@ function isValidIsoDate(value: string | null | undefined): boolean {
 
 export const POST = async (req: NextRequest) => {
     try {
-        const body = (await req.json()) as ImportBody;
-        const { csv, statementMeta, allowPartialImport, dateFrom, dateTo } = body;
+        const contentType = req.headers.get("content-type") ?? ""
+        let csv: string | null = null
+        let statementMeta: ImportBody["statementMeta"] | undefined
+        let accountId: string | undefined
+        let allowPartialImport: boolean | undefined
+        let dateFrom: string | undefined
+        let dateTo: string | undefined
+        let force: boolean | undefined
+
+        // URL query param takes precedence — more reliable than body field for boolean flags
+        const forceFromUrl = req.nextUrl.searchParams.get("force") === "true"
+
+        if (contentType.includes("multipart/form-data")) {
+            // Large CSV sent as FormData blob — bypasses JSON serialization and body size limits
+            const fd = await req.formData()
+            const csvField = fd.get("csv")
+            csv = csvField instanceof File ? await csvField.text() : typeof csvField === "string" ? csvField : null
+            accountId = (fd.get("accountId") as string | null) ?? undefined
+            force = forceFromUrl || fd.get("force") === "true"
+            allowPartialImport = fd.get("allowPartialImport") === "true"
+            dateFrom = (fd.get("dateFrom") as string | null) ?? undefined
+            dateTo = (fd.get("dateTo") as string | null) ?? undefined
+            const metaRaw = fd.get("statementMeta") as string | null
+            if (metaRaw) {
+                try { statementMeta = JSON.parse(metaRaw) } catch { /* ignore malformed meta */ }
+            }
+        } else {
+            // Legacy JSON body (small imports, direct API calls)
+            const body = (await req.json()) as ImportBody
+            ;({ csv, statementMeta, accountId, allowPartialImport, dateFrom, dateTo, force } = body)
+            force = forceFromUrl || force
+        }
+
         if (!csv) {
             return NextResponse.json({ error: "Missing CSV" }, { status: 400 });
         }
 
         const userId = await getCurrentUserId();
+
+        // accountId is required — the import flow must be tied to an account so
+        // transfer detection runs and the row currency matches the account.
+        if (!accountId) {
+            return NextResponse.json(
+                { error: "Account is required. Pick an account before importing." },
+                { status: 400 }
+            );
+        }
+
+        const [account] = await neonQuery<{ id: string; currency: string }>(
+            `SELECT id, currency FROM bank_accounts WHERE id = $1 AND user_id = $2 AND is_active = true`,
+            [accountId, userId]
+        );
+        if (!account) {
+            return NextResponse.json({ error: "Account not found" }, { status: 404 });
+        }
+        const resolvedAccountId: string = account.id;
+        const resolvedCurrency: string = account.currency;
 
         // Rate limit - bulk imports are expensive (DB writes + parsing)
         const rateLimitResult = await checkRateLimit(userId, 'mutation');
@@ -90,7 +215,7 @@ export const POST = async (req: NextRequest) => {
             return createRateLimitResponse(rateLimitResult.resetIn);
         }
 
-        await ensureTransactionsTimeColumn();
+        await Promise.all([ensureTransactionsTimeColumn(), ensureNormalisationColumns(), ensureFxColumns()]);
 
         // 1) Parse CSV into TxRow[]
         const parsed = Papa.parse(csv, {
@@ -102,14 +227,26 @@ export const POST = async (req: NextRequest) => {
             console.warn("Import CSV parse errors:", parsed.errors);
         }
 
-        let rows: TxRow[] = (parsed.data as any[]).map((r) => ({
-            date: String(r.date),
-            time: r.time ? String(r.time) : null,
-            description: String(r.description),
-            amount: Number(r.amount),
-            balance: r.balance != null ? Number(r.balance) : null,
-            category: r.category ? String(r.category) : undefined
-        }));
+        const VALID_CAT_SOURCES = new Set([
+            'preference', 'statement', 'pattern', 'keyword', 'ai', 'fallback', 'manual'
+        ]);
+        let rows: TxRow[] = (parsed.data as any[]).map((r) => {
+            const catSource = r.categorisation_source ? String(r.categorisation_source).trim() : undefined;
+            const catConfRaw = r.categorisation_confidence ? Number(r.categorisation_confidence) : undefined;
+            return {
+                date: String(r.date),
+                time: r.time ? String(r.time) : null,
+                description: String(r.description),
+                amount: Number(r.amount),
+                balance: r.balance != null ? Number(r.balance) : null,
+                category: r.category ? String(r.category) : undefined,
+                summary: r.summary ? String(r.summary) : undefined,
+                categorisationSource: catSource && VALID_CAT_SOURCES.has(catSource)
+                    ? catSource as TxRow['categorisationSource']
+                    : undefined,
+                categorisationConfidence: catConfRaw != null && !isNaN(catConfRaw) ? catConfRaw : undefined,
+            };
+        });
 
         if (rows.length === 0) {
             return NextResponse.json({ error: "No rows in CSV" }, { status: 400 });
@@ -194,6 +331,26 @@ export const POST = async (req: NextRequest) => {
             ? rows.slice(0, allowedCount)
             : rows.slice(0, allowedCount);
 
+        // 4a) Fingerprint check — soft-dedup: warn the user if the same set of rows
+        //     was imported before. Running ensureFingerprintColumn in parallel with
+        //     the dedup query is safe because the lazy migration is idempotent.
+        await ensureFingerprintColumn();
+        const fingerprint = computeFingerprint(rowsToInsert);
+
+        if (!force) {
+            const dupRows = await neonQuery<{ id: number }>(
+                `SELECT id FROM statements WHERE user_id = $1 AND fingerprint = $2 LIMIT 1`,
+                [userId, fingerprint]
+            );
+            if (dupRows.length > 0) {
+                return NextResponse.json({
+                    duplicate: true,
+                    existingStatementId: dupRows[0].id,
+                    message: 'This statement appears to have been imported before.',
+                }, { status: 409 });
+            }
+        }
+
         // 4) Insert statement
         const [statement] = await neonInsert<{
             user_id: string;
@@ -201,6 +358,8 @@ export const POST = async (req: NextRequest) => {
             status: string;
             row_count: number;
             imported_count: number;
+            account_id?: string | null;
+            fingerprint?: string;
             id?: number;
         }>("statements", {
             user_id: userId,
@@ -208,12 +367,15 @@ export const POST = async (req: NextRequest) => {
             status: "completed",
             row_count: rowsToInsert.length,
             imported_count: rowsToInsert.length,
+            account_id: resolvedAccountId,
+            fingerprint,
         }) as Array<{
             id: number;
             user_id: string;
             file_name: string;
             status: string;
             row_count: number;
+            account_id?: string | null;
             imported_count: number;
         }>;
 
@@ -274,40 +436,222 @@ export const POST = async (req: NextRequest) => {
             }
         }
 
-        // 6) Build transactions rows for Neon with proper category_id
-        const timestamp = new Date().toISOString();
-        const txRows = rowsToInsert.map((r) => ({
-            user_id: userId,
-            statement_id: statementId,
-            tx_date: r.date,
-            tx_time: r.time ?? null,
-            description: r.description,
-            amount: r.amount,
-            balance: r.balance,
-            currency: "EUR",
-            category_id: r.category && categoryNameToId.has(r.category)
-                ? categoryNameToId.get(r.category)!
-                : null,
-            raw_csv_row: JSON.stringify(r),
-            created_at: timestamp,
-            updated_at: timestamp
-        }));
+        // 5b) Deduplicate — filter out rows flagged as duplicates within this import batch
+        const dedupedRows = rowsToInsert.filter(r => !r.isDuplicate);
+        const duplicatesSkipped = rowsToInsert.length - dedupedRows.length;
 
-        await neonInsert("transactions", txRows, {
-            returnRepresentation: false
+        // 6) FX conversion — fetch rates once for all source currencies that differ from account currency
+        const sourceCurrencies = [
+            ...new Set(
+                dedupedRows
+                    .map(r => r.currency?.toUpperCase())
+                    .filter((c): c is string => !!c && c !== resolvedCurrency.toUpperCase())
+            )
+        ];
+        let fxRates: Record<string, number> = {};
+        if (sourceCurrencies.length > 0) {
+            try {
+                fxRates = await fetchRatesForBase(resolvedCurrency, sourceCurrencies);
+            } catch (fxError: any) {
+                return NextResponse.json(
+                    { error: `FX conversion failed: ${fxError.message}` },
+                    { status: 502 }
+                );
+            }
+        }
+
+        // 7) Build transactions rows for Neon with proper category_id and FX conversion
+        const VALID_IMPORT_TX_TYPES = new Set(['expense', 'income', 'transfer'])
+        const timestamp = new Date().toISOString();
+        const txRows = dedupedRows.map((r) => {
+            const rowCurrency = r.currency?.toUpperCase() ?? resolvedCurrency.toUpperCase();
+            const needsConversion = rowCurrency !== resolvedCurrency.toUpperCase() && fxRates[rowCurrency];
+            const convertedAmount = needsConversion
+                ? convertWithRates(r.amount, rowCurrency, resolvedCurrency, fxRates)
+                : r.amount;
+            const convertedBalance = (needsConversion && r.balance != null)
+                ? convertWithRates(r.balance, rowCurrency, resolvedCurrency, fxRates)
+                : r.balance;
+
+            const safeAmount = Number.isFinite(convertedAmount) ? convertedAmount : 0;
+            const safeBalance = convertedBalance != null && Number.isFinite(convertedBalance) ? convertedBalance : null;
+
+            return {
+                user_id: userId,
+                statement_id: statementId,
+                account_id: resolvedAccountId,
+                tx_date: r.date,
+                tx_time: r.time ?? null,
+                description: r.description,
+                simplified_description: r.summary ?? null,
+                amount: safeAmount,
+                balance: safeBalance,
+                currency: resolvedCurrency,
+                original_amount: needsConversion && Number.isFinite(r.amount) ? r.amount : null,
+                original_currency: needsConversion ? rowCurrency : null,
+                tx_type: r.tx_type && VALID_IMPORT_TX_TYPES.has(r.tx_type) ? r.tx_type : 'expense',
+                category_id: r.category && categoryNameToId.has(r.category)
+                    ? categoryNameToId.get(r.category)!
+                    : null,
+                categorisation_source: r.categorisationSource && VALID_CAT_SOURCES.has(r.categorisationSource)
+                    ? r.categorisationSource
+                    : null,
+                categorisation_confidence: typeof r.categorisationConfidence === 'number'
+                    ? r.categorisationConfidence
+                    : null,
+                raw_csv_row: JSON.stringify({
+                    date: r.date,
+                    time: r.time ?? null,
+                    description: r.description,
+                    amount: Number.isFinite(r.amount) ? r.amount : null,
+                    balance: r.balance != null && Number.isFinite(r.balance) ? r.balance : null,
+                    category: r.category ?? null,
+                    currency: r.currency ?? null,
+                    tx_type: r.tx_type ?? null,
+                }),
+                created_at: timestamp,
+                updated_at: timestamp,
+            };
         });
 
+        // Account is always set, so transfer detection always runs.
+        type TxInsertRow = typeof txRows[number];
+        const insertedTxs = await neonInsert<TxInsertRow>(
+            "transactions", txRows, { returnRepresentation: true }
+        ) as Array<TxInsertRow & { id: number }>;
+        const newIds = insertedTxs.map(t => t.id);
+        const pairs = await detectTransfers(userId, newIds);
+        await persistTransferPairs(userId, pairs);
+        const detectedTransferCount = pairs.length;
+
+        // Budget seeding (idempotent, never overwrites existing budgets).
+        //
+        // Goal: after a CSV import, the user should land in the Budgets tab
+        // and Spending Activity Rings chart and see sensible per-category
+        // monthly caps reflecting their actual spending — not a global
+        // "first calendar month" snapshot that may be sparse or anchored to
+        // an ancient stray transaction.
+        //
+        // Strategy:
+        //   1. Find this user's top-5 categories by total all-time expense.
+        //   2. For each top category WITHOUT an existing budget, set the
+        //      cap = SUM of spend in THAT CATEGORY'S earliest logged month
+        //      (per-category, not global — so "Groceries" budget reflects
+        //      Groceries' first month, even if Groceries started two months
+        //      after the user's earliest tx).
+        //   3. Top-up logic: if the user already has 1-4 budgets, fill the
+        //      remaining slots from their top-spend uncovered categories.
+        //   4. Skip categories where first-month spend was 0 (degenerate).
+        //
+        // Idempotent across re-imports: existing budgets are never
+        // overwritten. Only inserts for categories not already in the table.
+        try {
+            const existingBudgets = await neonQuery<{ category_id: string }>(
+                `SELECT category_id::text FROM category_budgets
+                 WHERE user_id = $1 AND scope = 'analytics'`,
+                [userId]
+            );
+            const existingCategoryIds = new Set(
+                existingBudgets.map((r) => parseInt(r.category_id, 10))
+            );
+
+            if (existingCategoryIds.size < 5) {
+                // Top-5 categories by all-time total expense, EXCLUDING ones
+                // already budgeted. The first-month-spend value comes from a
+                // correlated subquery so each category gets its OWN first
+                // month, not a shared global one.
+                const seedCandidates = await neonQuery<{
+                    category_id: string;
+                    first_month_spend: string;
+                }>(
+                    `WITH category_totals AS (
+                       SELECT
+                         t.category_id,
+                         SUM(ABS(t.amount)) AS lifetime_total
+                       FROM transactions t
+                       WHERE t.user_id = $1
+                         AND t.amount < 0
+                         AND t.category_id IS NOT NULL
+                       GROUP BY t.category_id
+                     ),
+                     category_first_month AS (
+                       SELECT
+                         t.category_id,
+                         DATE_TRUNC('month', MIN(t.tx_date)) AS first_month
+                       FROM transactions t
+                       WHERE t.user_id = $1
+                         AND t.amount < 0
+                         AND t.category_id IS NOT NULL
+                       GROUP BY t.category_id
+                     ),
+                     category_first_month_spend AS (
+                       SELECT
+                         cfm.category_id,
+                         SUM(ABS(t.amount)) AS first_month_total
+                       FROM category_first_month cfm
+                       JOIN transactions t
+                         ON t.category_id = cfm.category_id
+                         AND t.user_id = $1
+                         AND t.amount < 0
+                         AND DATE_TRUNC('month', t.tx_date) = cfm.first_month
+                       GROUP BY cfm.category_id
+                     )
+                     SELECT
+                       ct.category_id::text,
+                       cfms.first_month_total::text AS first_month_spend
+                     FROM category_totals ct
+                     JOIN category_first_month_spend cfms
+                       ON cfms.category_id = ct.category_id
+                     WHERE cfms.first_month_total > 0
+                     ORDER BY ct.lifetime_total DESC, ct.category_id ASC
+                     LIMIT 20`,
+                    [userId]
+                );
+
+                const slotsToFill = 5 - existingCategoryIds.size;
+                const seedRows = seedCandidates
+                    .filter((r) => !existingCategoryIds.has(parseInt(r.category_id, 10)))
+                    .slice(0, slotsToFill)
+                    .map((r) => ({
+                        user_id: userId,
+                        category_id: parseInt(r.category_id, 10),
+                        scope: "analytics" as const,
+                        budget: parseFloat(r.first_month_spend),
+                    }));
+
+                if (seedRows.length > 0) {
+                    await neonInsert("category_budgets", seedRows);
+                }
+            }
+        } catch (seedError) {
+            // Seeding is best-effort — don't fail the whole import if it errors.
+            console.error("[Import] Budget seeding failed:", seedError);
+        }
+
         // Build response
-        const response: ImportResponse = {
+        const response: ImportResponse & { detectedTransfers?: number; duplicatesSkipped?: number } = {
             statementId,
-            inserted: rowsToInsert.length,
+            inserted: dedupedRows.length,
             capacity: {
                 plan: capacity.plan,
                 cap: capacity.cap,
-                used: capacity.used + rowsToInsert.length,
-                remaining: capacity.remaining - rowsToInsert.length,
+                used: capacity.used + dedupedRows.length,
+                remaining: capacity.remaining - dedupedRows.length,
             },
         };
+
+        if (detectedTransferCount > 0) {
+            (response as any).detectedTransfers = detectedTransferCount;
+        }
+
+        if (duplicatesSkipped > 0) {
+            response.duplicatesSkipped = duplicatesSkipped;
+        }
+
+        if (sourceCurrencies.length > 0) {
+            const fxConvertedCount = txRows.filter(r => r.original_currency != null).length;
+            if (fxConvertedCount > 0) response.fxConverted = fxConvertedCount;
+        }
 
         if (invalidDateCount > 0) {
             response.skippedInvalidDates = invalidDateCount;
@@ -319,13 +663,20 @@ export const POST = async (req: NextRequest) => {
             response.reachedCap = true;
         }
 
-        // Invalidate ALL cache to ensure UI updates instantly across all pages
-        await invalidateUserCache(userId);
+        // Invalidate ALL cache to ensure UI updates instantly across all pages.
+        // Exact-key DEL for data-library runs alongside the broad SCAN as a belt-and-suspenders
+        // guarantee — SCAN can miss keys in the same iteration window.
+        await Promise.all([
+            invalidateUserCache(userId),
+            invalidateExactKeys(buildCacheKey('data-library', userId, null, 'bundle')),
+        ]);
         revalidatePath('/data-library');
         revalidatePath('/home');
         revalidatePath('/analytics');
         revalidatePath('/fridge');
         revalidatePath('/trends');
+        revalidatePath('/savings');
+        revalidatePath('/pockets');
 
         return NextResponse.json(response, { status: 201 });
     } catch (error: any) {

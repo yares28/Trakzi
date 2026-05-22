@@ -13,7 +13,7 @@ import {
   Card,
   CardAction,
   CardContent,
-  CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -83,7 +83,6 @@ export const ChartDayOfWeekShoppingFridge = React.memo(function ChartDayOfWeekSh
           </span>
           <CardTitle>Best Shopping Days</CardTitle>
         </div>
-        <CardDescription></CardDescription>
         <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
           {infoAction}
         </CardAction>

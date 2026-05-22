@@ -10,7 +10,17 @@ import {
 
 type ChartSize = { w: number; h: number; x?: number; y?: number }
 
-export function useChartLayout() {
+type UseChartLayoutOptions = {
+  isDemoMode?: boolean
+}
+
+function cloneChartSizes(source: Record<string, ChartSize>) {
+  return Object.fromEntries(
+    Object.entries(source).map(([chartId, size]) => [chartId, { ...size }])
+  ) as Record<string, ChartSize>
+}
+
+export function useChartLayout({ isDemoMode = false }: UseChartLayoutOptions = {}) {
   const { preferences, updatePagePreferences, isLoaded } = useUserPreferences()
   const analyticsPrefs = preferences.analytics
 
@@ -21,18 +31,40 @@ export function useChartLayout() {
     useState<string[]>(DEFAULT_CHART_ORDER)
 
   useEffect(() => {
-    const saved = analyticsPrefs?.order
-    if (saved && Array.isArray(saved) && saved.length === DEFAULT_CHART_ORDER.length) {
-      setAnalyticsChartOrder(saved)
+    if (isDemoMode) {
+      // Demo mode now uses the same default layout as new real users — no separate
+      // DEMO_DEFAULT_CHART_ORDER. This keeps the demo and the real first-run UX in sync.
+      setAnalyticsChartOrder([...DEFAULT_CHART_ORDER])
+      return
     }
-  }, [analyticsPrefs?.order])
+
+    const saved = analyticsPrefs?.order
+    if (!saved || !Array.isArray(saved)) return
+
+    // Filter out obsolete chart IDs that no longer exist in the default order
+    const validCharts = saved.filter((id: string) =>
+      DEFAULT_CHART_ORDER.includes(id)
+    )
+    // Add any new charts that aren't in the saved order
+    const missingCharts = DEFAULT_CHART_ORDER.filter(
+      (id) => !validCharts.includes(id)
+    )
+    const mergedOrder = [...validCharts, ...missingCharts]
+    setAnalyticsChartOrder(mergedOrder)
+
+    // Save the cleaned-up order if it changed
+    if (mergedOrder.length !== saved.length) {
+      updatePagePreferences("analytics", { order: mergedOrder })
+    }
+  }, [analyticsPrefs?.order, isDemoMode, updatePagePreferences])
 
   const handleChartOrderChange = useCallback(
     (newOrder: string[]) => {
       setAnalyticsChartOrder(newOrder)
+      if (isDemoMode) return
       updatePagePreferences("analytics", { order: newOrder })
     },
-    [updatePagePreferences]
+    [isDemoMode, updatePagePreferences]
   )
 
   // -----------------------------------------------------------------
@@ -44,19 +76,27 @@ export function useChartLayout() {
   const savedSizesRef = useRef<Record<string, { w: number; h: number }>>({})
 
   useEffect(() => {
+    if (isDemoMode) {
+      // No demo-specific user_sizes — demo uses the same defaults as real users.
+      setSavedSizes({})
+      savedSizesRef.current = {}
+      return
+    }
+
     const s = analyticsPrefs?.user_sizes ?? {}
     setSavedSizes(s)
     savedSizesRef.current = s
-  }, [analyticsPrefs?.user_sizes])
+  }, [analyticsPrefs?.user_sizes, isDemoMode])
 
   const handleChartResize = useCallback(
     (chartId: string, w: number, h: number) => {
       const next = { ...savedSizesRef.current, [chartId]: { w, h } }
       savedSizesRef.current = next
       setSavedSizes(next)
+      if (isDemoMode) return
       updatePagePreferences("analytics", { user_sizes: next })
     },
-    [updatePagePreferences]
+    [isDemoMode, updatePagePreferences]
   )
 
   // -----------------------------------------------------------------
@@ -81,6 +121,15 @@ export function useChartLayout() {
 
   // Compute sizes from preferences (with version-reset logic).
   useEffect(() => {
+    if (isDemoMode) {
+      // Demo uses the same DEFAULT_CHART_SIZES as new real users — no overlays.
+      const demoSizes = cloneChartSizes(DEFAULT_CHART_SIZES)
+      savedChartSizesRef.current = demoSizes
+      setSavedChartSizes(demoSizes)
+      setHasLoadedChartSizes(true)
+      return
+    }
+
     if (!isLoaded) return
 
     const storedSizes = analyticsPrefs?.sizes ?? {}
@@ -98,17 +147,17 @@ export function useChartLayout() {
       const finalSize =
         needsUpdate || !savedSize
           ? {
-              w: defaultSize.w,
-              h: defaultSize.h,
-              x: savedSize?.x ?? defaultSize.x,
-              y: savedSize?.y ?? defaultSize.y,
-            }
+            w: defaultSize.w,
+            h: defaultSize.h,
+            x: savedSize?.x ?? defaultSize.x,
+            y: savedSize?.y ?? defaultSize.y,
+          }
           : {
-              w: savedSize.w,
-              h: savedSize.h,
-              x: savedSize.x ?? defaultSize.x,
-              y: savedSize.y ?? defaultSize.y,
-            }
+            w: savedSize.w,
+            h: savedSize.h,
+            x: savedSize.x ?? defaultSize.x,
+            y: savedSize.y ?? defaultSize.y,
+          }
 
       result[chartId] = finalSize
 
@@ -132,19 +181,48 @@ export function useChartLayout() {
     savedChartSizesRef.current = result
     setSavedChartSizes(result)
     setHasLoadedChartSizes(true)
-  }, [isLoaded, analyticsPrefs?.sizes, analyticsPrefs?.sizes_version, updatePagePreferences])
+  }, [analyticsPrefs?.sizes, analyticsPrefs?.sizes_version, isDemoMode, isLoaded, updatePagePreferences])
 
   const saveChartSizes = useCallback(
     (sizes: Record<string, ChartSize>) => {
       savedChartSizesRef.current = sizes
       setSavedChartSizes(sizes)
+      if (isDemoMode) return
       updatePagePreferences("analytics", {
         sizes,
         sizes_version: DEFAULT_SIZES_VERSION,
       })
     },
-    [updatePagePreferences]
+    [isDemoMode, updatePagePreferences]
   )
+
+  // -----------------------------------------------------------------
+  // Reset to defaults — restores order, sizes, and clears user resizes.
+  // -----------------------------------------------------------------
+  const resetLayout = useCallback(() => {
+    const defaultOrder = [...DEFAULT_CHART_ORDER]
+    const defaultSizes = cloneChartSizes(DEFAULT_CHART_SIZES)
+
+    setAnalyticsChartOrder(defaultOrder)
+    setSavedSizes({})
+    savedSizesRef.current = {}
+    setSavedChartSizes(defaultSizes)
+    savedChartSizesRef.current = defaultSizes
+
+    if (isDemoMode) return
+    updatePagePreferences("analytics", {
+      order: defaultOrder,
+      sizes: defaultSizes,
+      sizes_version: DEFAULT_SIZES_VERSION,
+      user_sizes: {},
+    })
+  }, [isDemoMode, updatePagePreferences])
+
+  useEffect(() => {
+    const handler = () => resetLayout()
+    window.addEventListener("gridstack:reset", handler)
+    return () => window.removeEventListener("gridstack:reset", handler)
+  }, [resetLayout])
 
   return {
     analyticsChartOrder,

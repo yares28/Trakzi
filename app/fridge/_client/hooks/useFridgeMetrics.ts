@@ -23,6 +23,14 @@ export type FridgeMetricTrends = {
   tripsFrequencyTrend: TrendPoint[]
 }
 
+export type FridgeMetricChanges = {
+  totalSpentChange: number
+  shoppingTripsChange: number
+  storesVisitedChange: number
+  averageReceiptChange: number
+  tripsFrequencyChange: number
+}
+
 type UseFridgeMetricsParams = {
   bundleData?: FridgeBundleData
   receiptTransactions: ReceiptTransactionRow[]
@@ -159,5 +167,31 @@ export function useFridgeMetrics({ bundleData, receiptTransactions }: UseFridgeM
     }
   }, [receipts])
 
-  return { metrics, metricsTrends }
+  const metricsChanges = useMemo<FridgeMetricChanges>(() => {
+    const prev = bundleData?.previousKpis
+    const curr = bundleData?.kpis
+    if (!prev || !curr) {
+      return { totalSpentChange: 0, shoppingTripsChange: 0, storesVisitedChange: 0, averageReceiptChange: 0, tripsFrequencyChange: 0 }
+    }
+
+    const pct = (current: number, previous: number) =>
+      previous !== 0 ? ((current - previous) / Math.abs(previous)) * 100 : (current > 0 ? 100 : 0)
+
+    // tripsFrequency is inversely proportional to shoppingTrips over a fixed period:
+    // more trips → fewer days between trips → lower frequency value (negative change)
+    const tripsFrequencyChange =
+      curr.shoppingTrips > 0 && prev.shoppingTrips > 0
+        ? ((prev.shoppingTrips / curr.shoppingTrips) - 1) * 100
+        : 0
+
+    return {
+      totalSpentChange: pct(curr.totalSpent, prev.totalSpent),
+      shoppingTripsChange: pct(curr.shoppingTrips, prev.shoppingTrips),
+      storesVisitedChange: pct(curr.storesVisited, prev.storesVisited),
+      averageReceiptChange: pct(curr.averageReceipt, prev.averageReceipt),
+      tripsFrequencyChange,
+    }
+  }, [bundleData?.kpis, bundleData?.previousKpis])
+
+  return { metrics, metricsTrends, metricsChanges }
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { getCurrentUserId } from "@/lib/auth"
 import { neonQuery, neonInsert } from "@/lib/neonClient"
+import { invalidateUserCachePrefix } from "@/lib/cache/upstash"
 
 const CreateBudgetSchema = z.object({
   categoryName: z.string().min(1, "Category name is required").max(100).trim(),
@@ -13,6 +14,8 @@ type BudgetRow = {
   budget: string | number
 }
 
+// Legacy hex palette — kept as-is so the DB column format never changes.
+// Theme adaptation is handled entirely in the UI via lib/colors/category-color.ts.
 const CATEGORY_COLORS = [
   "#f97316",
   "#6366f1",
@@ -160,6 +163,15 @@ export const POST = async (req: NextRequest) => {
       )
     }
 
+    Promise.all([
+      invalidateUserCachePrefix(userId, 'budgets'),
+      invalidateUserCachePrefix(userId, 'home'),
+      invalidateUserCachePrefix(userId, 'analytics'),
+      invalidateUserCachePrefix(userId, 'savings'),
+    ]).catch((err) => {
+      console.error('[Budgets API] Cache invalidation error:', err)
+    })
+
     return NextResponse.json({ success: true }, { status: 200 })
   } catch (error: any) {
     console.error("[Budgets API] POST error:", error)
@@ -209,6 +221,15 @@ export const DELETE = async (req: NextRequest) => {
        WHERE user_id = $1 AND category_id = $2 AND scope = $3`,
       [userId, categoryId, scope]
     )
+
+    Promise.all([
+      invalidateUserCachePrefix(userId, 'budgets'),
+      invalidateUserCachePrefix(userId, 'home'),
+      invalidateUserCachePrefix(userId, 'analytics'),
+      invalidateUserCachePrefix(userId, 'savings'),
+    ]).catch((err) => {
+      console.error('[Budgets API] Cache invalidation error:', err)
+    })
 
     return NextResponse.json({ success: true }, { status: 200 })
   } catch (error: any) {

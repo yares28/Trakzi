@@ -8,7 +8,7 @@ type SpendingActivityRingsProps = {
   config: ActivityRingsConfig
   theme: "light" | "dark"
   ringLimits?: Record<string, number>
-  getDefaultLimit?: () => number
+  getDefaultLimit?: () => number | null
 }
 
 // Custom concentric rings renderer so we control tooltips from Neon data
@@ -30,6 +30,9 @@ export function SpendingActivityRings({ data, config, theme, ringLimits = {}, ge
     return () => clearTimeout(timer)
   }, [data])
 
+  // Debounce ref for ResizeObserver callback
+  const resizeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // Observe container size changes
   useEffect(() => {
     const container = containerRef.current
@@ -47,9 +50,9 @@ export function SpendingActivityRings({ data, config, theme, ringLimits = {}, ge
       const maxSize = 800 // Increased maximum size
       const clampedSize = Math.max(minSize, Math.min(maxSize, size))
 
-      // Only update if size actually changed to avoid unnecessary re-renders
+      // Only update if size actually changed by more than 1px to avoid unnecessary re-renders
       setContainerSize(prev => {
-        if (Math.abs(prev.width - clampedSize) > 1) {
+        if (Math.abs(prev.width - clampedSize) > 1 || Math.abs(prev.height - clampedSize) > 1) {
           return { width: clampedSize, height: clampedSize }
         }
         return prev
@@ -59,15 +62,20 @@ export function SpendingActivityRings({ data, config, theme, ringLimits = {}, ge
     // Initial size with a small delay to ensure layout is complete
     const timeoutId = setTimeout(updateSize, 0)
 
-    // Observe resize
+    // Observe resize with 100ms debounce to prevent ResizeObserver loop
     const resizeObserver = new ResizeObserver(() => {
-      // Use requestAnimationFrame to ensure layout is complete
-      requestAnimationFrame(updateSize)
+      if (resizeDebounceRef.current) {
+        clearTimeout(resizeDebounceRef.current)
+      }
+      resizeDebounceRef.current = setTimeout(updateSize, 100)
     })
     resizeObserver.observe(container)
 
     return () => {
       clearTimeout(timeoutId)
+      if (resizeDebounceRef.current) {
+        clearTimeout(resizeDebounceRef.current)
+      }
       resizeObserver.disconnect()
     }
   }, [])
@@ -182,10 +190,14 @@ export function SpendingActivityRings({ data, config, theme, ringLimits = {}, ge
             const spent = typeof (item as { spent?: number }).spent === "number"
               ? (item as { spent?: number }).spent!
               : 0
+            const resolvedBudget = typeof (item as { budget?: number }).budget === "number"
+              ? (item as { budget?: number }).budget!
+              : null
 
-            // Calculate budget from ringLimits or default
             const storedLimit = ringLimits[category]
-            const budget = typeof storedLimit === "number" && storedLimit > 0
+            const budget = resolvedBudget && resolvedBudget > 0
+              ? resolvedBudget
+              : typeof storedLimit === "number" && storedLimit > 0
               ? storedLimit
               : (getDefaultLimit ? getDefaultLimit() : null)
 

@@ -4,7 +4,6 @@ import {
   IconLogin,
   IconLogout,
   IconUser,
-  IconSettings,
 } from "@tabler/icons-react"
 import {
   SignedIn,
@@ -13,6 +12,7 @@ import {
   useUser,
   useClerk,
 } from "@clerk/nextjs"
+import { useDemoMode } from "@/lib/demo/demo-context"
 
 import {
   Avatar,
@@ -33,7 +33,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { SettingsPanel } from "@/components/settings-panel"
 import { clearAllCachesOnLogout } from "@/lib/clear-cache-on-logout"
 
 
@@ -41,8 +40,8 @@ export function NavUser() {
   const { user, isLoaded } = useUser()
   const { signOut } = useClerk()
   const { isMobile, setOpenMobile } = useSidebar()
+  const { isDemoMode, exitDemo } = useDemoMode()
 
-  // Handle sign out: clear Redis + Vercel + client caches, then sign out
   const handleSignOut = async () => {
     if (isMobile) {
       setOpenMobile(false)
@@ -51,111 +50,123 @@ export function NavUser() {
     await signOut({ redirectUrl: "/" })
   }
 
-  const settingsButton = (
-    <SettingsPanel>
-      <SidebarMenuButton
-        tooltip="Settings"
-        size="lg"
-        type="button"
-        aria-label="Settings"
-        className="w-12 flex-none justify-center group-data-[collapsible=icon]:w-10"
-      >
-        <IconSettings />
-        <span className="sr-only">Settings</span>
-      </SidebarMenuButton>
-    </SettingsPanel>
-  )
-
-  // Show sign-in button when not authenticated
   return (
     <SidebarMenu>
       <SidebarMenuItem>
-        <SignedOut>
-          <div className="flex w-full items-center gap-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-1">
-            {settingsButton}
-            <SignInButton mode="redirect">
-              <SidebarMenuButton
-                size="lg"
-                className="w-auto flex-1 min-w-0 group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:justify-center"
-              >
-                <Avatar className="h-8 w-8 rounded-lg">
-                  <AvatarFallback className="rounded-lg">
-                    <IconLogin className="size-4" />
-                  </AvatarFallback>
-                </Avatar>
-                <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
-                  <span className="truncate font-medium">Guest User</span>
-                  <span className="text-muted-foreground truncate text-xs">
-                    Click to login
-                  </span>
-                </div>
-              </SidebarMenuButton>
-            </SignInButton>
-          </div>
-        </SignedOut>
-
-        <SignedIn>
-          {isLoaded && user ? (
-            <div className="flex w-full items-center gap-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-1">
-              {settingsButton}
-              {/* Custom dropdown for both mobile and desktop so sign out always clears caches */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="flex flex-1 min-w-0 items-center gap-2 p-2 rounded-lg hover:bg-sidebar-accent transition-colors group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:justify-center">
-                    <Avatar className="h-8 w-8 rounded-lg">
-                      <AvatarImage src={user.imageUrl} alt={user.fullName || "User"} />
-                      <AvatarFallback className="rounded-lg">
-                        <IconUser className="size-4" />
+        {isDemoMode ? (
+          <SidebarMenuButton
+            size="sm"
+            tooltip="Exit demo — sign up free"
+            aria-label="Exit demo"
+            className="h-10 w-full"
+            onClick={exitDemo}
+          >
+            <div className="flex-shrink-0">
+              <Avatar className="h-6 w-6 rounded-md">
+                <AvatarFallback className="rounded-md bg-gradient-to-br from-primary/70 to-primary text-primary-foreground text-[10px]">
+                  D
+                </AvatarFallback>
+              </Avatar>
+            </div>
+            <div className="flex min-w-0 flex-1 flex-col text-left group-data-[collapsible=icon]:hidden">
+              <span className="truncate text-sm font-medium">Demo Mode</span>
+              <span className="truncate text-xs text-muted-foreground">Click to exit</span>
+            </div>
+          </SidebarMenuButton>
+        ) : (
+          <>
+            <SignedOut>
+              <SignInButton mode="redirect">
+                <SidebarMenuButton
+                  size="sm"
+                  tooltip="Sign in"
+                  aria-label="Sign in"
+                  className="h-10 w-full"
+                >
+                  <div className="flex-shrink-0">
+                    <Avatar className="h-6 w-6 rounded-md">
+                      <AvatarFallback className="rounded-md">
+                        <IconLogin className="size-[13px]" />
                       </AvatarFallback>
                     </Avatar>
-                    <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
-                      <span className="truncate font-medium">
-                        {user.firstName || user.fullName || "User"}
-                      </span>
-                      <span className="text-muted-foreground truncate text-xs">
-                        {user.primaryEmailAddress?.emailAddress || ""}
-                      </span>
-                    </div>
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  side="top"
-                  align="start"
-                  className="w-56"
-                  sideOffset={8}
-                >
-                  <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">
-                        {user.fullName || user.firstName || "User"}
-                      </p>
-                      <p className="text-xs leading-none text-muted-foreground">
-                        {user.primaryEmailAddress?.emailAddress}
-                      </p>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={handleSignOut}
-                    className="text-destructive focus:text-destructive cursor-pointer"
+                  </div>
+                  <span className="truncate text-sm group-data-[collapsible=icon]:hidden">
+                    Sign in
+                  </span>
+                </SidebarMenuButton>
+              </SignInButton>
+            </SignedOut>
+
+            <SignedIn>
+              {isLoaded && user ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <SidebarMenuButton
+                      size="sm"
+                      aria-label={user.fullName || user.firstName || "Account"}
+                      className="h-10 w-full"
+                      tooltip={user.fullName || user.firstName || "Account"}
+                    >
+                      <div className="flex-shrink-0">
+                        <Avatar className="h-6 w-6 rounded-md">
+                          <AvatarImage src={user.imageUrl} alt={user.fullName || "User"} />
+                          <AvatarFallback className="rounded-md">
+                            <IconUser className="size-[13px]" />
+                          </AvatarFallback>
+                        </Avatar>
+                      </div>
+                      <div className="flex min-w-0 flex-1 flex-col text-left group-data-[collapsible=icon]:hidden">
+                        <span className="truncate text-sm font-medium leading-none">
+                          {user.fullName || user.firstName || "User"}
+                        </span>
+                        <span className="truncate text-xs leading-none text-muted-foreground mt-0.5">
+                          {user.primaryEmailAddress?.emailAddress}
+                        </span>
+                      </div>
+                    </SidebarMenuButton>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    side="top"
+                    align="end"
+                    className="w-56"
+                    sideOffset={8}
                   >
-                    <IconLogout className="mr-2 h-4 w-4" />
-                    Sign out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          ) : (
-            <div className="flex w-full items-center gap-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-1">
-              {settingsButton}
-              <SidebarMenuButton size="lg" className="w-auto flex-1 min-w-0 group-data-[collapsible=icon]:flex-none">
-                <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
-                  <span className="truncate font-medium">Loading...</span>
-                </div>
-              </SidebarMenuButton>
-            </div>
-          )}
-        </SignedIn>
+                    <DropdownMenuLabel className="font-normal">
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-medium leading-none">
+                          {user.fullName || user.firstName || "User"}
+                        </p>
+                        <p className="text-xs leading-none text-muted-foreground">
+                          {user.primaryEmailAddress?.emailAddress}
+                        </p>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={handleSignOut}
+                      className="text-destructive focus:text-destructive cursor-pointer"
+                    >
+                      <IconLogout className="mr-2 h-4 w-4" />
+                      Sign out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <SidebarMenuButton size="sm" aria-label="Loading account" className="h-10 w-full">
+                  <div className="flex-shrink-0">
+                    <Avatar className="h-6 w-6 rounded-md">
+                      <AvatarFallback className="rounded-md animate-pulse" />
+                    </Avatar>
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-col gap-1 group-data-[collapsible=icon]:hidden">
+                    <div className="h-3 w-24 animate-pulse rounded bg-muted" />
+                    <div className="h-2.5 w-32 animate-pulse rounded bg-muted" />
+                  </div>
+                </SidebarMenuButton>
+              )}
+            </SignedIn>
+          </>
+        )}
       </SidebarMenuItem>
     </SidebarMenu>
   )

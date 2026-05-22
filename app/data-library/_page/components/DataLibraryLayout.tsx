@@ -33,10 +33,10 @@ export function DataLibraryLayout({
       }
     >
       <AppSidebar variant="inset" />
-      <SidebarInset>
+      <SidebarInset className="md:h-svh md:overflow-hidden flex flex-col">
         <SiteHeader />
         <div
-          className="flex flex-1 flex-col relative"
+          className="flex flex-1 flex-col relative overflow-hidden pt-[72px] md:pt-0"
           onDragEnter={onDragEnter}
           onDragLeave={onDragLeave}
           onDragOver={onDragOver}

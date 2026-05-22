@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { getStripe, getAppUrl } from '@/lib/stripe';
 import { getUserSubscription } from '@/lib/subscriptions';
+import { checkRateLimit, createRateLimitResponse } from '@/lib/security/rate-limiter';
 
 export async function POST() {
     try {
@@ -16,6 +17,11 @@ export async function POST() {
                 { error: 'Unauthorized - Please sign in to continue' },
                 { status: 401 }
             );
+        }
+
+        const rateLimitResult = await checkRateLimit(userId, 'mutation');
+        if (rateLimitResult.limited) {
+            return createRateLimitResponse(rateLimitResult.resetIn);
         }
 
         // Get user's subscription to find Stripe customer ID
@@ -56,7 +62,7 @@ export async function POST() {
         // Create Customer Portal session
         const session = await stripe.billingPortal.sessions.create({
             customer: subscription.stripeCustomerId,
-            return_url: `${appUrl}/dashboard`,
+            return_url: `${appUrl}/home`,
         });
 
         console.log('[Billing Portal] Session created:', session.url);

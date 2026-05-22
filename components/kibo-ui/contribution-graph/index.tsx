@@ -61,6 +61,9 @@ const DEFAULT_MONTH_LABELS = [
   "Dec",
 ];
 
+// Module-level empty style object constant to prevent new reference creation on every render
+const EMPTY_STYLE: CSSProperties = {}
+
 const DEFAULT_LABELS: Labels = {
   months: DEFAULT_MONTH_LABELS,
   weekdays: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
@@ -245,7 +248,7 @@ export const ContributionGraph = ({
   fontSize = 14,
   labels: labelsProp = undefined,
   maxLevel: maxLevelProp = 4,
-  style = {},
+  style = EMPTY_STYLE,
   totalCount: totalCountProp = undefined,
   weekStart = 0,
   className,
@@ -386,7 +389,8 @@ export const ContributionGraphCalendar = ({
       {...props}
     >
       <svg
-        className="block w-full overflow-visible p-[5px]"
+        className="block overflow-visible p-[5px]"
+        width={width}
         viewBox={`0 0 ${width} ${viewBoxHeight}`}
         preserveAspectRatio="xMidYMid meet"
       >
@@ -461,8 +465,8 @@ export const ContributionGraphTotalCount = ({
     <div className={cn("text-muted-foreground", className)} {...props}>
       {labels.totalCount
         ? labels.totalCount
-            .replace("{{count}}", String(totalCount))
-            .replace("{{year}}", String(year))
+          .replace("{{count}}", String(totalCount))
+          .replace("{{year}}", String(year))
         : `${totalCount} activities in ${year}`}
     </div>
   );

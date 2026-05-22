@@ -1,59 +1,89 @@
 "use client"
 
 import { memo } from "react"
-import { BarChart3, UtensilsCrossed, PiggyBank, type LucideIcon } from "lucide-react"
+import { FileUp, ChartLine, Receipt, type LucideIcon } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
+import Link from "next/link"
 
-type PageEmptyStateProps = {
+interface PageEmptyStateProps {
   icon?: LucideIcon
   title: string
   description: string
+  ctaLabel?: string
+  ctaHref?: string
+  ctaOnClick?: () => void
   className?: string
 }
 
 export const PageEmptyState = memo(function PageEmptyState({
-  icon: Icon,
+  icon: Icon = ChartLine,
   title,
   description,
+  ctaLabel,
+  ctaHref,
+  ctaOnClick,
   className,
 }: PageEmptyStateProps) {
   return (
-    <div className={className}>
-      <div className="flex flex-col items-center justify-center text-center py-12 px-4">
-        {Icon && (
-          <div className="p-4 rounded-full bg-muted/50 mb-4">
-            <Icon className="h-8 w-8 text-muted-foreground" />
-          </div>
-        )}
-        <h3 className="text-lg font-semibold text-foreground mb-2">{title}</h3>
-        <p className="text-sm text-muted-foreground max-w-md">{description}</p>
+    <div
+      className={cn(
+        "flex flex-col items-center justify-center text-center py-20 px-6 animate-in fade-in slide-in-from-bottom-2 duration-500",
+        className,
+      )}
+    >
+      {/* Icon container — dashed border with brand tint, ledger chip below */}
+      <div className="relative mb-7">
+        <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-dashed border-border bg-primary/[0.06]">
+          <Icon className="h-9 w-9 text-primary" />
+        </div>
+        <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border border-border bg-card px-2.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+          TXN · NIL
+        </div>
       </div>
+
+      <h3 className="text-lg font-semibold text-foreground mb-1.5">
+        {title}
+      </h3>
+      <p className="text-sm text-muted-foreground max-w-[340px] mb-6">
+        {description}
+      </p>
+
+      {ctaLabel && ctaHref && (
+        <Button asChild>
+          <Link href={ctaHref}>{ctaLabel}</Link>
+        </Button>
+      )}
+      {ctaLabel && ctaOnClick && !ctaHref && (
+        <Button onClick={ctaOnClick}>{ctaLabel}</Button>
+      )}
     </div>
   )
 })
 
 PageEmptyState.displayName = "PageEmptyState"
 
-// ── Per-page empty state configs ─────────────────────────────────────
+/** Per-page empty state configs */
 export const ANALYTICS_EMPTY_STATE = {
-  icon: BarChart3,
+  icon: FileUp,
   title: "No financial data yet",
-  description: "Import your bank statements to see insights and analytics about your spending patterns.",
-}
+  description: "Import your bank statements to see insights",
+} as const
 
 export const ANALYTICS_EMPTY_PERIOD_STATE = {
-  icon: BarChart3,
+  icon: ChartLine,
   title: "No data for this period",
-  description: "Try selecting a different time period to see your analytics.",
-}
+  description: "Try selecting a different time period to see your data",
+} as const
 
 export const FRIDGE_EMPTY_STATE = {
-  icon: UtensilsCrossed,
+  icon: Receipt,
   title: "No grocery data yet",
-  description: "Upload receipts to track grocery spending and see insights about your food purchases.",
-}
+  description: "Upload receipts to track grocery spending",
+} as const
 
 export const SAVINGS_EMPTY_STATE = {
-  icon: PiggyBank,
+  icon: ChartLine,
   title: "No savings data yet",
-  description: "Import bank statements with savings transactions to track your savings over time.",
-}
+  description: "Import bank statements with savings transactions",
+} as const

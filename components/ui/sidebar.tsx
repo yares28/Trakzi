@@ -29,10 +29,10 @@ import {
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 const SIDEBAR_WIDTH = "21.875rem"  // 350px - increased to close gap with header
-const SIDEBAR_WIDTH_MOBILE = "18rem"
+const SIDEBAR_WIDTH_MOBILE = "16rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
-const SIDEBAR_TRANSITION_DURATION = 300 // ms - match CSS animation duration exactly (no dead zone)
+const SIDEBAR_TRANSITION_DURATION = 0
 
 type SidebarContextProps = {
   state: "expanded" | "collapsed"
@@ -125,6 +125,19 @@ function SidebarProvider({
     resumeResize(SIDEBAR_TRANSITION_DURATION)
   }, [setOpen, setOpenMobile, pauseResize, resumeResize])
 
+  // Sync mobile sidebar state to body for global CSS access
+  // This allows elements outside the SidebarProvider (like DemoBanner) to react
+  React.useEffect(() => {
+    if (isMobile) {
+      document.body.setAttribute("data-sidebar-mobile-open", String(openMobile))
+    } else {
+      document.body.removeAttribute("data-sidebar-mobile-open")
+    }
+    return () => {
+      document.body.removeAttribute("data-sidebar-mobile-open")
+    }
+  }, [isMobile, openMobile])
+
   // Adds a keyboard shortcut to toggle the sidebar.
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -172,9 +185,9 @@ function SidebarProvider({
           }
           className={cn(
             // Mobile: Allow window scroll (no overflow-hidden)
-            "group/sidebar-wrapper has-data-[variant=inset]:bg-sidebar flex min-h-svh w-full",
+            "group/sidebar-wrapper md:has-data-[variant=inset]:bg-sidebar flex min-h-svh w-full",
             // Desktop: Fixed height with overflow control
-            "md:h-svh md:overflow-hidden",
+            "md:h-full md:overflow-hidden",
             className
           )}
           {...props}
@@ -191,6 +204,7 @@ function Sidebar({
   variant = "sidebar",
   collapsible = "offcanvas",
   className,
+  style,
   children,
   ...props
 }: React.ComponentProps<"div"> & {
@@ -199,14 +213,14 @@ function Sidebar({
   collapsible?: "offcanvas" | "icon" | "none"
 }) {
   const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
-  
+
   // GPU-accelerated transitions using transform ONLY
   // Width transitions cause layout thrashing - avoid them for smooth 60fps animations
   // For offcanvas: scaleX and translateX are pure transforms (GPU-composited)
   // For icon mode: width change happens but we don't animate it (instant snap)
   const desktopTransition = {
-    gap: "transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform",
-    container: "transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform",
+    gap: "will-change-transform",
+    container: "will-change-transform",
   }
 
   if (collapsible === "none") {
@@ -226,26 +240,27 @@ function Sidebar({
 
   if (isMobile) {
     return (
-      <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
-        <SheetContent
+      <>
+        {/* Push-style mobile sidebar: slides in from left, pushes content right */}
+        <div
           data-sidebar="sidebar"
           data-slot="sidebar"
           data-mobile="true"
-          className="bg-sidebar text-sidebar-foreground w-(--sidebar-width) p-0 [&>button]:hidden rounded-r-2xl"
+          className={cn(
+            "fixed inset-y-0 left-0 z-50 bg-sidebar text-sidebar-foreground flex flex-col will-change-transform",
+            openMobile ? "translate-x-0" : "-translate-x-full",
+            className
+          )}
           style={
             {
-              "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
+              width: SIDEBAR_WIDTH_MOBILE,
             } as React.CSSProperties
           }
-          side={side}
+          {...props}
         >
-          <SheetHeader className="sr-only">
-            <SheetTitle>Sidebar</SheetTitle>
-            <SheetDescription>Displays the mobile sidebar.</SheetDescription>
-          </SheetHeader>
           <div className="flex h-full w-full flex-col">{children}</div>
-        </SheetContent>
-      </Sheet>
+        </div>
+      </>
     )
   }
 
@@ -257,6 +272,9 @@ function Sidebar({
       data-variant={variant}
       data-side={side}
       data-slot="sidebar"
+      // Width tokens must live on this ancestor so sidebar-gap (sibling to the fixed
+      // container) sees the same --sidebar-width-icon as AppSidebar / layouts.
+      style={style}
     >
       {/* This is what handles the sidebar gap on desktop */}
       {/* For offcanvas: uses scaleX(0) transform (GPU) instead of width:0 (layout) */}
@@ -270,7 +288,8 @@ function Sidebar({
           "group-data-[side=right]:rotate-180 group-data-[side=right]:origin-right",
           // Icon mode: actual width change (layout needed for content reflow)
           variant === "floating" || variant === "inset"
-            ? "group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4)))]"
+            ? // Collapsed inset rail width (matched to design preview: 60px)
+              "group-data-[collapsible=icon]:w-[60px]"
             : "group-data-[collapsible=icon]:w-(--sidebar-width-icon)"
         )}
       />
@@ -286,9 +305,13 @@ function Sidebar({
             ? "group-data-[collapsible=offcanvas]:-translate-x-full"
             : "group-data-[collapsible=offcanvas]:translate-x-full",
           // Adjust the padding for floating and inset variants.
-          variant === "floating" || variant === "inset"
-            ? "p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]"
-            : "group-data-[collapsible=icon]:w-(--sidebar-width-icon)",
+          variant === "floating"
+            ? "p-2 group-data-[collapsible=icon]:p-1.5 group-data-[collapsible=icon]:w-[60px]"
+            : variant === "inset"
+              ? side === "left"
+                ? "pt-2 pb-2 pl-2 pr-0 group-data-[collapsible=icon]:pt-1.5 group-data-[collapsible=icon]:pb-1.5 group-data-[collapsible=icon]:pl-1.5 group-data-[collapsible=icon]:pr-0 group-data-[collapsible=icon]:w-[60px]"
+                : "pt-2 pb-2 pl-0 pr-2 group-data-[collapsible=icon]:pt-1.5 group-data-[collapsible=icon]:pb-1.5 group-data-[collapsible=icon]:pl-0 group-data-[collapsible=icon]:pr-1.5 group-data-[collapsible=icon]:w-[60px]"
+              : "group-data-[collapsible=icon]:w-(--sidebar-width-icon)",
           className
         )}
         {...props}
@@ -296,7 +319,7 @@ function Sidebar({
         <div
           data-sidebar="sidebar"
           data-slot="sidebar-inner"
-          className="bg-sidebar dark:bg-zinc-900/50 group-data-[variant=floating]:border-sidebar-border flex h-full w-full flex-col rounded-r-2xl group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:shadow-sm"
+          className="bg-sidebar dark:bg-zinc-900/50 group-data-[variant=floating]:border-sidebar-border flex h-full w-full flex-col overflow-hidden rounded-r-2xl group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:shadow-sm"
         >
           {children}
         </div>
@@ -332,21 +355,27 @@ function SidebarTrigger({
 }
 
 function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
+  const { openMobile, isMobile } = useSidebar()
+
   return (
     <main
       data-slot="sidebar-inset"
       className={cn(
         // Mobile: Let window scroll (enables iOS tap status bar scroll-to-top)
-        "bg-background relative flex w-full flex-1 flex-col min-h-screen-mobile mobile-bg-gradient",
+        "bg-background relative flex w-full flex-1 flex-col min-h-screen-mobile",
         // Desktop: Container scrolls for sticky header behavior
-        // NOTE: Removed margin transition - only ml changes instantly to avoid layout thrashing during animation
-        "md:overflow-y-auto md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2 md:peer-data-[variant=inset]:h-[calc(100svh-1rem)]",
-        // GPU-accelerated transform ONLY - no margin transition to prevent layout thrashing
-        "transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform",
+        "md:overflow-y-auto md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2 md:peer-data-[variant=inset]:h-[calc(100%-1rem)]",
+        // No transition — sidebar collapse is instant
+        openMobile ? "will-change-transform" : "",
         // When offcanvas collapsed: translate left to fill the visual gap
         "md:peer-data-[collapsible=offcanvas]:-translate-x-[var(--sidebar-width)]",
         className
       )}
+      style={
+        isMobile && openMobile
+          ? { transform: `translateX(${SIDEBAR_WIDTH_MOBILE})` }
+          : undefined
+      }
       {...props}
     />
   )
@@ -408,7 +437,7 @@ function SidebarContent({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="sidebar-content"
       data-sidebar="content"
       className={cn(
-        "flex min-h-0 flex-1 flex-col gap-2 overflow-hidden group-data-[collapsible=icon]:overflow-hidden",
+        "flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overflow-x-hidden group-data-[collapsible=icon]:overflow-hidden",
         className
       )}
       {...props}
@@ -421,7 +450,11 @@ function SidebarGroup({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="sidebar-group"
       data-sidebar="group"
-      className={cn("relative flex w-full min-w-0 flex-col p-2 ml-[2px]", className)}
+      className={cn(
+        "relative flex w-full min-w-0 flex-col p-2 ml-[2px]",
+        "group-data-[collapsible=icon]:ml-0 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-1.5",
+        className
+      )}
       {...props}
     />
   )
@@ -479,7 +512,11 @@ function SidebarGroupContent({
     <div
       data-slot="sidebar-group-content"
       data-sidebar="group-content"
-      className={cn("w-full text-sm", className)}
+      className={cn(
+        "w-full text-sm",
+        "group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center",
+        className
+      )}
       {...props}
     />
   )
@@ -490,7 +527,11 @@ function SidebarMenu({ className, ...props }: React.ComponentProps<"ul">) {
     <ul
       data-slot="sidebar-menu"
       data-sidebar="menu"
-      className={cn("flex w-full min-w-0 flex-col gap-1", className)}
+      className={cn(
+        "flex w-full min-w-0 flex-col gap-1",
+        "group-data-[collapsible=icon]:items-center",
+        className
+      )}
       {...props}
     />
   )
@@ -501,14 +542,18 @@ function SidebarMenuItem({ className, ...props }: React.ComponentProps<"li">) {
     <li
       data-slot="sidebar-menu-item"
       data-sidebar="menu-item"
-      className={cn("group/menu-item relative", className)}
+      className={cn(
+        "group/menu-item relative",
+        "group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:w-full group-data-[collapsible=icon]:justify-center",
+        className
+      )}
       {...props}
     />
   )
 }
 
 const sidebarMenuButtonVariants = cva(
-  "peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2.5 text-left text-sm outline-hidden ring-sidebar-ring transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 group-has-data-[sidebar=menu-action]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:p-2.5! [&>span:last-child]:truncate [&>svg]:size-5 [&>svg]:shrink-0",
+  "peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2.5 text-left text-sm outline-hidden ring-sidebar-ring transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 group-has-data-[sidebar=menu-action]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:!justify-center group-data-[collapsible=icon]:!p-0 [&>span:last-child]:truncate group-data-[collapsible=icon]:[&>span:not(.sr-only)]:hidden [&>svg]:size-5 [&>svg]:shrink-0 ",
   {
     variants: {
       variant: {

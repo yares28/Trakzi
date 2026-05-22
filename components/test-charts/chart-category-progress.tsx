@@ -1,12 +1,10 @@
 "use client"
-
 import { useMemo, useState, useEffect } from "react"
 import { useTheme } from "next-themes"
 import { ResponsiveBar } from "@nivo/bar"
 import {
     Card,
     CardContent,
-    CardDescription,
     CardHeader,
     CardTitle,
     CardAction,
@@ -18,7 +16,6 @@ import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
-
 interface ChartCategoryProgressProps {
     data: Array<{
         date: string
@@ -28,7 +25,6 @@ interface ChartCategoryProgressProps {
     isLoading?: boolean
     budgets?: Record<string, number>
 }
-
 export function ChartCategoryProgress({
     data,
     isLoading = false,
@@ -39,11 +35,9 @@ export function ChartCategoryProgress({
     const { formatCurrency } = useCurrency()
     const palette = getPalette()
     const [mounted, setMounted] = useState(false)
-
     useEffect(() => {
         setMounted(true)
     }, [])
-
     // Default budgets if not provided
     const defaultBudgets: Record<string, number> = {
         'Food': 500,
@@ -54,25 +48,19 @@ export function ChartCategoryProgress({
         'Other': 300,
     }
     const activeBudgets = Object.keys(budgets).length > 0 ? budgets : defaultBudgets
-
     const chartData = useMemo(() => {
         if (!data || data.length === 0) return []
-
         const now = new Date()
         const currentMonth = now.getMonth()
         const currentYear = now.getFullYear()
-
         const categoryTotals = new Map<string, number>()
-
         data.forEach((tx) => {
             if (tx.amount >= 0) return
             const txDate = new Date(tx.date)
             if (txDate.getMonth() !== currentMonth || txDate.getFullYear() !== currentYear) return
-
             const category = tx.category?.trim() || 'Other'
             categoryTotals.set(category, (categoryTotals.get(category) || 0) + Math.abs(tx.amount))
         })
-
         const paletteLength = palette?.length || 0
         return Object.entries(activeBudgets).map(([category, budget], i) => {
             const spent = categoryTotals.get(category) || 0
@@ -86,14 +74,11 @@ export function ChartCategoryProgress({
             }
         }).filter(d => d.budget > 0)
     }, [data, activeBudgets, palette])
-
     const isDark = resolvedTheme === "dark"
     const textColor = isDark ? "#9ca3af" : "#6b7280"
     const gridColor = isDark ? "#374151" : "#e5e7eb"
-
     const chartTitle = "Category Budget Progress"
     const chartDescription = "How much of each category budget have you used this month?"
-
     const renderInfoTrigger = () => (
         <div className="flex flex-col items-center gap-2">
             <ChartInfoPopover
@@ -114,7 +99,6 @@ export function ChartCategoryProgress({
             />
         </div>
     )
-
     if (!mounted || chartData.length === 0) {
         return (
             <Card className="@container/card h-full flex flex-col">
@@ -132,7 +116,6 @@ export function ChartCategoryProgress({
             </Card>
         )
     }
-
     return (
         <Card className="@container/card h-full flex flex-col">
             <CardHeader>
@@ -141,10 +124,6 @@ export function ChartCategoryProgress({
                     <ChartFavoriteButton chartId="testCharts:categoryProgress" chartTitle={chartTitle} size="md" />
                     <CardTitle>{chartTitle}</CardTitle>
                 </div>
-                <CardDescription>
-                    <span className="hidden @[540px]/card:block">{chartDescription}</span>
-                    <span className="@[540px]/card:hidden">Category budgets</span>
-                </CardDescription>
                 <CardAction>{renderInfoTrigger()}</CardAction>
             </CardHeader>
             <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">

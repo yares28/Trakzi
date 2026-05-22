@@ -26,6 +26,7 @@ export type ActivityRingsDatum = {
   backgroundColor?: string
   category?: string
   spent?: number
+  budget?: number | null
 }
 
 export type ActivityRingsData = ActivityRingsDatum[]
@@ -48,6 +49,10 @@ export type AnalyticsStats = {
   savingsRateChange: number
   spendingRateChange: number
   netWorthChange: number
+  spendingScore: number
+  spendingGrade: string
+  spendingScoreTrend: "improving" | "worsening" | "stable"
+  spendingScoreTrendData: { date: string; value: number }[]
 }
 
 export type TrendPoint = { date: string; value: number }

@@ -4,13 +4,16 @@ import { useTheme } from "next-themes"
 
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useChartCategoryVisibility } from "@/hooks/use-chart-category-visibility"
+import { buildCashFlowGraphFromTransactions } from "@/lib/charts/cash-flow-graph"
+import { computeMonthsElapsed } from "@/lib/date-filter"
+import { useDemoMode } from "@/lib/demo/demo-context"
 
 import type {
   ActivityRingsConfig,
   ActivityRingsData,
   HomeTransaction,
 } from "../types"
-import { getSubCategoryLabel, normalizeCategoryName } from "../utils/categories"
+import { getSubCategoryLabel, getSuggestedDemoRingLimit, normalizeCategoryName } from "../utils/categories"
 
 type StreamgraphData = {
   data: Array<Record<string, string | number>>
@@ -66,7 +69,7 @@ export type HomeChartData = {
   ringCategories: string[]
   setRingCategories: Dispatch<SetStateAction<string[]>>
   allExpenseCategories: string[]
-  getDefaultRingLimit: (filter: string | null) => number
+  getDefaultRingLimit: (filter: string | null, isDemoMode?: boolean) => number | null
 }
 
 type UseHomeChartDataOptions = {
@@ -81,6 +84,7 @@ export function useHomeChartData({
   const chartTransactions = transactions
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
+  const { isDemoMode } = useDemoMode()
   const palette = getPalette()
 
   const [ringLimits, setRingLimits] = useState<Record<string, number>>({})
@@ -97,24 +101,43 @@ export function useHomeChartData({
     return Array.from(categories).sort((a, b) => a.localeCompare(b))
   }, [chartTransactions])
 
+  // Source of truth for ring budgets is the DB (category_budgets, scope='analytics').
+  // The Budget tab in /savings, the analytics-page rings chart, and these home
+  // rings all read and write through /api/budgets so edits stay in sync.
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    let cancelled = false
+    const load = async () => {
       try {
-        const saved = localStorage.getItem("activityRingLimits")
-        if (saved) {
-          setRingLimits(JSON.parse(saved))
+        const res = await fetch("/api/budgets")
+        if (!res.ok) return
+        const data = await res.json()
+        if (!cancelled && data && typeof data === "object") {
+          setRingLimits(data as Record<string, number>)
         }
       } catch (error) {
-        console.error("Failed to load ring limits:", error)
+        console.error("[Home] Failed to load ring limits:", error)
+        if (!cancelled) setRingLimits({})
       }
+    }
+    load()
+    return () => {
+      cancelled = true
     }
   }, [])
 
-  const getDefaultRingLimit = useCallback((filter: string | null) => {
-    const isYearLike =
-      !filter || filter === "lastyear" || /^\d{4}$/.test(filter)
-    return isYearLike ? 5000 : 2000
-  }, [])
+  // No default budget for real users — unbudgeted rings render as "no cap"
+  // so the UI never invents a number the user didn't set. Demo mode keeps
+  // the synthetic fallback so the demo data looks populated out of the box.
+  const getDefaultRingLimit = useCallback(
+    (filter: string | null, isDemoMode = false): number | null => {
+      if (!isDemoMode) return null
+      const isYearLike =
+        !filter || filter === "lastyear" || /^\d{4}$/.test(filter)
+      const base = isYearLike ? 5000 : 2000
+      return base * 4
+    },
+    []
+  )
 
   const activityData: ActivityRingsData = useMemo(() => {
     if (!chartTransactions || chartTransactions.length === 0) {
@@ -144,29 +167,52 @@ export function useHomeChartData({
       .sort((a, b) => b[1] - a[1])
       .map(([category]) => category)
 
+    // Categories the user has budgeted — these drive ring selection so the
+    // home rings, analytics rings, and Budgets tab all show the same set.
+    const budgetedCategories = Object.keys(ringLimits).filter(
+      (name) => typeof ringLimits[name] === "number" && ringLimits[name]! > 0
+    )
+
     const categoriesToUse =
       ringCategories && ringCategories.length > 0
         ? ringCategories
+        : budgetedCategories.length > 0
+        ? Array.from(
+            new Set([...budgetedCategories, ...defaultTopCategories])
+          ).slice(0, 5)
         : defaultTopCategories.slice(0, 5)
 
+    const budgetedSet = new Set(budgetedCategories)
     const selectedCategories = categoriesToUse
       .map((category) => {
         const amount = categoryTotals.get(category) || 0
         return [category, amount] as [string, number]
       })
-      .filter(([, amount]) => amount > 0)
+      .filter(([category, amount]) => amount > 0 || budgetedSet.has(category))
+
+    // Budgets in /api/budgets are MONTHLY caps. Spend numerators are
+    // summed over the active filter window. Scale the cap by months elapsed
+    // so a 6-month filter compares amount against 6× monthly cap (and YTD
+    // against fractional months). Matches the Budgets tab math.
+    const monthsElapsed = computeMonthsElapsed(dateFilter)
+    const safeMonths = monthsElapsed > 0 ? monthsElapsed : 1
 
     return selectedCategories.map(([category, amount], index) => {
       const storedLimit = ringLimits[category]
-      const effectiveLimit =
+      const rawMonthlyLimit =
         typeof storedLimit === "number" && storedLimit > 0
           ? storedLimit
-          : getDefaultRingLimit(dateFilter)
+          : (isDemoMode
+              ? (getSuggestedDemoRingLimit(amount) ?? getDefaultRingLimit(dateFilter, true))
+              : getDefaultRingLimit(dateFilter))
+
+      const monthlyLimit: number | null =
+        typeof rawMonthlyLimit === "number" && rawMonthlyLimit > 0 ? rawMonthlyLimit : null
+      const periodLimit: number | null =
+        monthlyLimit !== null ? monthlyLimit * safeMonths : null
 
       const ratioToLimit =
-        effectiveLimit && effectiveLimit > 0
-          ? Math.min(amount / effectiveLimit, 1)
-          : null
+        periodLimit !== null ? Math.min(amount / periodLimit, 1) : null
 
       const value = ratioToLimit !== null ? ratioToLimit : 0
 
@@ -175,27 +221,27 @@ export function useHomeChartData({
           ? palette[index % palette.length]
           : undefined) || "#a1a1aa"
 
-      const exceeded = ratioToLimit !== null && amount > effectiveLimit
+      const exceeded = periodLimit !== null && amount > periodLimit
       const pct = ratioToLimit !== null ? (ratioToLimit * 100).toFixed(1) : "0"
 
       return {
         label:
-          ratioToLimit !== null
+          periodLimit !== null && monthlyLimit !== null
             ? `Category: ${category}\nUsed: ${pct}%\nSpent: $${amount.toFixed(
-                2
-              )}\nBudget: $${effectiveLimit.toFixed(2)}${
-                exceeded ? "\nExceeded" : ""
-              }`
+              2
+            )}\nBudget: $${periodLimit.toFixed(2)} ($${monthlyLimit.toFixed(0)}/mo)${exceeded ? "\nExceeded" : ""
+            }`
             : `Category: ${category}\nSpent: $${amount.toFixed(
-                2
-              )}\nNo budget set`,
+              2
+            )}\nNo budget set`,
         category,
         spent: amount,
+        budget: periodLimit,
         value,
         color,
       }
     })
-  }, [chartTransactions, palette, ringCategories, ringLimits, dateFilter, getDefaultRingLimit])
+  }, [chartTransactions, palette, ringCategories, ringLimits, dateFilter, getDefaultRingLimit, isDemoMode])
 
   const activityConfig: ActivityRingsConfig = useMemo(
     () => ({
@@ -367,7 +413,8 @@ export function useHomeChartData({
     if (!chartTransactions || chartTransactions.length === 0) return []
     const categoryMap = new Map<string, Map<string, number>>()
     const allMonths = new Set<string>()
-    chartTransactions.forEach((tx) => {
+    // Only include expenses (negative amounts) — no income categories
+    chartTransactions.filter((tx) => tx.amount < 0).forEach((tx) => {
       const category = tx.category || "Other"
       const normalizedCategory = normalizeCategoryName(category)
       if (categoryFlowVisibility.hiddenCategorySet.has(normalizedCategory)) return
@@ -499,9 +546,35 @@ export function useHomeChartData({
       return { data: [], keys: [], categories: [] }
     }
 
-    const monthMap = new Map<string, Map<string, number>>()
+    const expandYYYYMMRangeInclusive = (startKey: string, endKey: string): string[] => {
+      const parse = (k: string) => {
+        const m = k.match(/^(\d{4})-(\d{1,2})$/)
+        if (!m) return null
+        const y = Number(m[1])
+        const mo = Number(m[2]) - 1
+        const d = new Date(y, mo, 1)
+        return Number.isNaN(d.getTime()) ? null : d
+      }
+      const start = parse(startKey)
+      const end = parse(endKey)
+      if (!start || !end) {
+        return Array.from(new Set([startKey, endKey])).sort((a, b) => a.localeCompare(b))
+      }
+      const lo = start.getTime() <= end.getTime() ? start : end
+      const hi = start.getTime() <= end.getTime() ? end : start
+      const out: string[] = []
+      const cur = new Date(lo)
+      while (cur.getTime() <= hi.getTime()) {
+        out.push(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}`)
+        cur.setMonth(cur.getMonth() + 1)
+      }
+      return out
+    }
+
+    let monthMap = new Map<string, Map<string, number>>()
     const categoryTotals = new Map<string, number>()
     const categorySet = new Set<string>()
+    let monthKeysSeen = new Set<string>()
 
     chartTransactions
       .filter((tx) => tx.amount < 0)
@@ -515,6 +588,7 @@ export function useHomeChartData({
         if (streamgraphVisibility.hiddenCategorySet.has(rawCategory)) return
         const amount = Math.abs(Number(tx.amount)) || 0
 
+        monthKeysSeen.add(monthKey)
         if (!monthMap.has(monthKey)) {
           monthMap.set(monthKey, new Map())
         }
@@ -528,12 +602,46 @@ export function useHomeChartData({
       return { data: [], keys: [], categories: Array.from(categorySet) }
     }
 
+    // Single calendar month → weekly buckets so the stream has multiple points
+    if (monthKeysSeen.size <= 1) {
+      monthMap = new Map()
+      monthKeysSeen = new Set()
+      chartTransactions
+        .filter((tx) => tx.amount < 0)
+        .forEach((tx) => {
+          const date = new Date(tx.date)
+          if (isNaN(date.getTime())) return
+          const rawCategory = normalizeCategoryName(tx.category)
+          if (streamgraphVisibility.hiddenCategorySet.has(rawCategory)) return
+
+          const weekStart = new Date(date)
+          weekStart.setDate(date.getDate() - date.getDay())
+          const weekKey = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, "0")}-${String(weekStart.getDate()).padStart(2, "0")}`
+
+          monthKeysSeen.add(weekKey)
+          if (!monthMap.has(weekKey)) monthMap.set(weekKey, new Map())
+          const wk = monthMap.get(weekKey)!
+          wk.set(rawCategory, (wk.get(rawCategory) || 0) + Math.abs(Number(tx.amount)) || 0)
+        })
+    }
+
     const sortedCategories = Array.from(categoryTotals.entries()).sort((a, b) => b[1] - a[1])
     const topCategories = sortedCategories.slice(0, 6).map(([category]) => category)
     const includeOther = sortedCategories.length > topCategories.length
     const keys = includeOther ? [...topCategories, "Other"] : topCategories
 
-    const months = Array.from(monthMap.keys()).sort((a, b) => a.localeCompare(b))
+    const rawKeys = Array.from(monthMap.keys()).sort((a, b) => a.localeCompare(b))
+    const isWeekly = rawKeys.some((k) => /^\d{4}-\d{2}-\d{2}$/.test(k))
+    const months = isWeekly
+      ? rawKeys
+      : rawKeys.length > 0
+        ? expandYYYYMMRangeInclusive(rawKeys[0]!, rawKeys[rawKeys.length - 1]!)
+        : rawKeys
+
+    months.forEach((m) => {
+      if (!monthMap.has(m)) monthMap.set(m, new Map())
+    })
+
     const data = months.map((month) => {
       const entry: Record<string, string | number> = { month }
       const monthData = monthMap.get(month)!
@@ -573,93 +681,11 @@ export function useHomeChartData({
   // Sankey data computation from transactions
   // Uses 3-layer model: Income Sources → Total Cash → Expenses/Savings
   const sankeyData = useMemo(() => {
-    if (!chartTransactions || chartTransactions.length === 0) {
-      return {
-        graph: { nodes: [], links: [] as Array<{ source: string; target: string; value: number }> },
-        categories: [] as string[]
-      }
-    }
-
-    // Group income by category (source)
-    const incomeByCategoryMap = new Map<string, number>()
-    chartTransactions
-      .filter((tx) => tx.amount > 0)
-      .forEach((tx) => {
-        const category = normalizeCategoryName(tx.category) || "Income"
-        const current = incomeByCategoryMap.get(category) || 0
-        incomeByCategoryMap.set(category, current + tx.amount)
-      })
-
-    // Group expenses by category
-    const expenseByCategoryMap = new Map<string, number>()
-    chartTransactions
-      .filter((tx) => tx.amount < 0)
-      .forEach((tx) => {
-        const category = normalizeCategoryName(tx.category)
-        if (sankeyVisibility.hiddenCategorySet.has(category)) return
-        const current = expenseByCategoryMap.get(category) || 0
-        expenseByCategoryMap.set(category, current + Math.abs(tx.amount))
-      })
-
-    // Calculate totals
-    const totalIncome = Array.from(incomeByCategoryMap.values()).reduce((sum, v) => sum + v, 0)
-    const totalExpenses = Array.from(expenseByCategoryMap.values()).reduce((sum, v) => sum + v, 0)
-    const savings = Math.max(0, totalIncome - totalExpenses)
-
-    // Build nodes and links using 3-layer flow model
-    const nodes: Array<{ id: string; label?: string }> = []
-    const links: Array<{ source: string; target: string; value: number }> = []
-
-    // Layer 1: Income sources (left side) - top 5
-    const sortedIncomeSources = Array.from(incomeByCategoryMap.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-
-    for (const [category, amount] of sortedIncomeSources) {
-      if (amount > 0) {
-        nodes.push({ id: `income-${category}`, label: category })
-        // Connect income source to "Total Cash" central node
-        links.push({
-          source: `income-${category}`,
-          target: "total-cash",
-          value: Math.round(amount * 100) / 100,
-        })
-      }
-    }
-
-    // Layer 2: Central node - Total Cash (middle)
-    nodes.push({ id: "total-cash", label: "Total Cash" })
-
-    // Layer 3: Expenses (right side) - top 8
-    const sortedExpenses = Array.from(expenseByCategoryMap.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 8)
-
-    for (const [category, amount] of sortedExpenses) {
-      if (amount > 0) {
-        nodes.push({ id: `expense-${category}`, label: category })
-        // Connect "Total Cash" to each expense category
-        links.push({
-          source: "total-cash",
-          target: `expense-${category}`,
-          value: Math.round(amount * 100) / 100,
-        })
-      }
-    }
-
-    // Add savings if positive
-    if (savings > 0) {
-      nodes.push({ id: "savings", label: "Savings" })
-      links.push({
-        source: "total-cash",
-        target: "savings",
-        value: Math.round(savings * 100) / 100,
-      })
-    }
-
-    const categories = Array.from(expenseByCategoryMap.keys())
-
-    return { graph: { nodes, links }, categories }
+    return buildCashFlowGraphFromTransactions({
+      transactions: chartTransactions,
+      normalizeCategory: normalizeCategoryName,
+      hiddenExpenseCategories: sankeyVisibility.hiddenCategorySet,
+    })
   }, [chartTransactions, sankeyVisibility.hiddenCategorySet, normalizeCategoryName])
 
   const sankeyControls = sankeyVisibility.buildCategoryControls(sankeyData.categories, {

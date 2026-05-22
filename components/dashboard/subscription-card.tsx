@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import useSWR from "swr";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,19 +15,14 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Sparkles, Crown, Zap, AlertCircle, Check, ArrowUp, ArrowDown, Loader2, X, CreditCard, RotateCcw, Calendar } from "lucide-react";
+import { Sparkles, AlertCircle, Check, ArrowUp, ArrowDown, Loader2, X, CreditCard, RotateCcw, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import Image from "next/image";
 
-// Plan icons with dark/light mode variants
 const planIcons = {
     free: {
         light: "/Trakzi/subs/freeicon.png",
         dark: "/Trakzi/subs/freeiconB.png",
-    },
-    basic: {
-        light: "/Trakzi/subs/TrakziBasicicon.png",
-        dark: "/Trakzi/subs/TrakziBasicicon.png",
     },
     pro: {
         light: "/Trakzi/subs/TrakziProIcon.png",
@@ -38,13 +34,54 @@ const planIcons = {
     },
 } as const;
 
+type PlanType = "free" | "pro" | "max";
+
+const ALL_FEATURES = [
+    { id: "baseTransactions", label: "Base transactions", free: "500", pro: "1,500", max: "5,000" },
+    { id: "monthlyBonus", label: "Monthly bonus", free: "+50", pro: "+250", max: "+750" },
+    { id: "receiptScans", label: "Receipt scans/month", free: "10", pro: "50", max: "150" },
+    { id: "aiChat", label: "AI chat/week", free: "10", pro: "50", max: "100" },
+    { id: "aiInsights", label: "AI insights", free: "3 previews", pro: "Full", max: "Full" },
+    { id: "advancedCharts", label: "Advanced charts", free: false, pro: true, max: true },
+    { id: "customCategories", label: "Custom categories", free: "1", pro: "10", max: "25" },
+    { id: "prioritySupport", label: "Priority support", free: false, pro: false, max: true },
+] as const;
+
+const PLAN_CONFIG = {
+    free: {
+        name: "Free",
+        price: "€0",
+        accentColor: "bg-muted",
+        borderColor: "border-border",
+        headerBg: "bg-muted/50",
+        checkColor: "text-green-500",
+    },
+    pro: {
+        name: "PRO",
+        price: "€4.99/mo",
+        accentColor: "bg-primary/10",
+        borderColor: "border-primary",
+        headerBg: "bg-primary/10",
+        checkColor: "text-primary",
+    },
+    max: {
+        name: "MAX",
+        price: "€19.99/mo",
+        accentColor: "bg-amber-500/10",
+        borderColor: "border-amber-500",
+        headerBg: "bg-gradient-to-r from-amber-500/20 to-orange-500/20",
+        checkColor: "text-amber-500",
+    },
+} as const;
+
 type SubscriptionStatus = {
-    plan: "free" | "basic" | "pro" | "max";
+    plan: "free" | "pro" | "max";
     status: string;
     limits: {
         maxTotalTransactions: number;
         aiChatEnabled: boolean;
-        aiChatMessagesPerDay: number;
+        aiChatMessages: number;
+        aiChatPeriod: 'day' | 'week' | 'month';
         aiInsightsEnabled: boolean;
         customTransactionCategoriesLimit: number;
         customFridgeCategoriesLimit: number;
@@ -63,68 +100,19 @@ type SubscriptionStatus = {
     } | null;
 };
 
-// Plan features for display
-const PLAN_INFO = {
-    free: {
-        name: "Free",
-        price: "€0",
-        icon: Zap,
-        iconColor: "text-muted-foreground",
-        badgeClass: "bg-muted text-muted-foreground",
-        features: [
-            "400 transactions",
-            "Unlimited receipt scans",
-            "5 AI chat/day",
-            "Analytics charts",
-            "10 custom categories",
-        ],
-    },
-    basic: {
-        name: "Basic",
-        price: "€1.99/mo",
-        icon: Zap,
-        iconColor: "text-primary",
-        badgeClass: "bg-gradient-to-r from-primary to-primary/80 text-white border-0",
-        features: [
-            "Everything in Free",
-            "More AI chat/day",
-            "AI categorization",
-            "Priority support",
-        ],
-    },
-    pro: {
-        name: "PRO",
-        price: "€4.99/mo",
-        icon: Sparkles,
-        iconColor: "text-primary",
-        badgeClass: "bg-gradient-to-r from-primary to-primary/80 text-white border-0",
-        features: [
-            "3,000 transactions",
-            "Unlimited receipt scans",
-            "Unlimited AI chat",
-            "AI insights & summaries",
-            "Unlimited categories",
-            "Export to CSV",
-        ],
-    },
-    max: {
-        name: "MAX",
-        price: "€19.99/mo",
-        icon: Crown,
-        iconColor: "text-amber-500",
-        badgeClass: "bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0",
-        features: [
-            "Unlimited transactions",
-            "Everything in PRO",
-            "Priority support",
-            "Early access",
-            "Sub-accounts (soon)",
-            "Custom API (soon)",
-        ],
-    },
-};
-
-type PlanType = "free" | "basic" | "pro" | "max";
+function FeatureValue({ value, plan }: { value: string | boolean; plan: PlanType }) {
+    const config = PLAN_CONFIG[plan];
+    
+    if (typeof value === "boolean") {
+        return value ? (
+            <Check className={`h-4 w-4 ${config.checkColor}`} />
+        ) : (
+            <X className="h-4 w-4 text-muted-foreground/40" />
+        );
+    }
+    
+    return <span className="text-sm font-medium">{value}</span>;
+}
 
 function PlanCard({
     plan,
@@ -149,10 +137,9 @@ function PlanCard({
     isCancelPending: boolean;
     pendingPlan?: string | null;
 }) {
-    const info = PLAN_INFO[plan];
-    const Icon = info.icon;
+    const config = PLAN_CONFIG[plan];
 
-    const planOrder: PlanType[] = ["free", "basic", "pro", "max"];
+    const planOrder: PlanType[] = ["free", "pro", "max"];
     const currentIndex = planOrder.indexOf(currentUserPlan);
     const thisIndex = planOrder.indexOf(plan);
     const isUpgrade = thisIndex > currentIndex;
@@ -160,164 +147,159 @@ function PlanCard({
     const isPendingDowngrade = pendingPlan === plan;
 
     return (
-        <div className={`relative p-4 rounded-xl border flex flex-col ${isCurrentPlan ? "border-primary bg-primary/5" : isPendingDowngrade ? "border-amber-500 bg-amber-500/5" : "border-border"}`}>
-            {/* Current plan indicator */}
-            {isCurrentPlan && (
-                <div className="absolute -top-3 left-4">
-                    <Badge className="bg-primary text-primary-foreground text-xs">
-                        Current
-                    </Badge>
-                </div>
-            )}
-
-            {/* Pending plan indicator */}
-            {isPendingDowngrade && !isCurrentPlan && (
-                <div className="absolute -top-3 left-4">
-                    <Badge className="bg-amber-500 text-white text-xs">
-                        Pending
-                    </Badge>
-                </div>
-            )}
-
-            {/* Orange glow effect based on plan tier */}
-            {plan === "pro" && (
-                <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-orange-400 to-orange-600 opacity-10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
-            )}
-            {plan === "max" && (
-                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-amber-400 to-orange-500 opacity-20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-            )}
-
-            <div className="relative flex-1 flex flex-col">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-3">
+        <div className={`relative rounded-xl border flex flex-col overflow-hidden transition-all ${isCurrentPlan ? `${config.borderColor} ring-1 ring-offset-1 ring-offset-background` : isPendingDowngrade ? "border-amber-500 ring-1 ring-amber-500/50" : "border-border hover:border-border/80"}`}>
+            {/* Header */}
+            <div className={`${config.headerBg} p-4 border-b border-border/50`}>
+                <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        {/* Show plan image icon for all plans */}
-                        <>
-                            <Image
-                                src={planIcons[plan].dark}
-                                alt={`${plan} icon`}
-                                width={24}
-                                height={24}
-                                className="hidden dark:block"
-                            />
-                            <Image
-                                src={planIcons[plan].light}
-                                alt={`${plan} icon`}
-                                width={24}
-                                height={24}
-                                className="block dark:hidden"
-                            />
-                        </>
-                        <span className="font-semibold">{info.name}</span>
+                        <Image
+                            src={planIcons[plan].dark}
+                            alt={`${plan} icon`}
+                            width={28}
+                            height={28}
+                            className="hidden dark:block"
+                        />
+                        <Image
+                            src={planIcons[plan].light}
+                            alt={`${plan} icon`}
+                            width={28}
+                            height={28}
+                            className="block dark:hidden"
+                        />
+                        <span className="font-semibold text-lg">{config.name}</span>
                     </div>
-                    <Badge className={info.badgeClass}>
-                        {info.price}
-                    </Badge>
-                </div>
-
-                {/* Features - show all */}
-                <ul className="space-y-1.5 flex-1">
-                    {info.features.map((feature, index) => (
-                        <li key={index} className="flex items-start gap-2 text-sm">
-                            <Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />
-                            <span className="text-muted-foreground">{feature}</span>
-                        </li>
-                    ))}
-                </ul>
-
-                {/* Action Buttons */}
-                <div className="mt-4 space-y-2">
                     {isCurrentPlan ? (
-                        currentUserPlan !== "free" ? (
-                            isCancelPending ? (
-                                // Show reactivate button if subscription is pending cancellation
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="w-full text-green-600 border-green-600/30 hover:bg-green-500/10"
-                                    onClick={onReactivate}
-                                    disabled={isManaging}
-                                >
-                                    {isManaging ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                        <>
-                                            <RotateCcw className="h-4 w-4 mr-1" />
-                                            Reactivate
-                                        </>
-                                    )}
-                                </Button>
-                            ) : (
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="w-full text-destructive border-destructive/30 hover:bg-destructive/10"
-                                    onClick={onManageSubscription}
-                                    disabled={isManaging}
-                                >
-                                    {isManaging ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                        <>
-                                            <X className="h-4 w-4 mr-1" />
-                                            Unsubscribe
-                                        </>
-                                    )}
-                                </Button>
-                            )
-                        ) : (
-                            <div className="h-9" /> /* Spacer for Free plan */
-                        )
+                        <Badge className="bg-primary text-primary-foreground text-xs">
+                            Current
+                        </Badge>
                     ) : isPendingDowngrade ? (
-                        <div className="text-center text-xs text-amber-600">
-                            Switching to this plan soon
-                        </div>
-                    ) : isUpgrade ? (
-                        <Button
-                            size="sm"
-                            className={`w-full ${plan === "max" ? "bg-gradient-to-r from-amber-500 to-orange-500" : "bg-gradient-to-r from-primary to-primary/80"}`}
-                            onClick={() => onUpgrade(plan)}
-                            disabled={isManaging}
-                        >
-                            {isManaging ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                                <>
-                                    <ArrowUp className="h-4 w-4 mr-1" />
-                                    Upgrade
-                                </>
-                            )}
-                        </Button>
-                    ) : isDowngrade ? (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full"
-                            onClick={() => onDowngrade(plan)}
-                            disabled={isManaging}
-                        >
-                            {isManaging ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                                <>
-                                    <ArrowDown className="h-4 w-4 mr-1" />
-                                    Downgrade
-                                </>
-                            )}
-                        </Button>
-                    ) : (
-                        <div className="h-9" /> /* Spacer */
-                    )}
+                        <Badge className="bg-amber-500 text-white text-xs">
+                            Pending
+                        </Badge>
+                    ) : null}
                 </div>
+                <div className="mt-2">
+                    <span className="text-2xl font-bold">{config.price}</span>
+                </div>
+            </div>
+
+            {/* Features List */}
+            <div className="flex-1 p-4">
+                <div className="space-y-3">
+                    {ALL_FEATURES.map((feature) => {
+                        const value = feature[plan];
+                        const isHigherPlan = planOrder.indexOf(plan) > planOrder.indexOf(currentUserPlan);
+                        const isLowerPlan = planOrder.indexOf(plan) < planOrder.indexOf(currentUserPlan);
+                        const isGained = isHigherPlan && !isCurrentPlan;
+                        const isLost = isLowerPlan && !isCurrentPlan;
+
+                        return (
+                            <div 
+                                key={feature.id} 
+                                className={`flex items-center justify-between py-1 ${isGained ? "text-green-600 dark:text-green-400" : isLost ? "text-muted-foreground/60" : ""}`}
+                            >
+                                <span className="text-sm text-muted-foreground">{feature.label}</span>
+                                <FeatureValue value={value} plan={plan} />
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* Action Button */}
+            <div className="p-4 pt-0">
+                {isCurrentPlan ? (
+                    currentUserPlan !== "free" ? (
+                        isCancelPending ? (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full text-green-600 border-green-600/30 hover:bg-green-500/10"
+                                onClick={onReactivate}
+                                disabled={isManaging}
+                            >
+                                {isManaging ? <Loader2 className="h-4 w-4 animate-spin" /> : <><RotateCcw className="h-4 w-4 mr-1" />Reactivate</>}
+                            </Button>
+                        ) : (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full text-destructive border-destructive/30 hover:bg-destructive/10"
+                                onClick={onManageSubscription}
+                                disabled={isManaging}
+                            >
+                                {isManaging ? <Loader2 className="h-4 w-4 animate-spin" /> : <><X className="h-4 w-4 mr-1" />Unsubscribe</>}
+                            </Button>
+                        )
+                    ) : null
+                ) : isPendingDowngrade ? (
+                    <div className="text-center text-xs text-amber-600 py-2">
+                        Switching to this plan soon
+                    </div>
+                ) : isUpgrade ? (
+                    <Button
+                        size="sm"
+                        className={`w-full ${plan === "max" ? "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600" : "bg-primary hover:bg-primary/90"}`}
+                        onClick={() => onUpgrade(plan)}
+                        disabled={isManaging}
+                    >
+                        {isManaging ? <Loader2 className="h-4 w-4 animate-spin" /> : <><ArrowUp className="h-4 w-4 mr-1" />Upgrade</>}
+                    </Button>
+                ) : isDowngrade ? (
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => onDowngrade(plan)}
+                        disabled={isManaging}
+                    >
+                        {isManaging ? <Loader2 className="h-4 w-4 animate-spin" /> : <><ArrowDown className="h-4 w-4 mr-1" />Downgrade</>}
+                    </Button>
+                ) : null}
             </div>
         </div>
     );
 }
 
+const subscriptionFetcher = (url: string): Promise<SubscriptionStatus> =>
+    fetch(url).then(r => {
+        if (!r.ok) throw new Error("Failed to fetch");
+        return r.json();
+    }).then(data => ({
+        plan: data.plan,
+        status: data.status,
+        limits: {
+            maxTotalTransactions: data.limits?.max_total_transactions ?? 400,
+            aiChatEnabled: data.limits?.ai_chat_enabled ?? true,
+            aiChatMessages: data.limits?.ai_chat_messages ?? 10,
+            aiChatPeriod: data.limits?.ai_chat_period ?? 'week',
+            aiInsightsEnabled: data.limits?.ai_insights_enabled ?? false,
+            customTransactionCategoriesLimit: 10,
+            customFridgeCategoriesLimit: 10,
+        },
+        usage: {
+            bankTransactions: data.usage?.bank_transactions || 0,
+            fridgeItems: data.usage?.receipt_trips || 0,
+            totalTransactions: data.used_total || 0,
+            transactionLimit: data.cap === -1 ? Infinity : (data.cap || 300),
+            percentUsed: data.cap > 0 && data.cap !== -1
+                ? Math.round((data.used_total / data.cap) * 100)
+                : 0,
+        },
+        subscription: {
+            currentPeriodEnd: data.current_period_end,
+            cancelAtPeriodEnd: data.cancel_at_period_end,
+            pendingPlan: data.pending_plan,
+        },
+    }));
+
 export function SubscriptionCard() {
-    const [status, setStatus] = useState<SubscriptionStatus | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const { data: status, isLoading, error: swrError, mutate } = useSWR<SubscriptionStatus>(
+        "/api/subscription/me",
+        subscriptionFetcher,
+        { revalidateOnFocus: false, revalidateOnReconnect: false }
+    );
+    const error = swrError ? "Unable to load subscription info" : null;
     const [isManaging, setIsManaging] = useState(false);
 
     // Confirmation dialog states
@@ -333,50 +315,6 @@ export function SubscriptionCard() {
         transactionsToDelete: number;
         willExceed: boolean;
     } | null>(null);
-
-    useEffect(() => {
-        async function fetchStatus() {
-            try {
-                // Use /api/subscription/me which returns pendingPlan and usage data
-                const response = await fetch("/api/subscription/me");
-                if (!response.ok) throw new Error("Failed to fetch");
-                const data = await response.json();
-
-                // Transform response to expected format
-                setStatus({
-                    plan: data.plan,
-                    status: data.status,
-                    limits: {
-                        maxTotalTransactions: data.limits?.max_total_transactions ?? 400,
-                        aiChatEnabled: data.limits?.ai_chat_enabled ?? true,
-                        aiChatMessagesPerDay: data.limits?.ai_chat_messages_per_day ?? 5,
-                        aiInsightsEnabled: data.limits?.ai_insights_enabled ?? false,
-                        customTransactionCategoriesLimit: 10,
-                        customFridgeCategoriesLimit: 10,
-                    },
-                    usage: {
-                        bankTransactions: data.usage?.bank_transactions || 0,
-                        fridgeItems: data.usage?.receipt_trips || 0,
-                        totalTransactions: data.used_total || 0,
-                        transactionLimit: data.cap === -1 ? Infinity : (data.cap || 400),
-                        percentUsed: data.cap > 0 && data.cap !== -1
-                            ? Math.round((data.used_total / data.cap) * 100)
-                            : 0,
-                    },
-                    subscription: {
-                        currentPeriodEnd: data.current_period_end,
-                        cancelAtPeriodEnd: data.cancel_at_period_end,
-                        pendingPlan: data.pending_plan,
-                    },
-                });
-            } catch (err) {
-                setError("Unable to load subscription info");
-            } finally {
-                setIsLoading(false);
-            }
-        }
-        fetchStatus();
-    }, []);
 
     // Fetch cancel preview (how many transactions will be deleted)
     const fetchCancelPreview = async () => {
@@ -493,45 +431,10 @@ export function SubscriptionCard() {
 
     // Helper to refresh subscription status
     const refreshStatus = async () => {
-        try {
-            const response = await fetch("/api/subscription/me");
-            if (!response.ok) return;
-            const data = await response.json();
-            setStatus({
-                plan: data.plan,
-                status: data.status,
-                limits: {
-                    maxTotalTransactions: data.limits?.max_total_transactions ?? 400,
-                    aiChatEnabled: data.limits?.ai_chat_enabled ?? true,
-                    aiChatMessagesPerDay: data.limits?.ai_chat_messages_per_day ?? 5,
-                    aiInsightsEnabled: data.limits?.ai_insights_enabled ?? false,
-                    customTransactionCategoriesLimit: 10,
-                    customFridgeCategoriesLimit: 10,
-                },
-                usage: {
-                    bankTransactions: data.usage?.bank_transactions || 0,
-                    fridgeItems: data.usage?.receipt_trips || 0,
-                    totalTransactions: data.used_total || 0,
-                    transactionLimit: data.cap === -1 ? Infinity : (data.cap || 400),
-                    percentUsed: data.cap > 0 && data.cap !== -1
-                        ? Math.round((data.used_total / data.cap) * 100)
-                        : 0,
-                },
-                subscription: {
-                    currentPeriodEnd: data.current_period_end,
-                    cancelAtPeriodEnd: data.cancel_at_period_end,
-                    pendingPlan: data.pending_plan,
-                },
-            });
-        } catch (err) {
-            console.error("Failed to refresh status:", err);
-        }
+        await mutate();
     };
 
     const getPriceIdForPlan = (plan: PlanType): string | null => {
-        if (plan === 'basic') {
-            return process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_BASIC_MONTHLY || null;
-        }
         if (plan === 'pro') {
             return process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_MONTHLY || null;
         }
@@ -566,11 +469,7 @@ export function SubscriptionCard() {
                 window.location.href = data.url;
             } else if (data.success) {
                 toast.success(data.message || `Upgraded to ${targetPlan.toUpperCase()}!`);
-                const statusResponse = await fetch("/api/subscription/status");
-                if (statusResponse.ok) {
-                    const newStatus = await statusResponse.json();
-                    setStatus(newStatus);
-                }
+                await mutate();
             } else if (data.error) {
                 toast.error(data.error);
             } else {
@@ -607,11 +506,7 @@ export function SubscriptionCard() {
 
             if (data.success) {
                 toast.success(data.message || `Plan will change to ${targetPlan.toUpperCase()}`);
-                const statusResponse = await fetch("/api/subscription/status");
-                if (statusResponse.ok) {
-                    const newStatus = await statusResponse.json();
-                    setStatus(newStatus);
-                }
+                await mutate();
             } else if (data.error) {
                 toast.error(data.error);
             } else {
@@ -635,11 +530,7 @@ export function SubscriptionCard() {
 
             if (data.success) {
                 toast.success(data.message || "Subscription reactivated!");
-                const statusResponse = await fetch("/api/subscription/status");
-                if (statusResponse.ok) {
-                    const newStatus = await statusResponse.json();
-                    setStatus(newStatus);
-                }
+                await mutate();
             } else if (data.error) {
                 toast.error(data.error);
             } else {
@@ -703,7 +594,7 @@ export function SubscriptionCard() {
     }
 
     // Order plans with current plan first
-    const allPlans: PlanType[] = ["free", "basic", "pro", "max"];
+    const allPlans: PlanType[] = ["free", "pro", "max"];
     const orderedPlans: PlanType[] = [
         status.plan,
         ...allPlans.filter((p) => p !== status.plan),
@@ -755,7 +646,7 @@ export function SubscriptionCard() {
                 </CardHeader>
 
                 <CardContent className="relative">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {orderedPlans.map((plan) => (
                             <PlanCard
                                 key={plan}
@@ -804,10 +695,10 @@ export function SubscriptionCard() {
                                         <div>
                                             <p className="text-sm font-medium">After this date, you'll lose:</p>
                                             <ul className="text-sm text-muted-foreground list-disc list-inside mt-1">
-                                                <li>Unlimited AI chat access</li>
                                                 <li>Extra transaction capacity</li>
-                                                <li>CSV export feature</li>
-                                                <li>Priority support</li>
+                                                <li>Extra receipt scans</li>
+                                                <li>Extra AI chat messages</li>
+                                                <li>Full AI insights</li>
                                             </ul>
                                         </div>
                                     </div>
@@ -909,7 +800,7 @@ export function SubscriptionCard() {
                                         <div>
                                             <p className="text-sm font-medium">New price</p>
                                             <p className="text-sm text-muted-foreground">
-                                                {showUpgradeConfirm ? PLAN_INFO[showUpgradeConfirm].price : ""} (billed monthly)
+                                                {showUpgradeConfirm ? PLAN_CONFIG[showUpgradeConfirm].price : ""} (billed monthly)
                                             </p>
                                         </div>
                                     </div>
@@ -918,8 +809,8 @@ export function SubscriptionCard() {
                                         <div>
                                             <p className="text-sm font-medium">Immediate access to:</p>
                                             <ul className="text-sm text-muted-foreground list-disc list-inside mt-1">
-                                                {showUpgradeConfirm && PLAN_INFO[showUpgradeConfirm].features.slice(0, 3).map((f, i) => (
-                                                    <li key={i}>{f}</li>
+                                                {showUpgradeConfirm && ALL_FEATURES.slice(0, 3).map((f) => (
+                                                    <li key={f.id}>{f.label}: {f[showUpgradeConfirm]}</li>
                                                 ))}
                                             </ul>
                                         </div>
@@ -984,7 +875,7 @@ export function SubscriptionCard() {
                                         <div>
                                             <p className="text-sm font-medium">New rate after that</p>
                                             <p className="text-sm text-muted-foreground">
-                                                {showDowngradeConfirm ? PLAN_INFO[showDowngradeConfirm].price : ""} (billed monthly)
+                                                {showDowngradeConfirm ? PLAN_CONFIG[showDowngradeConfirm].price : ""} (billed monthly)
                                             </p>
                                         </div>
                                     </div>
@@ -997,14 +888,16 @@ export function SubscriptionCard() {
                                                     {showDowngradeConfirm === 'free' ? (
                                                         <>
                                                             <li>Extra transaction capacity</li>
-                                                            <li>Unlimited AI chat</li>
-                                                            <li>CSV export</li>
+                                                            <li>Extra receipt scans</li>
+                                                            <li>Extra AI chat messages</li>
+                                                            <li>Full AI insights</li>
                                                         </>
                                                     ) : showDowngradeConfirm === 'pro' && status.plan === 'max' ? (
                                                         <>
-                                                            <li>Unlimited transactions</li>
+                                                            <li>Higher transaction limit</li>
+                                                            <li>More receipt scans</li>
+                                                            <li>More AI chat messages</li>
                                                             <li>Priority support</li>
-                                                            <li>Early access features</li>
                                                         </>
                                                     ) : null}
                                                 </ul>

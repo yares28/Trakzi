@@ -1,11 +1,9 @@
 "use client"
-
 import { useMemo, useState, useEffect } from "react"
 import { useTheme } from "next-themes"
 import {
     Card,
     CardContent,
-    CardDescription,
     CardHeader,
     CardTitle,
     CardAction,
@@ -18,7 +16,6 @@ import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { IconFlame, IconSnowflake, IconTrophy } from "@tabler/icons-react"
-
 interface ChartBudgetMilestoneProps {
     data: Array<{
         date: string
@@ -27,7 +24,6 @@ interface ChartBudgetMilestoneProps {
     isLoading?: boolean
     monthlyBudget?: number
 }
-
 export function ChartBudgetMilestone({
     data,
     isLoading = false,
@@ -39,18 +35,14 @@ export function ChartBudgetMilestone({
     const palette = getPalette()
     const [mounted, setMounted] = useState(false)
     const [animatedProgress, setAnimatedProgress] = useState(0)
-
     useEffect(() => {
         setMounted(true)
     }, [])
-
     const milestoneData = useMemo(() => {
         if (!data || data.length === 0) return { spent: 0, remaining: monthlyBudget, progress: 0 }
-
         const now = new Date()
         const currentMonth = now.getMonth()
         const currentYear = now.getFullYear()
-
         let spent = 0
         data.forEach((tx) => {
             if (tx.amount >= 0) return
@@ -59,19 +51,15 @@ export function ChartBudgetMilestone({
                 spent += Math.abs(tx.amount)
             }
         })
-
         const remaining = Math.max(0, monthlyBudget - spent)
         const progress = Math.min(100, (spent / monthlyBudget) * 100)
-
         return { spent, remaining, progress }
     }, [data, monthlyBudget])
-
     useEffect(() => {
         if (!mounted) return
         const target = milestoneData.progress
         const duration = 1500
         const startTime = Date.now()
-
         const animate = () => {
             const elapsed = Date.now() - startTime
             const progress = Math.min(elapsed / duration, 1)
@@ -79,28 +67,22 @@ export function ChartBudgetMilestone({
             setAnimatedProgress(target * easeOut)
             if (progress < 1) requestAnimationFrame(animate)
         }
-
         requestAnimationFrame(animate)
     }, [mounted, milestoneData.progress])
-
     const isDark = resolvedTheme === "dark"
-
     const chartTitle = "Budget Milestone"
     const chartDescription = "Track your progress toward your monthly budget goal."
-
     const getStatusIcon = () => {
         if (milestoneData.progress >= 100) return <IconFlame size={24} className="text-red-500" />
         if (milestoneData.progress >= 75) return <IconFlame size={24} className="text-orange-500" />
         if (milestoneData.progress <= 25) return <IconSnowflake size={24} className="text-blue-500" />
         return <IconTrophy size={24} className="text-yellow-500" />
     }
-
     const getProgressColor = () => {
         if (milestoneData.progress >= 100) return "#ef4444"
         if (milestoneData.progress >= 75) return "#f59e0b"
         return palette[1] || "#10b981"
     }
-
     const renderInfoTrigger = () => (
         <div className="flex flex-col items-center gap-2">
             <ChartInfoPopover
@@ -122,7 +104,6 @@ export function ChartBudgetMilestone({
             />
         </div>
     )
-
     if (!mounted) {
         return (
             <Card className="@container/card h-full flex flex-col">
@@ -140,7 +121,6 @@ export function ChartBudgetMilestone({
             </Card>
         )
     }
-
     return (
         <Card className="@container/card h-full flex flex-col">
             <CardHeader>
@@ -149,10 +129,6 @@ export function ChartBudgetMilestone({
                     <ChartFavoriteButton chartId="testCharts:budgetMilestone" chartTitle={chartTitle} size="md" />
                     <CardTitle>{chartTitle}</CardTitle>
                 </div>
-                <CardDescription>
-                    <span className="hidden @[540px]/card:block">{chartDescription}</span>
-                    <span className="@[540px]/card:hidden">Budget progress</span>
-                </CardDescription>
                 <CardAction>{renderInfoTrigger()}</CardAction>
             </CardHeader>
             <CardContent className="px-4 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
@@ -179,7 +155,6 @@ export function ChartBudgetMilestone({
                             <span>{formatCurrency(monthlyBudget)} budget</span>
                         </div>
                     </div>
-
                     {/* Status */}
                     <div className="flex items-center gap-3 mt-2">
                         {getStatusIcon()}

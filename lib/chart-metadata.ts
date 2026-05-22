@@ -17,6 +17,36 @@ export const CHART_METADATA: Record<ChartId, ChartMetadata> = {
     title: "Income & Expenses Cumulative Tracking",
     description: "Your cumulative cash flow for the last 3 months",
   },
+  incomeExpenseRatio: {
+    id: "incomeExpenseRatio",
+    title: "Income to Expense Ratio",
+    description: "Shows how your income compares to your expenses",
+  },
+  weekendVsWeekday: {
+    id: "weekendVsWeekday",
+    title: "Weekend vs Weekday",
+    description: "Compare your spending habits between weekdays and weekends",
+  },
+  monthlyBudgetPace: {
+    id: "monthlyBudgetPace",
+    title: "Monthly Budget Pace",
+    description: "Are you on track this month? Compare your spending pace against your typical month",
+  },
+  budgetBurndown: {
+    id: "budgetBurndown",
+    title: "Budget Burndown",
+    description: "Track how quickly you're burning through your monthly budget",
+  },
+  purchaseSizeBreakdown: {
+    id: "purchaseSizeBreakdown",
+    title: "Purchase Size Breakdown",
+    description: "See how your spending is distributed between small, medium, and large purchases",
+  },
+  recurringVsOneTime: {
+    id: "recurringVsOneTime",
+    title: "Recurring vs One-Time",
+    description: "How much of your spending is on subscriptions versus one-time purchases",
+  },
   spendingCategoryRankings: {
     id: "spendingCategoryRankings",
     title: "Spending Category Rankings",
@@ -302,11 +332,6 @@ export const CHART_METADATA: Record<ChartId, ChartMetadata> = {
     title: "Savings Rate Trend",
     description: "Track your monthly savings rate over time - aim for 20% or more",
   },
-  "testCharts:spendingScore": {
-    id: "testCharts:spendingScore",
-    title: "Spending Score",
-    description: "An AI-calculated score based on your spending patterns and trends",
-  },
   "testCharts:smallVsLargePurchases": {
     id: "testCharts:smallVsLargePurchases",
     title: "Purchase Size Breakdown",
@@ -466,6 +491,122 @@ export const CHART_METADATA: Record<ChartId, ChartMetadata> = {
     id: "testCharts:monthlyInsights",
     title: "Monthly Insights",
     description: "Key statistics and insights about your spending this month",
+  },
+  "testCharts:categoryPareto": {
+    id: "testCharts:categoryPareto",
+    title: "Category Pareto",
+    description: "Share of spend concentrated in top categories (80/20 style view)",
+  },
+  "testCharts:categorySeasonalityRadar": {
+    id: "testCharts:categorySeasonalityRadar",
+    title: "Category Seasonality Radar",
+    description: "How top categories shift across quarters",
+  },
+  "testCharts:merchantDiversity": {
+    id: "testCharts:merchantDiversity",
+    title: "Merchant Diversity",
+    description: "Spread of spending across merchants over time",
+  },
+  "testCharts:spendingVolatility": {
+    id: "testCharts:spendingVolatility",
+    title: "Spending Volatility",
+    description: "How much daily spending fluctuates versus your average",
+  },
+  "testCharts:weeklyDensityHeatmap": {
+    id: "testCharts:weeklyDensityHeatmap",
+    title: "Weekly Density Heatmap",
+    description: "When during the week you tend to spend",
+  },
+  // Production IDs (moved from testCharts: prefix)
+  seasonalSpending: {
+    id: "seasonalSpending",
+    title: "Seasonal Spending",
+    description: "Compare your spending across different seasons of the year",
+  },
+  hourlySpending: {
+    id: "hourlySpending",
+    title: "Hourly Spending Pattern",
+    description: "Discover what time of day you spend the most money",
+  },
+  transactionCountTrend: {
+    id: "transactionCountTrend",
+    title: "Transaction Count Trend",
+    description: "Track how your number of transactions changes over time",
+  },
+  momGrowth: {
+    id: "momGrowth",
+    title: "Month-over-Month Growth",
+    description: "Track your spending growth rate month-over-month",
+  },
+  topMerchantsRace: {
+    id: "topMerchantsRace",
+    title: "Top Merchants Race",
+    description: "See which merchants you spend the most at over time",
+  },
+  paydayImpact: {
+    id: "paydayImpact",
+    title: "Payday Impact",
+    description: "See how your spending changes around payday",
+  },
+  incomeSources: {
+    id: "incomeSources",
+    title: "Income Sources",
+    description: "Breakdown of where your income comes from",
+  },
+  spendingDistribution: {
+    id: "spendingDistribution",
+    title: "Spending Distribution",
+    description: "A histogram showing how your transactions are distributed across different spending ranges",
+  },
+  yearOverYear: {
+    id: "yearOverYear",
+    title: "Year Over Year",
+    description: "Compare your annual spending across years to spot long-term trends",
+  },
+  quarterlyComparison: {
+    id: "quarterlyComparison",
+    title: "Quarterly Comparison",
+    description: "Compare your spending across quarters to spot seasonal patterns",
+  },
+  dailyAverageByMonth: {
+    id: "dailyAverageByMonth",
+    title: "Daily Average by Month",
+    description: "Your average daily spending for each month",
+  },
+  savingsRateTrend: {
+    id: "savingsRateTrend",
+    title: "Savings Rate Trend",
+    description: "Track how your savings rate changes over time",
+  },
+  netWorthTrend: {
+    id: "netWorthTrend",
+    title: "Net Worth Trend",
+    description: "Track the growth of your net worth over time",
+  },
+  categorySpendingByPeriod: {
+    id: "categorySpendingByPeriod",
+    title: "Category Spending by Period",
+    description: "Compare how your spending in each category changes across different time periods.",
+  },
+  "testCharts:merchantBudgetMissMap": {
+    id: "testCharts:merchantBudgetMissMap",
+    title: "Merchant Budget Miss Map",
+    description: "Visualize which merchants have caused budget overruns.",
+  },
+  "testCharts:storePriceDispersionIndex": {
+    id: "testCharts:storePriceDispersionIndex",
+    title: "Store Price Dispersion Index",
+    description: "Shows the price variation across stores for common items.",
+  },
+  "testCharts:weekendSpendingShare": {
+    id: "testCharts:weekendSpendingShare",
+    title: "Weekend spending share",
+    description: "Share of spending that occurs on weekends vs weekdays.",
+  },
+  dailySpendAllowance: {
+    id: "dailySpendAllowance",
+    title: "Daily Spend Allowance",
+    description: "Tracks your rolling daily discretionary allowance (income minus essentials) throughout a selected month, compared to an ideal flat baseline.",
   },
 }
 

@@ -1,7 +1,7 @@
 "use client"
 
-import { useMemo, useState, useEffect, useRef } from "react"
-import { useTheme } from "next-themes"
+import { memo, useMemo, useState, useEffect } from "react"
+import ReactDOM from "react-dom"
 import {
     Card,
     CardContent,
@@ -10,12 +10,16 @@ import {
     CardAction,
 } from "@/components/ui/card"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
+import { NivoChartTooltip } from "@/components/chart-tooltip"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
+import { ChartExpandButton } from "@/components/chart-expand-button"
+import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
+import { getContrastTextColor } from "@/lib/chart-colors"
 
 interface ChartTopMerchantsRaceProps {
     data: Array<{
@@ -24,18 +28,25 @@ interface ChartTopMerchantsRaceProps {
         description: string
     }>
     isLoading?: boolean
+    emptyTitle?: string
+    emptyDescription?: string
 }
 
-export function ChartTopMerchantsRace({
+export const ChartTopMerchantsRace = memo(function ChartTopMerchantsRace({
     data,
     isLoading = false,
 }: ChartTopMerchantsRaceProps) {
-    const { resolvedTheme } = useTheme()
-    const { getPalette } = useColorScheme()
+    const { getShuffledPalette } = useColorScheme()
     const { formatCurrency } = useCurrency()
-    const palette = getPalette()
+    const palette = useMemo(
+        () => getShuffledPalette("analytics:topMerchantsRace"),
+        [getShuffledPalette],
+    )
     const [mounted, setMounted] = useState(false)
-    const [animationProgress, setAnimationProgress] = useState(0)
+    const [animationReady, setAnimationReady] = useState(false)
+    const [isFullscreen, setIsFullscreen] = useState(false)
+    const [hoveredMerchant, setHoveredMerchant] = useState<string | null>(null)
+    const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null)
 
     useEffect(() => {
         setMounted(true)
@@ -60,51 +71,35 @@ export function ChartTopMerchantsRace({
         if (!data || data.length === 0) return []
 
         // Group by merchant
-        const merchantTotals = new Map<string, number>()
+        const merchantMap = new Map<string, { total: number; count: number }>()
 
         data.forEach((tx) => {
             if (tx.amount >= 0) return // Only expenses
             const merchant = extractMerchant(tx.description)
-            const current = merchantTotals.get(merchant) || 0
-            merchantTotals.set(merchant, current + Math.abs(tx.amount))
+            const current = merchantMap.get(merchant) ?? { total: 0, count: 0 }
+            merchantMap.set(merchant, { total: current.total + Math.abs(tx.amount), count: current.count + 1 })
         })
 
         // Get top 5 merchants
         const paletteLength = palette?.length || 0
-        return Array.from(merchantTotals.entries())
-            .sort((a, b) => b[1] - a[1])
+        return Array.from(merchantMap.entries())
+            .sort((a, b) => b[1].total - a[1].total)
             .slice(0, 5)
-            .map(([name, total], index) => ({
+            .map(([name, { total, count }], index) => ({
                 name,
                 total,
+                count,
                 rank: index + 1,
                 color: paletteLength > 0 ? (palette[index % paletteLength] || "#6b7280") : "#6b7280",
             }))
     }, [data, palette])
 
-    // Animate bars
+    // Trigger bar grow animation after mount — matches Nivo "gentle" spring feel
     useEffect(() => {
         if (!mounted || chartData.length === 0) return
-
-        const duration = 1500
-        const startTime = Date.now()
-
-        const animate = () => {
-            const elapsed = Date.now() - startTime
-            const progress = Math.min(elapsed / duration, 1)
-            const easeOut = 1 - Math.pow(1 - progress, 3)
-            setAnimationProgress(easeOut)
-
-            if (progress < 1) {
-                requestAnimationFrame(animate)
-            }
-        }
-
-        requestAnimationFrame(animate)
+        const timer = setTimeout(() => setAnimationReady(true), 50)
+        return () => clearTimeout(timer)
     }, [mounted, chartData])
-
-    const theme = resolvedTheme === "dark" ? "dark" : "light"
-    const textColor = theme === "dark" ? "#ffffff" : "#1f2937"
 
     const chartTitle = "Top 5 Merchants"
     const chartDescription =
@@ -121,6 +116,92 @@ export function ChartTopMerchantsRace({
         }
     }, [chartData])
 
+    const renderInfoTrigger = () => (
+        <div className="flex flex-col items-center gap-2">
+            <ChartInfoPopover
+                title={chartTitle}
+                description={chartDescription}
+                details={[
+                    "Shows top 5 by total spending",
+                    "Extracted from transaction descriptions",
+                    "Bar length = relative spending",
+                    "Hover for exact amounts",
+                ]}
+            />
+            <ChartAiInsightButton
+                chartId="topMerchantsRace"
+                chartTitle={chartTitle}
+                chartDescription={chartDescription}
+                chartData={chartDataForAI}
+                size="sm"
+            />
+        </div>
+    )
+
+    const hoveredItem = chartData.find((item) => item.name === hoveredMerchant) ?? null
+
+    const renderBars = () => (
+        <div className="flex h-full w-full min-h-[190px] flex-col justify-start gap-1.5 py-1.5 sm:min-h-[230px] sm:justify-center sm:gap-3 sm:py-4">
+            {chartData.map((item, index) => {
+                const barWidth = (item.total / maxTotal) * 100
+                const delay = index * 80
+
+                return (
+                    <div
+                        key={item.name}
+                        className="group relative flex items-center gap-2.5 sm:gap-3"
+                        style={{
+                            opacity: animationReady ? 1 : 0,
+                            transition: `opacity 0.25s ease ${delay}ms`,
+                        }}
+                        onMouseEnter={() => setHoveredMerchant(item.name)}
+                        onMouseMove={(e) => setTooltipPos({ x: e.clientX, y: e.clientY })}
+                        onMouseLeave={() => {
+                            setHoveredMerchant(null)
+                            setTooltipPos(null)
+                        }}
+                    >
+                        <div className="w-5 text-[11px] font-bold text-muted-foreground sm:w-6 sm:text-sm">
+                            #{item.rank}
+                        </div>
+                        <div className="flex-1 relative">
+                            <div
+                                className="origin-left hover:scale-x-[1.02] flex h-7 items-center rounded-lg px-2 sm:h-10 sm:px-3"
+                                style={{
+                                    width: `${animationReady ? Math.max(barWidth, 5) : 0}%`,
+                                    backgroundColor: item.color,
+                                    transition: `width 0.65s cubic-bezier(0.34, 1.56, 0.64, 1) ${delay}ms, filter 0.15s ease, transform 0.15s ease`,
+                                    filter: hoveredMerchant === item.name ? "brightness(1.15)" : "brightness(1)",
+                                }}
+                            >
+                                <span
+                                    className="truncate text-[10px] font-semibold sm:text-xs"
+                                    style={{ color: getContrastTextColor(item.color) }}
+                                >
+                                    {item.name}
+                                </span>
+                            </div>
+                        </div>
+                        <div className="w-16 text-right text-[11px] font-medium text-foreground sm:w-24 sm:text-sm">
+                            {formatCurrency(item.total)}
+                        </div>
+                    </div>
+                )
+            })}
+            {hoveredItem && tooltipPos && typeof window !== "undefined" && ReactDOM.createPortal(
+                <div style={{ position: "fixed", top: tooltipPos.y - 60, left: tooltipPos.x + 12, zIndex: 9999, pointerEvents: "none" }}>
+                    <NivoChartTooltip
+                        title={hoveredItem.name}
+                        titleColor={hoveredItem.color}
+                        value={formatCurrency(hoveredItem.total)}
+                        subValue={`${hoveredItem.count} transaction${hoveredItem.count !== 1 ? "s" : ""}`}
+                    />
+                </div>,
+                document.body
+            )}
+        </div>
+    )
+
     if (!mounted) {
         return (
             <Card className="@container/card h-full flex flex-col">
@@ -128,7 +209,7 @@ export function ChartTopMerchantsRace({
                     <div className="flex items-center gap-2">
                         <GridStackCardDragHandle />
                         <ChartFavoriteButton
-                            chartId="testCharts:topMerchantsRace"
+                            chartId="topMerchantsRace"
                             chartTitle={chartTitle}
                             size="md"
                         />
@@ -136,96 +217,59 @@ export function ChartTopMerchantsRace({
                     </div>
                 </CardHeader>
                 <CardContent className="flex-1 min-h-0">
-                    <div className="h-full w-full min-h-[250px]" />
+                    <div className="h-full w-full min-h-[230px]" />
                 </CardContent>
             </Card>
         )
     }
 
     return (
-        <Card className="@container/card h-full flex flex-col">
-            <CardHeader>
-                <div className="flex items-center gap-2">
-                    <GridStackCardDragHandle />
-                    <ChartFavoriteButton
-                        chartId="testCharts:topMerchantsRace"
-                        chartTitle={chartTitle}
-                        size="md"
-                    />
-                    <CardTitle>{chartTitle}</CardTitle>
+        <>
+            <ChartFullscreenModal
+                isOpen={isFullscreen}
+                onClose={() => setIsFullscreen(false)}
+                title={chartTitle}
+                description={chartDescription}
+                headerActions={renderInfoTrigger()}
+            >
+                <div className="h-full w-full min-h-[380px]">
+                    {isLoading || chartData.length === 0 ? (
+                        <div className="h-full w-full min-h-[380px] flex items-center justify-center">
+                            <ChartLoadingState />
+                        </div>
+                    ) : (
+                        renderBars()
+                    )}
                 </div>
-                <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-                    <div className="flex flex-col items-center gap-2">
-                        <ChartInfoPopover
-                            title={chartTitle}
-                            description={chartDescription}
-                            details={[
-                                "Shows top 5 by total spending",
-                                "Extracted from transaction descriptions",
-                                "Bar length = relative spending",
-                                "Hover for exact amounts",
-                            ]}
-                        />
-                        <ChartAiInsightButton
-                            chartId="testCharts:topMerchantsRace"
+            </ChartFullscreenModal>
+            <Card className="@container/card h-full flex flex-col">
+                <CardHeader>
+                    <div className="flex items-center gap-2">
+                        <GridStackCardDragHandle />
+                        <ChartFavoriteButton
+                            chartId="topMerchantsRace"
                             chartTitle={chartTitle}
-                            chartDescription={chartDescription}
-                            chartData={chartDataForAI}
-                            size="sm"
+                            size="md"
                         />
+                        <CardTitle>{chartTitle}</CardTitle>
                     </div>
-                </CardAction>
-            </CardHeader>
-            <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
-                {isLoading || chartData.length === 0 ? (
-                    <div className="h-full w-full min-h-[250px] flex items-center justify-center">
-                        <ChartLoadingState />
-                    </div>
-                ) : (
-                    <div className="h-full w-full min-h-[250px] flex flex-col justify-center gap-3 py-4">
-                        {chartData.map((item, index) => {
-                            const barWidth = (item.total / maxTotal) * 100 * animationProgress
-                            const delay = index * 100
-
-                            return (
-                                <div
-                                    key={item.name}
-                                    className="flex items-center gap-3 group"
-                                    style={{
-                                        animationDelay: `${delay}ms`,
-                                        opacity: animationProgress > 0 ? 1 : 0,
-                                        transition: `opacity 0.3s ease ${delay}ms`
-                                    }}
-                                >
-                                    <div className="w-6 text-sm font-bold text-muted-foreground">
-                                        #{item.rank}
-                                    </div>
-                                    <div className="flex-1 relative">
-                                        <div
-                                            className="h-10 rounded-lg flex items-center px-3 transition-all duration-300 group-hover:brightness-110"
-                                            style={{
-                                                width: `${Math.max(barWidth, 5)}%`,
-                                                backgroundColor: item.color,
-                                                transition: "width 1.5s cubic-bezier(0.4, 0, 0.2, 1)",
-                                            }}
-                                        >
-                                            <span
-                                                className="text-xs font-semibold truncate"
-                                                style={{ color: "#ffffff" }}
-                                            >
-                                                {item.name}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <div className="w-24 text-right text-sm font-medium text-foreground">
-                                        {formatCurrency(item.total * animationProgress)}
-                                    </div>
-                                </div>
-                            )
-                        })}
-                    </div>
-                )}
-            </CardContent>
-        </Card>
+                    <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+                        <ChartExpandButton onClick={() => setIsFullscreen(true)} />
+                        {renderInfoTrigger()}
+                    </CardAction>
+                </CardHeader>
+                <CardContent className="px-2 pt-2 sm:px-6 sm:pt-6 flex-1 min-h-0">
+                    {isLoading || chartData.length === 0 ? (
+                        <div className="flex h-full w-full min-h-[190px] items-center justify-center sm:min-h-[230px]">
+                            <ChartLoadingState />
+                        </div>
+                    ) : (
+                        renderBars()
+                    )}
+                </CardContent>
+            </Card>
+        </>
     )
-}
+})
+
+ChartTopMerchantsRace.displayName = "ChartTopMerchantsRace"

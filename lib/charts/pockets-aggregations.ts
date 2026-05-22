@@ -1,5 +1,6 @@
 // lib/charts/pockets-aggregations.ts
 import { neonQuery } from '@/lib/neonClient'
+import { hasAccountFilter, type AccountFilter } from '@/lib/charts/account-filter'
 import type {
     CountryData,
     PocketsBundleResponse,
@@ -25,7 +26,13 @@ import type {
  * - The CountryTransactionsDialog can query `/api/pockets/transactions`
  *   with a real instance_id that exists in the database.
  */
-export async function getCountrySpending(userId: string): Promise<CountryData[]> {
+export async function getCountrySpending(userId: string, accountIds?: AccountFilter): Promise<CountryData[]> {
+    const params: unknown[] = [userId]
+    let accountClause = ''
+    if (hasAccountFilter(accountIds)) {
+        params.push(accountIds as string[])
+        accountClause = ` AND t.account_id = ANY($${params.length})`
+    }
     const rows = await neonQuery<{
         instance_id: number
         country_name: string
@@ -43,10 +50,12 @@ export async function getCountrySpending(userId: string): Promise<CountryData[]>
         WHERE ci.user_id = $1
             AND t.user_id = $1
             AND t.amount < 0
+            AND (t.tx_type IS NULL OR t.tx_type = 'expense')
+            ${accountClause}
         GROUP BY ci.id, ci.country_name, ci.label
         HAVING COALESCE(SUM(ABS(t.amount)), 0) > 0
         ORDER BY SUM(ABS(t.amount)) DESC`,
-        [userId]
+        params
     )
 
     return rows.map((row) => ({
@@ -58,17 +67,42 @@ export async function getCountrySpending(userId: string): Promise<CountryData[]>
 }
 
 /**
+ * Get count of distinct transaction dates linked to any country instance for this user.
+ */
+async function getDistinctTravelDays(userId: string, accountIds?: AccountFilter): Promise<number> {
+    const params: unknown[] = [userId]
+    let accountClause = ''
+    if (hasAccountFilter(accountIds)) {
+        params.push(accountIds as string[])
+        accountClause = ` AND t.account_id = ANY($${params.length})`
+    }
+    const rows = await neonQuery<{ days: string }>(
+        `SELECT COUNT(DISTINCT DATE(t.date::timestamp))::text AS days
+         FROM transactions t
+         JOIN country_instances ci ON t.country_instance_id = ci.id
+         WHERE ci.user_id = $1
+           AND t.user_id = $1
+           AND t.amount < 0
+           AND (t.tx_type IS NULL OR t.tx_type = 'expense')
+           ${accountClause}`,
+        params
+    )
+    return parseInt(rows[0]?.days ?? '0', 10)
+}
+
+/**
  * Compute travel stats from country spending data
  */
-function computeTravelStats(countries: CountryData[]): TravelStats {
+function computeTravelStats(countries: CountryData[], distinctDays = 0): TravelStats {
     const totalCountries = countries.length
     const totalSpentAbroad = countries.reduce((sum, c) => sum + c.value, 0)
+    const avgDailySpend = distinctDays > 0 ? totalSpentAbroad / distinctDays : 0
 
     const topCountry = countries.length > 0
         ? { name: countries[0].id, value: countries[0].value }
         : null
 
-    return { totalCountries, totalSpentAbroad, topCountry }
+    return { totalCountries, totalSpentAbroad, topCountry, avgDailySpend }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -79,7 +113,7 @@ function computeTravelStats(countries: CountryData[]): TravelStats {
  * Fetch all pockets for a user with aggregated tab totals.
  * Uses 2 indexed queries merged in-memory (no N+1).
  */
-async function getPocketsWithTotals(userId: string): Promise<PocketItemWithTotals[]> {
+async function getPocketsWithTotals(userId: string, accountIds?: AccountFilter): Promise<PocketItemWithTotals[]> {
     // Query 1: Get all pockets
     const pockets = await neonQuery<PocketItem>(
         `SELECT id, user_id, type, name, metadata, svg_path,
@@ -96,6 +130,12 @@ async function getPocketsWithTotals(userId: string): Promise<PocketItemWithTotal
     }
 
     // Query 2: Get aggregated totals per pocket per tab
+    const totalsParams: unknown[] = [userId]
+    let totalsAccountClause = ''
+    if (hasAccountFilter(accountIds)) {
+        totalsParams.push(accountIds as string[])
+        totalsAccountClause = ` AND t.account_id = ANY($${totalsParams.length})`
+    }
     const totals = await neonQuery<{
         pocket_id: number
         tab: string
@@ -110,8 +150,10 @@ async function getPocketsWithTotals(userId: string): Promise<PocketItemWithTotal
          FROM pocket_transactions pt
          JOIN transactions t ON t.id = pt.transaction_id
          WHERE pt.user_id = $1
+           AND (t.tx_type IS NULL OR t.tx_type = 'expense')
+           ${totalsAccountClause}
          GROUP BY pt.pocket_id, pt.tab`,
-        [userId]
+        totalsParams
     )
 
     // Build totals lookup: pocket_id → { tabTotals, totalInvested, transactionCount }
@@ -234,15 +276,16 @@ function computeOtherStats(otherPockets: PocketItemWithTotals[]): OtherStats {
  * 2. All pockets
  * 3. Aggregated pocket totals
  */
-export async function getPocketsBundle(userId: string): Promise<PocketsBundleResponse> {
+export async function getPocketsBundle(userId: string, accountIds?: AccountFilter): Promise<PocketsBundleResponse> {
     // Run travel + pockets queries in parallel.
     // Travel is isolated with catch so a failure never crashes vehicle/property/other.
-    const [countries, allPockets] = await Promise.all([
-        getCountrySpending(userId).catch((err) => {
+    const [countries, allPockets, distinctTravelDays] = await Promise.all([
+        getCountrySpending(userId, accountIds).catch((err) => {
             console.error('[Pockets Bundle] getCountrySpending failed, returning empty:', err)
             return [] as CountryData[]
         }),
-        getPocketsWithTotals(userId),
+        getPocketsWithTotals(userId, accountIds),
+        getDistinctTravelDays(userId, accountIds).catch(() => 0),
     ])
 
     // Partition pockets by type
@@ -252,7 +295,7 @@ export async function getPocketsBundle(userId: string): Promise<PocketsBundleRes
 
     // Compute stats (always from DB, never mock)
     const stats = {
-        travel: computeTravelStats(countries),
+        travel: computeTravelStats(countries, distinctTravelDays),
         garage: computeGarageStats(vehicles),
         property: computePropertyStats(properties),
         other: computeOtherStats(otherPockets),
@@ -271,15 +314,22 @@ export async function getPocketsBundle(userId: string): Promise<PocketsBundleRes
  * Get distinct countries the user has transactions in.
  * Uses transactions.country_name directly (no country_instances table needed).
  */
-export async function getUserCountries(userId: string): Promise<string[]> {
+export async function getUserCountries(userId: string, accountIds?: AccountFilter): Promise<string[]> {
+    const params: unknown[] = [userId]
+    let accountClause = ''
+    if (hasAccountFilter(accountIds)) {
+        params.push(accountIds as string[])
+        accountClause = ` AND account_id = ANY($${params.length})`
+    }
     const rows = await neonQuery<{ country_name: string }>(
         `SELECT DISTINCT country_name
         FROM transactions
         WHERE user_id = $1
             AND country_name IS NOT NULL
             AND country_name != ''
+            ${accountClause}
         ORDER BY country_name`,
-        [userId]
+        params
     )
 
     return rows.map(row => row.country_name)

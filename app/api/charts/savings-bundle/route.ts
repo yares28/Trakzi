@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getCurrentUserId } from '@/lib/auth'
 import { getSavingsBundle, type SavingsSummary } from '@/lib/charts/home-trends-savings-aggregations'
+import { canonicalizeAccountFilter } from '@/lib/charts/account-filter'
 import { getCachedOrCompute, buildCacheKey, CACHE_TTL } from '@/lib/cache/upstash'
 import { autoEnforceTransactionCap } from '@/lib/limits/auto-enforce-cap'
 import { checkRateLimit, createRateLimitResponse } from '@/lib/security/rate-limiter'
@@ -15,21 +16,25 @@ export const GET = async (request: Request) => {
             return createRateLimitResponse(rateLimitResult.resetIn)
         }
 
-        // Automatically enforce transaction cap on page load
-        // This ensures users who exceed limits (e.g., after downgrade) are brought back within limits
-        await autoEnforceTransactionCap(userId, true)
+        // Fire cap enforcement in the background — the result is never used to gate
+        // the response so there is no reason to await it at all.
+        void autoEnforceTransactionCap(userId, true)
 
-        // Get filter from query params
+        // Get filter + account filter from query params
         const { searchParams } = new URL(request.url)
         const filter = searchParams.get('filter')
+        const accountsParam = searchParams.get('accounts')
+        const accountIds = canonicalizeAccountFilter(
+            accountsParam ? accountsParam.split(',').filter(Boolean) : null
+        )
 
         // Build cache key
-        const cacheKey = buildCacheKey('savings', userId, filter, 'bundle')
+        const cacheKey = buildCacheKey('savings', userId, filter, 'bundle', accountIds)
 
         // Try cache first, otherwise compute
         const data = await getCachedOrCompute<SavingsSummary>(
             cacheKey,
-            () => getSavingsBundle(userId!, filter),
+            () => getSavingsBundle(userId!, filter, accountIds),
             CACHE_TTL.analytics
         )
 

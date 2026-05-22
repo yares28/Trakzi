@@ -12,7 +12,6 @@ import {
     Card,
     CardAction,
     CardContent,
-    CardDescription,
     CardHeader,
     CardTitle,
 } from "@/components/ui/card"
@@ -415,8 +414,6 @@ export const ChartTransactionHistoryFridge = memo(function ChartTransactionHisto
                     />
                     <CardTitle>Grocery Transaction History</CardTitle>
                 </div>
-                <CardDescription>
-                </CardDescription>
                 <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
                     {renderInfoTrigger()}
                     {chartGroups.length > 0 && (

@@ -7,6 +7,16 @@ const isPublicRoute = createRouteMatcher([
   '/sign-up(.*)',
   '/sso-callback(.*)',
   '/', // Landing page is public
+  '/features(.*)',
+  '/receipt-scanner(.*)',
+  '/split-expenses(.*)',
+  '/grocery-tracker(.*)',
+  '/csv-import(.*)',
+  '/blog(.*)',
+  '/docs(.*)',
+  '/compare(.*)',
+  '/pricing(.*)',
+  '/es(.*)', // Spanish pages are public
   '/privacy(.*)',
   '/cookies(.*)',
   '/legal(.*)',
@@ -14,11 +24,12 @@ const isPublicRoute = createRouteMatcher([
   '/api/webhooks(.*)',
 ])
 
-// Public API routes that don't require authentication (webhooks, health checks)
+// Public API routes that don't require authentication (webhooks, health checks, demo)
 const isPublicApiRoute = createRouteMatcher([
   '/api/webhook/(.*)',
   '/api/webhooks/(.*)',
   '/api/health(.*)',
+  '/api/demo/(.*)',
 ])
 
 // Protected routes that require authentication
@@ -37,8 +48,68 @@ const isProtectedRoute = createRouteMatcher([
   '/testCharts(.*)',
 ])
 
+// --- Language auto-detection ---
+
+const LANDING_ROUTES = ['/', '/features', '/receipt-scanner', '/split-expenses', '/grocery-tracker', '/csv-import']
+
+const EN_TO_ES: Record<string, string> = {
+  '/': '/es',
+  '/features': '/es/features',
+  '/receipt-scanner': '/es/escaner-tickets',
+  '/split-expenses': '/es/dividir-gastos',
+  '/grocery-tracker': '/es/gastos-supermercado',
+  '/csv-import': '/es/importar-csv',
+}
+
+const ES_TO_EN: Record<string, string> = {
+  '/es': '/',
+  '/es/features': '/features',
+  '/es/escaner-tickets': '/receipt-scanner',
+  '/es/dividir-gastos': '/split-expenses',
+  '/es/gastos-supermercado': '/grocery-tracker',
+  '/es/importar-csv': '/csv-import',
+}
+
+function isSpanishBrowser(acceptLanguage: string | null): boolean {
+  if (!acceptLanguage) return false
+  const langs = acceptLanguage.toLowerCase().split(',').map(l => l.trim().split(';')[0])
+  return langs.some(l => l.startsWith('es'))
+}
+
+// Skip auto language redirects for search engine / SEO crawlers.
+// Google explicitly warns against Accept-Language based redirects because
+// Googlebot crawls with en-US and ends up only seeing one locale, flagging
+// the other as "Page with redirect". We still redirect real users for UX.
+const CRAWLER_UA_REGEX = /(googlebot|google-inspectiontool|bingbot|slurp|duckduckbot|baiduspider|yandex|sogou|exabot|facebot|facebookexternalhit|linkedinbot|twitterbot|applebot|ahrefsbot|semrushbot|mj12bot|dotbot|petalbot|seznambot|rogerbot|pinterest|whatsapp|telegrambot|discordbot|slackbot|embedly|quora link preview|msnbot|chatgpt|gptbot|oai-searchbot|anthropic-ai|claudebot|perplexitybot|ccbot)/i
+
+function isCrawler(userAgent: string | null): boolean {
+  if (!userAgent) return false
+  return CRAWLER_UA_REGEX.test(userAgent)
+}
+
 export default clerkMiddleware(async (auth, req) => {
   const path = req.nextUrl.pathname
+
+  // Language auto-detection for landing pages
+  // Skips if user has manually chosen a language (trakzi-lang cookie)
+  // Skips for search engine crawlers so both locales can be indexed independently.
+  const langCookie = req.cookies.get('trakzi-lang')?.value
+  const acceptLanguage = req.headers.get('accept-language')
+  const userAgent = req.headers.get('user-agent')
+
+  if (!langCookie && !isCrawler(userAgent)) {
+    // English landing pages → redirect to Spanish if browser prefers Spanish
+    if (LANDING_ROUTES.includes(path) && isSpanishBrowser(acceptLanguage)) {
+      const esPath = EN_TO_ES[path] || '/es'
+      return NextResponse.redirect(new URL(esPath, req.url))
+    }
+
+    // Spanish pages → redirect to English if browser does NOT prefer Spanish
+    if (path.startsWith('/es') && !isSpanishBrowser(acceptLanguage)) {
+      const enPath = ES_TO_EN[path] || '/'
+      return NextResponse.redirect(new URL(enPath, req.url))
+    }
+  }
 
   // API routes: enforce auth at middleware level as defense-in-depth
   // Individual routes still call getCurrentUserId() for their own auth logic
@@ -62,25 +133,47 @@ export default clerkMiddleware(async (auth, req) => {
   // Only call auth() for page routes that need redirect logic
   const { userId } = await auth()
 
-  // If user is signed in and trying to access sign-in/sign-up, redirect to home
+  // If user is signed in and trying to access sign-in/sign-up, redirect to home.
+  // Also clear any stale demo cookie so the user lands in their real account.
   if (userId && (path.startsWith('/sign-in') || path.startsWith('/sign-up'))) {
-    return NextResponse.redirect(new URL('/home', req.url))
+    const response = NextResponse.redirect(new URL('/home', req.url))
+    response.cookies.delete('trakzi-demo-mode')
+    return response
   }
 
   // If user is not signed in and trying to access protected routes, redirect to sign-in
+  // Exception: demo mode users (identified by cookie) can access pages without auth
   if (!userId && isProtectedRoute(req)) {
-    const signInUrl = new URL('/sign-in', req.url)
-    signInUrl.searchParams.set('redirect_url', path)
-    return NextResponse.redirect(signInUrl)
+    const cookieHeader = req.headers.get('cookie')
+    const isDemoMode = cookieHeader?.includes('trakzi-demo-mode=true')
+    if (!isDemoMode) {
+      const signInUrl = new URL('/sign-in', req.url)
+      signInUrl.searchParams.set('redirect_url', path)
+      return NextResponse.redirect(signInUrl)
+    }
   }
 
-  return NextResponse.next()
+  const response = NextResponse.next()
+  // Signed-in users must never see demo data — clear any stale demo cookie at the
+  // server level so DemoModeProvider hydrates false on the very first paint.
+  if (userId) {
+    response.cookies.delete('trakzi-demo-mode')
+  }
+  // Expose locale to server components via a request header so <html lang> can be set server-side
+  response.headers.set("x-locale", path.startsWith("/es") ? "es" : "en")
+  return response
 })
 
 export const config = {
-  // Proxy must run on routes that need Clerk auth() to work
-  // Clerk's auth() returns null if proxy doesn't run on the route
   matcher: [
+    // Landing pages for language detection
+    "/",
+    "/features",
+    "/receipt-scanner",
+    "/split-expenses",
+    "/grocery-tracker",
+    "/csv-import",
+    "/es/:path*",
     // Protected page routes that need auth redirect logic
     "/home/:path*",
     "/analytics/:path*",
@@ -95,8 +188,13 @@ export const config = {
     "/pockets/:path*",
     "/testCharts/:path*",
     // Auth routes for sign-in redirect logic
+    "/sign-in",
     "/sign-in/:path*",
+    "/sign-up",
     "/sign-up/:path*",
+    // Admin route
+    "/admin/:path*",
+    "/admin",
     // API routes need proxy for auth() to work
     "/api/:path*",
   ],

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getCurrentUserId } from '@/lib/auth'
 import { getTrendsBundle, type TrendsSummary } from '@/lib/charts/home-trends-savings-aggregations'
+import { canonicalizeAccountFilter } from '@/lib/charts/account-filter'
 import { getCachedOrCompute, buildCacheKey, CACHE_TTL } from '@/lib/cache/upstash'
 import { autoEnforceTransactionCap } from '@/lib/limits/auto-enforce-cap'
 import { checkRateLimit, createRateLimitResponse } from '@/lib/security/rate-limiter'
@@ -19,17 +20,21 @@ export const GET = async (request: Request) => {
         // This ensures users who exceed limits (e.g., after downgrade) are brought back within limits
         await autoEnforceTransactionCap(userId, true)
 
-        // Get filter from query params
+        // Get filter + account filter from query params
         const { searchParams } = new URL(request.url)
         const filter = searchParams.get('filter')
+        const accountsParam = searchParams.get('accounts')
+        const accountIds = canonicalizeAccountFilter(
+            accountsParam ? accountsParam.split(',').filter(Boolean) : null
+        )
 
         // Build cache key
-        const cacheKey = buildCacheKey('trends', userId, filter, 'bundle')
+        const cacheKey = buildCacheKey('trends', userId, filter, 'bundle', accountIds)
 
         // Try cache first, otherwise compute
         const data = await getCachedOrCompute<TrendsSummary>(
             cacheKey,
-            () => getTrendsBundle(userId!, filter),
+            () => getTrendsBundle(userId!, filter, accountIds),
             CACHE_TTL.analytics
         )
 

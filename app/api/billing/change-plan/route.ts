@@ -2,27 +2,17 @@
 // Handle plan upgrades and downgrades via Stripe subscription updates
 
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { auth, clerkClient } from '@clerk/nextjs/server';
 import { getStripe, STRIPE_PRICES, getPlanFromPriceId } from '@/lib/stripe';
 import { getUserSubscription, upsertSubscription } from '@/lib/subscriptions';
-import { clerkClient } from '@clerk/nextjs/server';
-
-// Plan hierarchy for determining upgrade vs downgrade
-const PLAN_HIERARCHY = { free: 0, basic: 1, pro: 2, max: 3 } as const;
-
-/**
- * Safely convert Unix timestamp to Date
- */
-function safeTimestampToDate(timestamp: number | undefined | null): Date | null {
-    if (timestamp === undefined || timestamp === null || isNaN(timestamp)) {
-        return null;
-    }
-    const date = new Date(timestamp * 1000);
-    if (isNaN(date.getTime())) {
-        return null;
-    }
-    return date;
-}
+import { checkRateLimit, createRateLimitResponse } from '@/lib/security/rate-limiter';
+import {
+    safeTimestampToDate,
+    PLAN_HIERARCHY,
+    buildClerkSubscriptionMetadata,
+    invalidateSubscriptionCaches,
+    getSubscriptionBlockReason,
+} from '@/lib/billing-utils';
 
 export async function POST(request: NextRequest) {
     try {
@@ -35,6 +25,11 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        const rateLimitResult = await checkRateLimit(userId, 'mutation');
+        if (rateLimitResult.limited) {
+            return createRateLimitResponse(rateLimitResult.resetIn);
+        }
+
         const body = await request.json();
         const { targetPlan, priceId } = body;
 
@@ -45,20 +40,15 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Validate target plan
-        if (!['basic', 'pro', 'max'].includes(targetPlan)) {
+        if (!['pro', 'max'].includes(targetPlan)) {
             return NextResponse.json(
-                { error: 'Invalid target plan. Use basic, pro or max.' },
+                { error: 'Invalid target plan. Use pro or max.' },
                 { status: 400 }
             );
         }
 
-        const subscription = await getUserSubscription(userId);
-
-        // Validate priceId against allowed prices
+        // Validate priceId against known allowed prices
         const allowedPriceIds = [
-            STRIPE_PRICES.BASIC_MONTHLY,
-            STRIPE_PRICES.BASIC_ANNUAL,
             STRIPE_PRICES.PRO_MONTHLY,
             STRIPE_PRICES.PRO_ANNUAL,
             STRIPE_PRICES.MAX_MONTHLY,
@@ -73,7 +63,14 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Check if subscription is in valid state for plan changes
+        const subscription = await getUserSubscription(userId);
+
+        // Block disputed accounts from any billing action
+        const blockReason = getSubscriptionBlockReason(subscription?.status);
+        if (blockReason) {
+            return NextResponse.json({ error: blockReason }, { status: 403 });
+        }
+
         if (subscription?.status === 'past_due') {
             return NextResponse.json(
                 { error: 'Please update your payment method before changing plans.' },
@@ -88,7 +85,7 @@ export async function POST(request: NextRequest) {
             priceId,
         });
 
-        // Case 1: User is on free plan or has no subscription - create new checkout session
+        // Case 1: Free user — redirect to checkout
         if (!subscription || subscription.plan === 'free' || !subscription.stripeSubscriptionId) {
             console.log('[Change Plan] Creating new checkout session for free user');
 
@@ -96,76 +93,54 @@ export async function POST(request: NextRequest) {
             const { getAppUrl } = await import('@/lib/env');
             const appUrl = getAppUrl();
 
+            // Promo codes enabled for every paid checkout. Per-code targeting is enforced at
+            // the Stripe Coupon level — see /api/checkout for the full rationale.
             const session = await stripe.checkout.sessions.create({
                 mode: 'subscription',
                 payment_method_types: ['card'],
+                payment_method_options: {
+                    card: {
+                        // Same 3DS setting as /api/checkout for liability shift on fraud disputes
+                        request_three_d_secure: 'automatic',
+                    },
+                },
                 line_items: [{ price: priceId, quantity: 1 }],
                 success_url: `${appUrl}/home?checkout=success&plan=${targetPlan}`,
-                cancel_url: `${appUrl}/dashboard?checkout=canceled`,
+                cancel_url: `${appUrl}/?checkout=canceled`,
                 ...(subscription?.stripeCustomerId && { customer: subscription.stripeCustomerId }),
                 metadata: { userId },
                 subscription_data: { metadata: { userId } },
                 allow_promotion_codes: true,
             });
 
-            return NextResponse.json({
-                action: 'checkout',
-                url: session.url
-            });
+            return NextResponse.json({ action: 'checkout', url: session.url });
         }
 
-        // Case 2: User has an active subscription - update it
+        // Case 2: Active subscriber — update the existing Stripe subscription
         const stripe = getStripe();
 
-        // Normalize plan names to lowercase for comparison
-        const currentPlanLower = subscription.plan.toLowerCase() as keyof typeof PLAN_HIERARCHY;
+        const currentPlanLower = subscription.plan as keyof typeof PLAN_HIERARCHY;
         const targetPlanLower = targetPlan.toLowerCase() as keyof typeof PLAN_HIERARCHY;
 
-        // Check if plans are valid
-        if (!(currentPlanLower in PLAN_HIERARCHY)) {
-            console.error(`[Change Plan] Invalid current plan: ${subscription.plan}`);
+        if (!(currentPlanLower in PLAN_HIERARCHY) || !(targetPlanLower in PLAN_HIERARCHY)) {
             return NextResponse.json(
-                { error: `Invalid current plan: ${subscription.plan}` },
-                { status: 400 }
-            );
-        }
-        if (!(targetPlanLower in PLAN_HIERARCHY)) {
-            console.error(`[Change Plan] Invalid target plan: ${targetPlan}`);
-            return NextResponse.json(
-                { error: `Invalid target plan: ${targetPlan}` },
+                { error: `Unrecognised plan tier. Please contact support.` },
                 { status: 400 }
             );
         }
 
-        const isUpgrade = PLAN_HIERARCHY[targetPlanLower] > PLAN_HIERARCHY[currentPlanLower];
-        const isDowngrade = PLAN_HIERARCHY[targetPlanLower] < PLAN_HIERARCHY[currentPlanLower];
-        const isSamePlan = PLAN_HIERARCHY[targetPlanLower] === PLAN_HIERARCHY[currentPlanLower];
-
-        console.log('[Change Plan] Updating subscription:', {
-            subscriptionId: subscription.stripeSubscriptionId,
-            currentPlan: currentPlanLower,
-            targetPlan: targetPlanLower,
-            isUpgrade,
-            isDowngrade,
-            isSamePlan,
-        });
-
-        if (isSamePlan) {
+        if (PLAN_HIERARCHY[targetPlanLower] === PLAN_HIERARCHY[currentPlanLower]) {
             return NextResponse.json(
                 { error: `You are already on the ${targetPlan.toUpperCase()} plan.` },
                 { status: 400 }
             );
         }
 
-        // Get current subscription to find the subscription item ID
+        const isUpgrade = PLAN_HIERARCHY[targetPlanLower] > PLAN_HIERARCHY[currentPlanLower];
+
         const stripeSubscription = await stripe.subscriptions.retrieve(subscription.stripeSubscriptionId);
 
-        // Validate subscription has items
-        if (!stripeSubscription.items?.data || stripeSubscription.items.data.length === 0) {
-            console.error('[Change Plan] Subscription has no items', {
-                subscriptionId: subscription.stripeSubscriptionId,
-                userId,
-            });
+        if (!stripeSubscription.items?.data?.length) {
             return NextResponse.json(
                 { error: 'Invalid subscription. Please contact support.' },
                 { status: 500 }
@@ -173,37 +148,27 @@ export async function POST(request: NextRequest) {
         }
 
         const subscriptionItemId = stripeSubscription.items.data[0]?.id;
-
         if (!subscriptionItemId) {
-            console.error('[Change Plan] Subscription item has no ID', {
-                subscriptionId: subscription.stripeSubscriptionId,
-                userId,
-            });
             return NextResponse.json(
-                { error: 'Could not find subscription item' },
+                { error: 'Could not find subscription item. Please contact support.' },
                 { status: 500 }
             );
         }
 
         if (isUpgrade) {
-            // Upgrade: Charge immediately with proration
-            // User pays the prorated difference NOW and gets immediate access
             const updatedSubscription = await stripe.subscriptions.update(
                 subscription.stripeSubscriptionId,
                 {
                     items: [{ id: subscriptionItemId, price: priceId }],
-                    proration_behavior: 'always_invoice', // Charge prorated difference immediately
+                    proration_behavior: 'always_invoice',
                     billing_cycle_anchor: 'unchanged',
-                    // If subscription was scheduled to cancel, reactivate it
                     cancel_at_period_end: false,
-                    // Handle payment failures gracefully
                     payment_behavior: 'error_if_incomplete',
                 }
             );
 
             const periodEnd = safeTimestampToDate((updatedSubscription as any).current_period_end);
 
-            // For upgrades, we DO update the plan immediately since they get higher features right away
             await upsertSubscription({
                 userId,
                 plan: targetPlanLower,
@@ -212,20 +177,23 @@ export async function POST(request: NextRequest) {
                 stripeCustomerId: subscription.stripeCustomerId ?? undefined,
                 cancelAtPeriodEnd: false,
                 currentPeriodEnd: periodEnd ?? undefined,
-                pendingPlan: null, // Clear any pending plan
+                pendingPlan: null,
             });
 
-            // Update Clerk metadata
             const client = await clerkClient();
-            await client.users.updateUserMetadata(userId, {
-                publicMetadata: {
-                    subscriptionPlan: targetPlanLower,
-                    subscriptionStatus: 'active',
-                },
-            });
+            await client.users.updateUserMetadata(
+                userId,
+                buildClerkSubscriptionMetadata({
+                    plan: targetPlanLower,
+                    status: 'active',
+                    stripeCustomerId: subscription.stripeCustomerId,
+                    currentPeriodEnd: periodEnd,
+                })
+            );
+
+            await invalidateSubscriptionCaches(userId);
 
             const periodEndStr = periodEnd ? periodEnd.toLocaleDateString() : 'your next billing date';
-
             return NextResponse.json({
                 action: 'upgraded',
                 success: true,
@@ -233,52 +201,43 @@ export async function POST(request: NextRequest) {
                 plan: targetPlanLower,
                 effectiveDate: periodEnd?.toISOString(),
             });
-        } else if (isDowngrade) {
-            // Downgrade: Schedule for end of billing period
-            // Keep current plan until the end, set pendingPlan for what they'll switch to
+        } else {
+            // Downgrade — schedule for period end
             const updatedSubscription = await stripe.subscriptions.update(
                 subscription.stripeSubscriptionId,
                 {
                     items: [{ id: subscriptionItemId, price: priceId }],
-                    proration_behavior: 'none', // No refund/charge, just update
+                    proration_behavior: 'none',
                     billing_cycle_anchor: 'unchanged',
                 }
             );
 
-            // Get the period end date safely
             const periodEnd = safeTimestampToDate((updatedSubscription as any).current_period_end);
 
-            // KEEP the current plan, but set the pending plan
             await upsertSubscription({
                 userId,
-                plan: currentPlanLower, // Keep the current plan!
+                plan: currentPlanLower,
                 status: 'active',
                 stripeSubscriptionId: subscription.stripeSubscriptionId,
                 stripeCustomerId: subscription.stripeCustomerId ?? undefined,
                 cancelAtPeriodEnd: false,
                 currentPeriodEnd: periodEnd ?? undefined,
-                pendingPlan: targetPlanLower, // This is what they'll switch to
+                pendingPlan: targetPlanLower,
             });
 
-            // Don't update Clerk metadata - they still have their current plan
+            // No Clerk update for downgrades — user keeps current plan until period end
+            await invalidateSubscriptionCaches(userId);
 
             const periodEndStr = periodEnd ? periodEnd.toLocaleDateString() : 'the end of your billing period';
-
             return NextResponse.json({
                 action: 'downgraded',
                 success: true,
                 message: `Your plan will change to ${targetPlan.toUpperCase()} on ${periodEndStr}. You keep your current benefits until then.`,
-                plan: currentPlanLower, // Keep showing current plan
+                plan: currentPlanLower,
                 pendingPlan: targetPlanLower,
                 effectiveDate: periodEnd?.toISOString(),
             });
         }
-
-        return NextResponse.json(
-            { error: 'No plan change detected' },
-            { status: 400 }
-        );
-
     } catch (error: any) {
         console.error('[Change Plan] Error:', error);
 
@@ -288,16 +247,21 @@ export async function POST(request: NextRequest) {
                 { status: 503 }
             );
         }
-
         if (error.type === 'StripeInvalidRequestError') {
             return NextResponse.json(
                 { error: 'Invalid subscription or price. Please contact support.' },
                 { status: 400 }
             );
         }
+        if (error.type === 'StripeCardError') {
+            return NextResponse.json(
+                { error: 'Payment failed. Please check your payment method and try again.' },
+                { status: 402 }
+            );
+        }
 
         return NextResponse.json(
-            { error: error.message || 'Failed to change plan' },
+            { error: 'Failed to change plan. Please try again or contact support.' },
             { status: 500 }
         );
     }

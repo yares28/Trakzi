@@ -163,9 +163,14 @@ export function SpendingActivityRings({ data, config, theme, ringLimits = {}, ge
             const spent = typeof (item as { spent?: number }).spent === "number"
               ? (item as { spent?: number }).spent!
               : 0
+            const resolvedBudget = typeof (item as { budget?: number }).budget === "number"
+              ? (item as { budget?: number }).budget!
+              : null
 
             const storedLimit = ringLimits[category]
-            const budget = typeof storedLimit === "number" && storedLimit > 0
+            const budget = resolvedBudget && resolvedBudget > 0
+              ? resolvedBudget
+              : typeof storedLimit === "number" && storedLimit > 0
               ? storedLimit
               : (getDefaultLimit ? getDefaultLimit() : null)
 

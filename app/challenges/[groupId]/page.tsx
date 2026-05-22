@@ -1,0 +1,215 @@
+"use client"
+
+import { use, useState } from "react"
+import { LogOut, Pencil, Check, X } from "lucide-react"
+import { IconArrowLeft } from "@tabler/icons-react"
+import { useRouter } from "next/navigation"
+import { useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
+
+import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Textarea } from "@/components/ui/textarea"
+import { Card, CardContent } from "@/components/ui/card"
+import { FriendsLayout } from "@/app/friends/components/FriendsLayout"
+import { useChallengeGroup } from "@/hooks/use-challenge-group"
+import { useUser } from "@clerk/nextjs"
+import { demoFetch } from "@/lib/demo/demo-fetch"
+import type { ChallengeMetric } from "@/lib/types/challenges"
+import { ChallengeHeader } from "./_page/components/ChallengeHeader"
+import { ChallengeLeaderboards } from "./_page/components/ChallengeLeaderboards"
+import { ChallengeMembers } from "./_page/components/ChallengeMembers"
+import { ChallengeScoreChart } from "./_page/components/ChallengeScoreChart"
+
+export default function ChallengeDetailPage({ params }: { params: Promise<{ groupId: string }> }) {
+    const { groupId } = use(params)
+    const { data, isLoading, error, refetch } = useChallengeGroup(groupId)
+    const { user } = useUser()
+    const router = useRouter()
+    const queryClient = useQueryClient()
+    const [activeTab, setActiveTab] = useState<string>("leaderboards")
+    const [isEditingDesc, setIsEditingDesc] = useState(false)
+    const [draftDesc, setDraftDesc] = useState("")
+    const [isSavingDesc, setIsSavingDesc] = useState(false)
+
+    const isAdmin = data && user ? data.created_by === user.id : false
+
+    const handleStartEditDesc = () => {
+        setDraftDesc(data?.description ?? "")
+        setIsEditingDesc(true)
+    }
+
+    const handleSaveDesc = async () => {
+        setIsSavingDesc(true)
+        try {
+            const res = await demoFetch(`/api/challenge-groups/${groupId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ description: draftDesc || null }),
+            })
+            if (!res.ok) throw new Error()
+            toast.success("Description updated")
+            setIsEditingDesc(false)
+            refetch()
+        } catch {
+            toast.error("Failed to update description")
+        } finally {
+            setIsSavingDesc(false)
+        }
+    }
+
+    const handleLeave = async () => {
+        try {
+            const res = await demoFetch(`/api/challenge-groups/${groupId}`, { method: "DELETE" })
+            if (!res.ok) throw new Error()
+            toast.success("Left the group")
+            router.push("/friends")
+        } catch {
+            toast.error("Failed to leave group")
+        }
+    }
+
+    return (
+        <FriendsLayout>
+            <div className="max-w-5xl mx-auto font-mono font-medium space-y-6 px-4 sm:px-6">
+                <div className="flex items-center">
+                    <button
+                        onClick={() => router.push('/friends?tab=challenges')}
+                        className="group inline-flex h-7 items-center gap-1.5 rounded-full border border-border px-3 text-[13px] tracking-tight text-muted-foreground transition-all duration-200 hover:border-primary/30 hover:bg-muted/60 hover:text-foreground"
+                    >
+                        <IconArrowLeft className="size-3.5 transition-transform duration-200 ease-out group-hover:-translate-x-0.5" />
+                        Back to Challenges
+                    </button>
+                </div>
+
+                {isLoading && (
+                    <div className="flex items-center justify-center py-20">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                    </div>
+                )}
+
+                {error && (
+                    <div className="text-center py-20 text-muted-foreground">
+                        <p>Failed to load challenge group. You may not have access.</p>
+                        <button
+                            onClick={() => router.push('/friends?tab=challenges')}
+                            className="group mt-4 inline-flex h-7 items-center gap-1.5 rounded-full border border-border px-3 text-[13px] tracking-tight text-muted-foreground transition-all duration-200 hover:border-primary/30 hover:bg-muted/60 hover:text-foreground"
+                        >
+                            <IconArrowLeft className="size-3.5 transition-transform duration-200 ease-out group-hover:-translate-x-0.5" />
+                            Go Back
+                        </button>
+                    </div>
+                )}
+
+                {data && (
+                    <div className="space-y-6">
+                        <ChallengeHeader
+                            name={data.name}
+                            description={data.description}
+                            isPublic={data.is_public}
+                            inviteCode={data.invite_code}
+                            memberCount={data.memberCount}
+                            daysLeft={data.daysLeftInMonth}
+                            metrics={data.metrics as ChallengeMetric[]}
+                            groupId={groupId}
+                            isAdmin={isAdmin}
+                            onDescriptionUpdated={() => refetch()}
+                        />
+
+                        {/* Unified tab system — works on all screen sizes */}
+                        <Tabs value={activeTab} onValueChange={setActiveTab}>
+                            <div className="flex justify-center">
+                                <TabsList className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/50 border w-max min-w-0 h-auto overflow-x-auto">
+                                    <TabsTrigger value="leaderboards" className="rounded-full px-3 sm:px-4 py-2 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm text-xs sm:text-sm font-medium transition-all duration-200 whitespace-nowrap">Leaderboard</TabsTrigger>
+                                    <TabsTrigger value="allTime" className="rounded-full px-3 sm:px-4 py-2 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm text-xs sm:text-sm font-medium transition-all duration-200 whitespace-nowrap">All Time</TabsTrigger>
+                                    <TabsTrigger value="about" className="rounded-full px-3 sm:px-4 py-2 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm text-xs sm:text-sm font-medium transition-all duration-200 whitespace-nowrap">About</TabsTrigger>
+                                </TabsList>
+                            </div>
+
+                            <TabsContent value="leaderboards" className="mt-6 space-y-6">
+                                <ChallengeLeaderboards
+                                    metrics={data.metrics as ChallengeMetric[]}
+                                    members={data.members}
+                                    currentUserId={user?.id ?? ""}
+                                    hideAllTime
+                                />
+                                <ChallengeScoreChart
+                                    members={data.members}
+                                    metrics={data.metrics as ChallengeMetric[]}
+                                    currentUserId={user?.id ?? ""}
+                                />
+                            </TabsContent>
+
+                            <TabsContent value="allTime" className="mt-6 space-y-6">
+                                <ChallengeLeaderboards
+                                    metrics={[]}
+                                    members={data.members}
+                                    currentUserId={user?.id ?? ""}
+                                    allTimeOnly
+                                />
+                                <ChallengeScoreChart
+                                    members={data.members}
+                                    metrics={data.metrics as ChallengeMetric[]}
+                                    currentUserId={user?.id ?? ""}
+                                />
+                            </TabsContent>
+
+                            <TabsContent value="about" className="mt-6 space-y-6">
+                                <Card className="border-border/40 bg-card/60 backdrop-blur-sm rounded-3xl overflow-hidden">
+                                    <CardContent className="p-4 sm:p-6">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <h2 className="text-lg font-semibold">Description</h2>
+                                            {isAdmin && !isEditingDesc && (
+                                                <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" onClick={handleStartEditDesc}>
+                                                    <Pencil className="w-3.5 h-3.5" /> Edit
+                                                </Button>
+                                            )}
+                                        </div>
+                                        {isEditingDesc ? (
+                                            <div className="space-y-3">
+                                                <Textarea
+                                                    value={draftDesc}
+                                                    onChange={(e) => setDraftDesc(e.target.value)}
+                                                    placeholder="Add a description for your group..."
+                                                    className="min-h-[100px] resize-none"
+                                                    maxLength={500}
+                                                />
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-xs text-muted-foreground">{draftDesc.length}/500</span>
+                                                    <div className="flex gap-2">
+                                                        <Button variant="ghost" size="sm" onClick={() => setIsEditingDesc(false)} disabled={isSavingDesc}>
+                                                            <X className="w-4 h-4 mr-1" /> Cancel
+                                                        </Button>
+                                                        <Button size="sm" onClick={handleSaveDesc} disabled={isSavingDesc}>
+                                                            <Check className="w-4 h-4 mr-1" /> Save
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-muted-foreground">
+                                                {data.description || "No description yet."}
+                                            </p>
+                                        )}
+                                    </CardContent>
+                                </Card>
+
+                                <ChallengeMembers
+                                    members={data.members}
+                                    currentUserId={user?.id ?? ""}
+                                />
+                                <Button
+                                    variant="outline"
+                                    className="w-full gap-2 text-rose-500 hover:text-rose-600 border-rose-500/30 hover:border-rose-500/50 hover:bg-rose-500/5"
+                                    onClick={handleLeave}
+                                >
+                                    <LogOut className="w-4 h-4" /> Leave Group
+                                </Button>
+                            </TabsContent>
+                        </Tabs>
+                    </div>
+                )}
+            </div>
+        </FriendsLayout>
+    )
+}

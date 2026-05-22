@@ -1,12 +1,10 @@
 "use client"
-
 import { useMemo, useState, useEffect } from "react"
 import { useTheme } from "next-themes"
 import { ResponsivePie } from "@nivo/pie"
 import {
     Card,
     CardContent,
-    CardDescription,
     CardHeader,
     CardTitle,
     CardAction,
@@ -18,7 +16,6 @@ import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
-
 interface ChartNeedsVsWantsDonutProps {
     data: Array<{
         date: string
@@ -27,12 +24,10 @@ interface ChartNeedsVsWantsDonutProps {
     }>
     isLoading?: boolean
 }
-
 const NEEDS_CATEGORIES = [
     'groceries', 'utilities', 'rent', 'mortgage', 'insurance', 'healthcare',
     'medical', 'pharmacy', 'gas', 'fuel', 'transportation', 'bills'
 ]
-
 export function ChartNeedsVsWantsDonut({
     data,
     isLoading = false,
@@ -42,46 +37,35 @@ export function ChartNeedsVsWantsDonut({
     const { formatCurrency } = useCurrency()
     const palette = getPalette()
     const [mounted, setMounted] = useState(false)
-
     useEffect(() => {
         setMounted(true)
     }, [])
-
     const chartData = useMemo(() => {
         if (!data || data.length === 0) return []
-
         let needsTotal = 0
         let wantsTotal = 0
-
         data.forEach((tx) => {
             if (tx.amount >= 0) return
             const category = tx.category?.toLowerCase() || ''
             const isNeed = NEEDS_CATEGORIES.some(need => category.includes(need))
-
             if (isNeed) {
                 needsTotal += Math.abs(tx.amount)
             } else {
                 wantsTotal += Math.abs(tx.amount)
             }
         })
-
         if (needsTotal === 0 && wantsTotal === 0) return []
-
         return [
             { id: "Needs", label: "Needs", value: needsTotal, color: palette[1] || "#10b981" },
             { id: "Wants", label: "Wants", value: wantsTotal, color: palette[0] || "#fe8339" },
         ]
     }, [data, palette])
-
     const isDark = resolvedTheme === "dark"
     const textColor = isDark ? "#9ca3af" : "#6b7280"
-
     const chartTitle = "Needs vs Wants"
     const chartDescription = "See how much of your spending goes to necessities vs discretionary purchases."
-
     const total = chartData.reduce((sum, d) => sum + d.value, 0)
     const needsPercent = chartData.length > 0 ? (chartData[0].value / total) * 100 : 0
-
     const renderInfoTrigger = () => (
         <div className="flex flex-col items-center gap-2">
             <ChartInfoPopover
@@ -102,7 +86,6 @@ export function ChartNeedsVsWantsDonut({
             />
         </div>
     )
-
     if (!mounted || chartData.length === 0) {
         return (
             <Card className="@container/card h-full flex flex-col">
@@ -120,7 +103,6 @@ export function ChartNeedsVsWantsDonut({
             </Card>
         )
     }
-
     return (
         <Card className="@container/card h-full flex flex-col">
             <CardHeader>
@@ -129,10 +111,6 @@ export function ChartNeedsVsWantsDonut({
                     <ChartFavoriteButton chartId="testCharts:needsVsWantsDonut" chartTitle={chartTitle} size="md" />
                     <CardTitle>{chartTitle}</CardTitle>
                 </div>
-                <CardDescription>
-                    <span className="hidden @[540px]/card:block">{chartDescription}</span>
-                    <span className="@[540px]/card:hidden">Necessities vs extras</span>
-                </CardDescription>
                 <CardAction>{renderInfoTrigger()}</CardAction>
             </CardHeader>
             <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">

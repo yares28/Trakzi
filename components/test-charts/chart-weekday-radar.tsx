@@ -1,12 +1,10 @@
 "use client"
-
 import { useMemo, useState, useEffect } from "react"
 import { useTheme } from "next-themes"
 import { ResponsiveRadar } from "@nivo/radar"
 import {
     Card,
     CardContent,
-    CardDescription,
     CardHeader,
     CardTitle,
     CardAction,
@@ -17,7 +15,6 @@ import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
-
 interface ChartWeekdayRadarProps {
     data: Array<{
         date: string
@@ -25,7 +22,6 @@ interface ChartWeekdayRadarProps {
     }>
     isLoading?: boolean
 }
-
 export function ChartWeekdayRadar({
     data,
     isLoading = false,
@@ -34,38 +30,30 @@ export function ChartWeekdayRadar({
     const { colorScheme, getPalette } = useColorScheme()
     const palette = getPalette()
     const [mounted, setMounted] = useState(false)
-
     useEffect(() => {
         setMounted(true)
     }, [])
-
     const chartData = useMemo(() => {
         if (!data || data.length === 0) return []
-
         const weekdayTotals = [0, 0, 0, 0, 0, 0, 0]
         const weekdayCounts = [0, 0, 0, 0, 0, 0, 0]
         const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
-
         data.forEach((tx) => {
             if (tx.amount >= 0) return
             const dayIndex = new Date(tx.date).getDay()
             weekdayTotals[dayIndex] += Math.abs(tx.amount)
             weekdayCounts[dayIndex]++
         })
-
         return days.map((day, i) => ({
             day,
             spending: weekdayTotals[i],
             transactions: weekdayCounts[i],
         }))
     }, [data])
-
     const isDark = resolvedTheme === "dark"
     const textColor = isDark ? "#9ca3af" : "#6b7280"
-
     const chartTitle = "Weekday Spending Radar"
     const chartDescription = "See your spending patterns across different days of the week in a radar view."
-
     const renderInfoTrigger = () => (
         <div className="flex flex-col items-center gap-2">
             <ChartInfoPopover
@@ -86,7 +74,6 @@ export function ChartWeekdayRadar({
             />
         </div>
     )
-
     if (!mounted || chartData.length === 0) {
         return (
             <Card className="@container/card h-full flex flex-col">
@@ -104,7 +91,6 @@ export function ChartWeekdayRadar({
             </Card>
         )
     }
-
     return (
         <Card className="@container/card h-full flex flex-col">
             <CardHeader>
@@ -113,10 +99,6 @@ export function ChartWeekdayRadar({
                     <ChartFavoriteButton chartId="testCharts:weekdayRadar" chartTitle={chartTitle} size="md" />
                     <CardTitle>{chartTitle}</CardTitle>
                 </div>
-                <CardDescription>
-                    <span className="hidden @[540px]/card:block">{chartDescription}</span>
-                    <span className="@[540px]/card:hidden">Weekday patterns</span>
-                </CardDescription>
                 <CardAction>{renderInfoTrigger()}</CardAction>
             </CardHeader>
             <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">

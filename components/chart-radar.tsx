@@ -12,7 +12,6 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardFooter,
 } from "@/components/ui/card"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
@@ -48,25 +47,156 @@ type FinancialHealthResponse = {
   years: FinancialHealthYearSummary[]
 }
 
+type RadarViewMode = "financial" | "weekday"
+
 interface ChartRadarProps {
   categoryControls?: ChartInfoPopoverCategoryControls
   dateFilter?: string | null
   emptyTitle?: string
   emptyDescription?: string
+  rawTransactions?: Array<{ date: string; amount: number }>
 }
+
+// ─── Extracted sub-components ────────────────────────────────────────────────
+
+interface RadarInfoTriggerProps {
+  forFullscreen?: boolean
+  categoryControls?: ChartInfoPopoverCategoryControls
+  yearSummaries: FinancialHealthYearSummary[]
+  effectiveVisibleCapabilities: string[]
+}
+
+const RadarInfoTrigger = memo(function RadarInfoTrigger({
+  forFullscreen = false,
+  categoryControls,
+  yearSummaries,
+  effectiveVisibleCapabilities,
+}: RadarInfoTriggerProps) {
+  return (
+    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
+      <ChartInfoPopover
+        title="Financial Health Score"
+        description="Assessment of your financial wellness"
+        details={[
+          "The radar compares income, expenses, and your top spending categories year over year.",
+          "By default, Income, Expenses, and the top 7 spending categories are shown. You can toggle any category using the filter."
+        ]}
+        ignoredFootnote="We surface at most three years of history."
+        categoryControls={categoryControls}
+      />
+      <ChartAiInsightButton
+        chartId="financialHealthScore"
+        chartTitle="Financial Health Score"
+        chartDescription="Radar chart showing financial health metrics including income, expenses, and spending categories across years."
+        chartData={{
+          years: yearSummaries.map(s => s.year),
+          yearSummaries: yearSummaries,
+          categories: effectiveVisibleCapabilities,
+          categoriesCount: effectiveVisibleCapabilities.length
+        }}
+        size="sm"
+      />
+    </div>
+  )
+})
+RadarInfoTrigger.displayName = "RadarInfoTrigger"
+
+interface RadarLegendEntry {
+  id: string
+  label: string
+  color: string
+}
+
+interface RadarMobileLegendProps {
+  legendEntries: RadarLegendEntry[]
+}
+
+const RadarMobileLegend = memo(function RadarMobileLegend({ legendEntries }: RadarMobileLegendProps) {
+  return (
+    <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground mt-1">
+      {legendEntries.map((entry) => (
+        <div key={entry.id} className="flex items-center gap-1.5">
+          <span
+            className="h-2.5 w-2.5 rounded-full shrink-0"
+            style={{ backgroundColor: entry.color }}
+          />
+          <span className="font-medium text-foreground">{entry.label}</span>
+        </div>
+      ))}
+    </div>
+  )
+})
+RadarMobileLegend.displayName = "RadarMobileLegend"
+
+interface RadarStatusCardProps {
+  categoryControls?: ChartInfoPopoverCategoryControls
+  yearSummaries: FinancialHealthYearSummary[]
+  effectiveVisibleCapabilities: string[]
+  emptyTitle?: string
+  emptyDescription?: string
+  isLoading?: boolean
+}
+
+const RadarStatusCard = memo(function RadarStatusCard({
+  categoryControls,
+  yearSummaries,
+  effectiveVisibleCapabilities,
+  emptyTitle,
+  emptyDescription,
+  isLoading = false,
+}: RadarStatusCardProps) {
+  return (
+    <Card className="@container/card h-full relative gap-[20px]" data-slot="card">
+      <CardHeader className="flex flex-col gap-3 pb-0 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-2">
+          <GridStackCardDragHandle />
+          <ChartFavoriteButton
+            chartId="financialHealthScore"
+            chartTitle="Financial Health Score"
+            size="md"
+          />
+          <CardTitle>Financial Health Score</CardTitle>
+        </div>
+        <CardAction className="hidden md:flex flex-row items-center gap-2">
+          <RadarInfoTrigger
+            categoryControls={categoryControls}
+            yearSummaries={yearSummaries}
+            effectiveVisibleCapabilities={effectiveVisibleCapabilities}
+          />
+        </CardAction>
+      </CardHeader>
+      <CardContent className="px-2 pt-0 sm:px-6 h-[180px] md:h-[250px]">
+        <ChartLoadingState
+          isLoading={isLoading}
+          skeletonType="pie"
+          emptyTitle={emptyTitle || "No financial data yet"}
+          emptyDescription={emptyDescription || "Import your bank statements to see your financial health score"}
+        />
+      </CardContent>
+    </Card>
+  )
+})
+RadarStatusCard.displayName = "RadarStatusCard"
+
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export const ChartRadar = memo(function ChartRadar({
   categoryControls,
   dateFilter,
   emptyTitle,
-  emptyDescription
+  emptyDescription,
+  rawTransactions = [],
 }: ChartRadarProps) {
   const { resolvedTheme } = useTheme()
   const { getShuffledPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
-  const financialHealthUrl = dateFilter
-    ? `/api/financial-health?filter=${encodeURIComponent(dateFilter)}`
-    : "/api/financial-health"
+  const financialHealthUrl = useMemo(
+    () =>
+      dateFilter
+        ? `/api/financial-health?filter=${encodeURIComponent(dateFilter)}`
+        : "/api/financial-health",
+    [dateFilter],
+  )
   const cachedFinancialHealth = getCachedResponse<FinancialHealthResponse>(
     financialHealthUrl,
   )
@@ -80,19 +210,39 @@ export const ChartRadar = memo(function ChartRadar({
   const [error, setError] = useState<string | null>(null)
   const [visibleCapabilities, setVisibleCapabilities] = useState<string[]>([])
   const isMobile = useIsMobile()
-  const [isCategorySelectorOpen, setIsCategorySelectorOpen] = useState(false)
+  const [isMobileCategorySelectorOpen, setIsMobileCategorySelectorOpen] = useState(false)
+  const [isDesktopCategorySelectorOpen, setIsDesktopCategorySelectorOpen] = useState(false)
   const [hasUserInteracted, setHasUserInteracted] = useState(false)
+  const [viewMode, setViewMode] = useState<RadarViewMode>("financial")
+
+  // Weekday spending radar data (day-of-week view)
+  const weekdayChartData = useMemo(() => {
+    if (!rawTransactions.length) return []
+    const totals = [0, 0, 0, 0, 0, 0, 0]
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+    rawTransactions.forEach((tx) => {
+      if (tx.amount >= 0) return
+      const dayIndex = new Date(tx.date).getDay()
+      totals[dayIndex] += Math.abs(tx.amount)
+    })
+    return days.map((day, i) => ({ day, spending: Math.round(totals[i] * 100) / 100 }))
+  }, [rawTransactions])
 
   // Shuffled palette for visual variety
   const palette = useMemo(() => getShuffledPalette(), [getShuffledPalette])
 
   useEffect(() => {
+    setChartData(cachedFinancialHealth?.data ?? [])
+    setYearSummaries(cachedFinancialHealth?.years ?? [])
+    setIsLoading(!cachedFinancialHealth)
+    setError(null)
+  }, [cachedFinancialHealth, financialHealthUrl])
+
+  useEffect(() => {
     let isMounted = true
 
     async function loadNeonData() {
-      const url = dateFilter
-        ? `/api/financial-health?filter=${encodeURIComponent(dateFilter)}`
-        : "/api/financial-health"
+      const url = financialHealthUrl
       const cached = getCachedResponse<FinancialHealthResponse>(url)
       if (cached) {
         if (isMounted) {
@@ -104,7 +254,6 @@ export const ChartRadar = memo(function ChartRadar({
         return
       }
 
-      console.log("[ChartRadar] Starting data fetch...", url)
       setIsLoading(true)
       setError(null)
       try {
@@ -121,28 +270,11 @@ export const ChartRadar = memo(function ChartRadar({
           throw new Error("Unexpected response shape: payload.years is not an array")
         }
         if (isMounted) {
-          console.log("[ChartRadar] Received payload:", {
-            dataLength: payload.data?.length || 0,
-            yearsLength: payload.years?.length || 0,
-            sampleData: payload.data?.[0],
-            years: payload.years
-          })
           setChartData(payload.data as RadarDatum[])
           setYearSummaries(payload.years as FinancialHealthYearSummary[])
-
-          // If API explicitly returns empty data/years, ensure we show appropriate message
-          if (payload.data.length === 0 || payload.years.length === 0) {
-            console.warn("[ChartRadar] API returned empty data or years", {
-              dataLength: payload.data.length,
-              yearsLength: payload.years.length
-            })
-            // This is a valid response indicating no data - don't set error, just empty state
-            // The component will handle this in the render logic
-          }
         }
       } catch (err) {
         if (isMounted) {
-          console.error("[ChartRadar] Failed to load Neon data:", err)
           setError(err instanceof Error ? err.message : "Failed to load data")
           setChartData([])
           setYearSummaries([])
@@ -159,7 +291,7 @@ export const ChartRadar = memo(function ChartRadar({
     return () => {
       isMounted = false
     }
-  }, [dateFilter])
+  }, [financialHealthUrl])
 
   const sanitizedData = useMemo(() => {
     if (!chartData || chartData.length === 0) return []
@@ -182,21 +314,11 @@ export const ChartRadar = memo(function ChartRadar({
       }
     })
     const result = Array.from(uniqueCapabilities).sort()
-    // Log warning if we have data but no valid capabilities found
-    if (sanitizedData.length > 0 && result.length === 0) {
-      console.warn("[ChartRadar] Data exists but no valid capabilities found", {
-        dataLength: sanitizedData.length,
-        sampleEntry: sanitizedData[0],
-        allKeys: sanitizedData.length > 0 ? Object.keys(sanitizedData[0]) : []
-      })
-    }
     return result
   }, [sanitizedData])
 
   // All capabilities are filterable (Income, Expenses, and spending categories)
-  const filterableCapabilities = useMemo(() => {
-    return capabilities
-  }, [capabilities])
+  const filterableCapabilities = capabilities
 
   // Calculate top 7 spending categories by total expense across all years
   const topSpendingCategories = useMemo(() => {
@@ -438,185 +560,191 @@ export const ChartRadar = memo(function ChartRadar({
   const triggerClassName =
     "border-input data-[placeholder]:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 dark:hover:bg-input/50 flex items-center justify-between gap-2 rounded-md border bg-transparent px-3 py-2 text-sm whitespace-nowrap shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 data-[size=default]:h-9 data-[size=sm]:h-8 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 w-40"
 
-  const renderInfoTrigger = (forFullscreen = false) => (
-    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
-      <ChartInfoPopover
-        title="Financial Health Score"
-        description="Assessment of your financial wellness"
-        details={[
-          "The radar compares income, expenses, and your top spending categories year over year.",
-          "By default, Income, Expenses, and the top 7 spending categories are shown. You can toggle any category using the filter."
-        ]}
-        ignoredFootnote="We surface at most three years of history."
-        categoryControls={categoryControls}
-      />
-      <ChartAiInsightButton
-        chartId="financialHealthScore"
-        chartTitle="Financial Health Score"
-        chartDescription="Radar chart showing financial health metrics including income, expenses, and spending categories across years."
-        chartData={{
-          years: yearSummaries.map(s => s.year),
-          yearSummaries: yearSummaries,
-          categories: effectiveVisibleCapabilities,
-          categoriesCount: effectiveVisibleCapabilities.length
-        }}
-        size="sm"
-      />
-    </div>
-  )
-
-  // Mobile legend (year indicators)
-  const renderMobileLegend = () => (
-    <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground mt-1">
-      {legendEntries.map((entry) => (
-        <div key={entry.id} className="flex items-center gap-1.5">
-          <span
-            className="h-2.5 w-2.5 rounded-full shrink-0"
-            style={{ backgroundColor: entry.color }}
-          />
-          <span className="font-medium text-foreground">{entry.label}</span>
-        </div>
-      ))}
-    </div>
-  )
-
-  const renderStatusCard = (message: string, isLoading?: boolean) => (
-    <Card className="@container/card h-full relative" data-slot="card">
-      <CardHeader className="flex flex-row items-start justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <GridStackCardDragHandle />
-          <ChartFavoriteButton
-            chartId="financialHealthScore"
-            chartTitle="Financial Health Score"
-            size="md"
-          />
-          <CardTitle>Financial Health Score</CardTitle>
-        </div>
-        <CardAction className="flex flex-row items-center gap-2">
-          {renderInfoTrigger()}
-        </CardAction>
-      </CardHeader>
-      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[180px] md:h-[250px]">
-        <ChartLoadingState
-          isLoading={isLoading}
-          skeletonType="grid"
-          emptyTitle={emptyTitle || "No financial data yet"}
-          emptyDescription={emptyDescription || "Import your bank statements to see your financial health score"}
-        />
-      </CardContent>
-    </Card>
-  )
-
-  // Debug logging to understand the state (must be before any conditional returns)
-  useEffect(() => {
-    console.log("[ChartRadar] State update:", {
-      isLoading,
-      error,
-      sanitizedDataLength: sanitizedData?.length || 0,
-      keysLength: keys.length,
-      filterableCapabilitiesLength: filterableCapabilities.length,
-      effectiveVisibleCapabilitiesLength: effectiveVisibleCapabilities.length,
-      filteredDataLength: filteredData.length,
-      hasUserInteracted,
-      defaultVisibleCapabilitiesLength: defaultVisibleCapabilities.length,
-      chartDataLength: chartData?.length || 0,
-      yearSummariesLength: yearSummaries?.length || 0
-    })
-  }, [isLoading, error, sanitizedData, keys, filterableCapabilities, effectiveVisibleCapabilities, filteredData, hasUserInteracted, defaultVisibleCapabilities, chartData, yearSummaries])
-
   if (isLoading) {
-    return renderStatusCard("", true)
+    return (
+      <RadarStatusCard
+        categoryControls={categoryControls}
+        yearSummaries={yearSummaries}
+        effectiveVisibleCapabilities={effectiveVisibleCapabilities}
+        emptyTitle={emptyTitle}
+        emptyDescription={emptyDescription}
+        isLoading
+      />
+    )
   }
 
   if (error) {
-    return renderStatusCard(error)
+    return (
+      <RadarStatusCard
+        categoryControls={categoryControls}
+        yearSummaries={yearSummaries}
+        effectiveVisibleCapabilities={effectiveVisibleCapabilities}
+        emptyTitle={emptyTitle}
+        emptyDescription={emptyDescription}
+      />
+    )
   }
 
   // Check if we have raw data and years - if not, truly no data available
   if (!sanitizedData || sanitizedData.length === 0 || keys.length === 0) {
-    // Only show "No data available" if we're not loading and there's no error
-    // (error case is handled above)
-    if (!isLoading && !error) {
-      console.log("[ChartRadar] Showing 'No data available' - no sanitized data or keys", {
-        sanitizedDataLength: sanitizedData?.length || 0,
-        keysLength: keys.length,
-        chartDataLength: chartData?.length || 0,
-        yearSummariesLength: yearSummaries?.length || 0
-      })
-    }
-    return renderStatusCard("No data available")
+    return (
+      <RadarStatusCard
+        categoryControls={categoryControls}
+        yearSummaries={yearSummaries}
+        effectiveVisibleCapabilities={effectiveVisibleCapabilities}
+        emptyTitle={emptyTitle}
+        emptyDescription={emptyDescription}
+      />
+    )
   }
 
   // If we have data but filteredData is empty, check if it's because capabilities haven't been initialized yet
   // This can happen during the brief moment between data loading and capability initialization
   if (filteredData.length === 0) {
     // Edge case 1: We have data and capabilities, but defaults haven't been computed yet
-    // This happens when sanitizedData exists but capabilities extraction hasn't completed
     if (sanitizedData.length > 0 && filterableCapabilities.length > 0 && defaultVisibleCapabilities.length === 0) {
-      // Capabilities exist but defaults not computed yet - this is a timing issue
-      // Wait for next render cycle when defaults will be available
-      console.log("[ChartRadar] Waiting for default capabilities to compute - showing loading", {
-        filterableCapabilitiesLength: filterableCapabilities.length,
-        sanitizedDataLength: sanitizedData.length
-      })
-      return renderStatusCard("", true)
+      return (
+        <RadarStatusCard
+          categoryControls={categoryControls}
+          yearSummaries={yearSummaries}
+          effectiveVisibleCapabilities={effectiveVisibleCapabilities}
+          emptyTitle={emptyTitle}
+          emptyDescription={emptyDescription}
+          isLoading
+        />
+      )
     }
 
     // Edge case 2: We have defaults but effectiveVisibleCapabilities is still empty
-    // This shouldn't happen with the fixed effectiveVisibleCapabilities logic, but guard against it
     if (sanitizedData.length > 0 && defaultVisibleCapabilities.length > 0 && effectiveVisibleCapabilities.length === 0 && !hasUserInteracted) {
-      console.log("[ChartRadar] Defaults exist but not effective yet - showing loading", {
-        defaultVisibleCapabilitiesLength: defaultVisibleCapabilities.length,
-        effectiveVisibleCapabilitiesLength: effectiveVisibleCapabilities.length
-      })
-      return renderStatusCard("", true)
+      return (
+        <RadarStatusCard
+          categoryControls={categoryControls}
+          yearSummaries={yearSummaries}
+          effectiveVisibleCapabilities={effectiveVisibleCapabilities}
+          emptyTitle={emptyTitle}
+          emptyDescription={emptyDescription}
+          isLoading
+        />
+      )
     }
 
-    // Edge case 3: User has interacted and deselected everything, or no valid capabilities exist
-    // Only show "No data available" if we're sure this is the final state
-    if (hasUserInteracted && effectiveVisibleCapabilities.length === 0) {
-      // User explicitly deselected everything
-      console.log("[ChartRadar] User has deselected all capabilities")
-      return renderStatusCard("No data available")
-    }
-
-    // Edge case 4: No capabilities exist at all (data structure issue)
-    if (filterableCapabilities.length === 0 && sanitizedData.length > 0) {
-      console.warn("[ChartRadar] Data exists but no valid capabilities found", {
-        sanitizedDataLength: sanitizedData.length,
-        sampleData: sanitizedData[0],
-        allKeys: sanitizedData.length > 0 ? Object.keys(sanitizedData[0]) : []
-      })
-      return renderStatusCard("No data available")
-    }
-
-    // Default case: Show no data if we've exhausted all initialization checks
-    // This should rarely happen with the fixes above
-    console.log("[ChartRadar] Showing 'No data available' - filteredData is empty after all checks", {
-      filterableCapabilitiesLength: filterableCapabilities.length,
-      effectiveVisibleCapabilitiesLength: effectiveVisibleCapabilities.length,
-      defaultVisibleCapabilitiesLength: defaultVisibleCapabilities.length,
-      hasUserInteracted,
-      sanitizedDataLength: sanitizedData.length
-    })
-    return renderStatusCard("No data available")
+    // Edge case 3 & 4: No data available
+    return (
+      <RadarStatusCard
+        categoryControls={categoryControls}
+        yearSummaries={yearSummaries}
+        effectiveVisibleCapabilities={effectiveVisibleCapabilities}
+        emptyTitle={emptyTitle}
+        emptyDescription={emptyDescription}
+      />
+    )
   }
 
+  const viewSwitchButton = (
+    <div className="flex w-full shrink-0 justify-center px-2 sm:px-6">
+      <div
+        className="flex shrink-0 items-center justify-start text-center rounded-full bg-muted p-px text-xs leading-tight"
+        role="group"
+        aria-label="Chart view mode"
+      >
+        <button
+          type="button"
+          className={`rounded-full px-2.5 py-1 font-medium transition-all whitespace-nowrap ${viewMode === "financial" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+          onClick={() => setViewMode("financial")}
+        >
+          Health
+        </button>
+        <button
+          type="button"
+          className={`rounded-full px-2.5 py-1 font-medium transition-all whitespace-nowrap ${viewMode === "weekday" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+          onClick={() => setViewMode("weekday")}
+        >
+          Weekday
+        </button>
+      </div>
+    </div>
+  )
+
+  const mobileCategorySelector =
+    filterableCapabilities.length > 0 && viewMode === "financial" ? (
+      <div className="flex justify-center px-2 md:hidden">
+        <DropdownMenu open={isMobileCategorySelectorOpen} onOpenChange={setIsMobileCategorySelectorOpen}>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className={triggerClassName}
+              aria-label="Select categories to display"
+            >
+              <span className="truncate">{selectionSummary}</span>
+              <ChevronDownIcon className="h-4 w-4 text-muted-foreground" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="center"
+            className="w-56"
+          >
+            <p className="px-2 pb-1 pt-1.5 text-xs font-medium text-muted-foreground">
+              Select categories to display
+            </p>
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault()
+                selectAllCapabilities()
+              }}
+              className="cursor-pointer font-medium"
+            >
+              {effectiveVisibleCapabilities.length === filterableCapabilities.length &&
+                filterableCapabilities.every(cap => effectiveVisibleCapabilities.includes(cap))
+                ? "Deselect all"
+                : "Select all"}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <div className="max-h-64 overflow-y-auto">
+              {filterableCapabilities.map(capability => {
+                const checked = effectiveVisibleCapabilities.includes(capability)
+                return (
+                  <DropdownMenuCheckboxItem
+                    key={capability}
+                    checked={checked}
+                    onCheckedChange={() => toggleCapability(capability)}
+                    onSelect={(event) => event.preventDefault()}
+                    className="capitalize"
+                  >
+                    <span className="truncate">{capability}</span>
+                  </DropdownMenuCheckboxItem>
+                )
+              })}
+              {filterableCapabilities.length === 0 && (
+                <div className="px-2 py-4 text-sm text-muted-foreground">No categories</div>
+              )}
+            </div>
+            <div className="border-t px-2 py-1 text-xs text-muted-foreground">
+              {effectiveVisibleCapabilities.length === filterableCapabilities.length
+                ? "All categories selected"
+                : `${effectiveVisibleCapabilities.length}/${filterableCapabilities.length} selected`}
+            </div>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    ) : null
+
   return (
-    <Card className="@container/card h-full relative" data-slot="card">
-      <CardHeader className="flex flex-row items-start justify-between gap-2">
-        <div className="flex items-center gap-2">
+    <Card className="@container/card h-full relative gap-[20px]" data-slot="card">
+      <CardHeader className="flex flex-col gap-3 pb-0 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-2 min-w-0">
           <GridStackCardDragHandle />
           <ChartFavoriteButton
             chartId="financialHealthScore"
             chartTitle="Financial Health Score"
             size="md"
           />
-          <CardTitle>Financial Health Score</CardTitle>
+          <CardTitle className="truncate">Financial Health Score</CardTitle>
         </div>
-        <CardAction className="flex flex-row items-center gap-2">
+        <CardAction className="hidden shrink-0 md:flex flex-row items-center justify-start gap-2">
           {filterableCapabilities.length > 0 && (
-            <DropdownMenu open={isCategorySelectorOpen} onOpenChange={setIsCategorySelectorOpen}>
+            <div className={viewMode === "financial" ? "" : "invisible pointer-events-none"}>
+            <DropdownMenu open={isDesktopCategorySelectorOpen} onOpenChange={setIsDesktopCategorySelectorOpen}>
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
@@ -673,72 +801,127 @@ export const ChartRadar = memo(function ChartRadar({
                 </div>
               </DropdownMenuContent>
             </DropdownMenu>
+            </div>
           )}
-          {renderInfoTrigger()}
+          <RadarInfoTrigger
+            categoryControls={categoryControls}
+            yearSummaries={yearSummaries}
+            effectiveVisibleCapabilities={effectiveVisibleCapabilities}
+          />
         </CardAction>
       </CardHeader>
-      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex flex-col">
-        <div className="flex-1 min-h-[160px] md:min-h-[220px] [&_svg]:bg-transparent">
-          <ResponsiveRadar
-            key={`radar-${(isMobile ? mobileFilteredData : filteredData).map(d => String(d.capability)).sort().join('-')}`}
-            data={isMobile ? mobileFilteredData : filteredData}
-            keys={keys}
-            indexBy="capability"
-            margin={isMobile
-              ? { top: 30, right: 35, bottom: 15, left: 35 }
-              : { top: 70, right: 80, bottom: 40, left: 80 }
-            }
-            gridLabelOffset={isMobile ? 12 : 36}
-            dotSize={isMobile ? 6 : 10}
-            dotColor={{ theme: "background" }}
-            dotBorderWidth={2}
-            blendMode={resolvedTheme === "dark" ? "normal" : "multiply"}
-            colors={palette}
-            theme={radarTheme}
-            fillOpacity={0.6}
-            gridLevels={isMobile ? 4 : 5}
-            gridShape="linear"
-            sliceTooltip={({ index, data }: RadarSliceTooltipProps) => {
-              if (!data || data.length === 0) return null
+      {mobileCategorySelector}
+      {viewSwitchButton}
+      <CardContent className="px-2 pt-0 sm:px-6 flex flex-col">
+        {viewMode === "weekday" ? (
+          <div className="flex-1 min-h-[160px] md:min-h-[220px] [&_svg]:bg-transparent">
+            {weekdayChartData.length > 0 ? (
+              <ResponsiveRadar
+                data={weekdayChartData}
+                keys={["spending"]}
+                indexBy="day"
+                maxValue="auto"
+                margin={isMobile
+                  ? { top: 30, right: 35, bottom: 15, left: 35 }
+                  : { top: 50, right: 60, bottom: 30, left: 60 }
+                }
+                curve="linearClosed"
+                borderWidth={2}
+                borderColor={palette[0] || "#fe8339"}
+                gridLevels={5}
+                gridShape="circular"
+                gridLabelOffset={isMobile ? 12 : 20}
+                dotSize={isMobile ? 6 : 8}
+                dotColor={{ theme: "background" }}
+                dotBorderWidth={2}
+                dotBorderColor={palette[0] || "#fe8339"}
+                colors={[palette[0] || "#fe8339"]}
+                fillOpacity={0.25}
+                blendMode="normal"
+                theme={radarTheme}
+                animate
+                motionConfig="gentle"
+                sliceTooltip={({ index, data: sliceData }) => {
+                  if (!sliceData?.length) return null
+                  return (
+                    <NivoChartTooltip
+                      title={String(index)}
+                      hideTitleIndicator
+                      rows={sliceData.map((item) => ({
+                        color: item.color,
+                        label: "Spending",
+                        value: formatCurrency(item.value ?? 0),
+                      }))}
+                    />
+                  )
+                }}
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                No transaction data available
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex-1 min-h-[160px] md:min-h-[220px] [&_svg]:bg-transparent">
+            <ResponsiveRadar
+              key={`radar-${(isMobile ? mobileFilteredData : filteredData).map(d => String(d.capability)).sort().join('-')}`}
+              data={isMobile ? mobileFilteredData : filteredData}
+              keys={keys}
+              indexBy="capability"
+              margin={isMobile
+                ? { top: 30, right: 35, bottom: 15, left: 35 }
+                : { top: 70, right: 80, bottom: 40, left: 80 }
+              }
+              gridLabelOffset={isMobile ? 12 : 36}
+              dotSize={isMobile ? 6 : 10}
+              dotColor={{ theme: "background" }}
+              dotBorderWidth={2}
+              blendMode={resolvedTheme === "dark" ? "normal" : "multiply"}
+              colors={palette}
+              theme={radarTheme}
+              fillOpacity={0.6}
+              gridLevels={isMobile ? 4 : 5}
+              gridShape="linear"
+              sliceTooltip={({ index, data }: RadarSliceTooltipProps) => {
+                if (!data || data.length === 0) return null
 
-              // Show all data points at this position (all overlapping years)
-              // index is the capability string (e.g., "G" on mobile, "Groceries" on desktop)
-              const chartData = isMobile ? mobileFilteredData : filteredData
-              // Find the data item by matching the capability (index is the label)
-              const dataItem = chartData.find(item => String(item.capability) === String(index))
-              const categoryName = dataItem
-                ? String((dataItem as any)._originalCapability || dataItem.capability || 'Category')
-                : String(index) || 'Category'
+                const currentChartData = isMobile ? mobileFilteredData : filteredData
+                const dataItem = currentChartData.find(item => String(item.capability) === String(index))
+                const categoryName = dataItem
+                  ? String((dataItem as any)._originalCapability || dataItem.capability || 'Category')
+                  : String(index) || 'Category'
 
-              return (
-                <NivoChartTooltip
-                  title={categoryName}
-                  hideTitleIndicator
-                  rows={data.map((item) => ({
-                    color: item.color,
-                    label: String(item.id ?? index ?? ""),
-                    value: formatCurrency(item.value ?? 0),
-                  }))}
-                />
-              )
-            }}
-            legends={!isMobile && legendEntries.length ? [
-              {
-                anchor: "top-left",
-                direction: "column",
-                translateX: -50,
-                translateY: -40,
-                itemWidth: 240,
-                itemHeight: 18,
-                symbolShape: "circle",
-                symbolSize: 12,
-                symbolBorderColor: "currentColor",
-                data: legendEntries,
-              },
-            ] : []}
-          />
-        </div>
-        {isMobile && renderMobileLegend()}
+                return (
+                  <NivoChartTooltip
+                    title={categoryName}
+                    hideTitleIndicator
+                    rows={data.map((item) => ({
+                      color: item.color,
+                      label: String(item.id ?? index ?? ""),
+                      value: formatCurrency(item.value ?? 0),
+                    }))}
+                  />
+                )
+              }}
+              legends={!isMobile && legendEntries.length ? [
+                {
+                  anchor: "top-left",
+                  direction: "column",
+                  translateX: -50,
+                  translateY: -40,
+                  itemWidth: 240,
+                  itemHeight: 18,
+                  symbolShape: "circle",
+                  symbolSize: 12,
+                  symbolBorderColor: "currentColor",
+                  data: legendEntries,
+                },
+              ] : []}
+            />
+          </div>
+        )}
+        {viewMode === "financial" && isMobile && <RadarMobileLegend legendEntries={legendEntries} />}
       </CardContent>
     </Card>
   )

@@ -1,5 +1,6 @@
 import { useMemo } from "react"
 
+import { computeSpendingScore } from "@/lib/spending-score"
 import type { AnalyticsTransaction, AnalyticsStats, AnalyticsStatsTrends, TransactionSummary } from "../types"
 
 export function useAnalyticsStats(rawTransactions: AnalyticsTransaction[]) {
@@ -17,6 +18,10 @@ export function useAnalyticsStats(rawTransactions: AnalyticsTransaction[]) {
         savingsRateChange: 0,
         spendingRateChange: 0,
         netWorthChange: 0,
+        spendingScore: 0,
+        spendingGrade: "N/A",
+        spendingScoreTrend: "stable" as const,
+        spendingScoreTrendData: [],
       }
     }
 
@@ -117,6 +122,14 @@ export function useAnalyticsStats(rawTransactions: AnalyticsTransaction[]) {
           ? 100
           : 0
 
+    // ── Spending Score ────────────────────────────────────────────────────
+    const {
+      score,
+      grade: spendingGrade,
+      trendDirection: spendingScoreTrend,
+      scoreTrendData: spendingScoreTrendData,
+    } = computeSpendingScore(rawTransactions)
+
     return {
       totalIncome: currentIncome,
       totalExpenses: currentExpenses,
@@ -128,8 +141,13 @@ export function useAnalyticsStats(rawTransactions: AnalyticsTransaction[]) {
       savingsRateChange,
       spendingRateChange,
       netWorthChange,
+      spendingScore: score,
+      spendingGrade,
+      spendingScoreTrend,
+      spendingScoreTrendData,
     }
   }, [rawTransactions])
+
 
   // Calculate trend data for stat cards (daily cumulative values)
   const statsTrends: AnalyticsStatsTrends = useMemo(() => {

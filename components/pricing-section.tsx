@@ -1,6 +1,6 @@
 "use client"
 
-import { motion } from "framer-motion"
+import { m } from "framer-motion"
 import { Check, Sparkles, Loader2 } from "lucide-react"
 import { useState } from "react"
 import { geist } from "@/lib/fonts"
@@ -8,13 +8,12 @@ import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@clerk/nextjs"
 import { toast } from "sonner"
-import { safeCapture } from "@/lib/posthog-safe"
+import { typedCapture } from "@/types/posthog-events"
 import Image from "next/image"
 
 // Plan logos for landing page (these replace the plan name text)
 const planLogos = {
   Starter: "/Trakzi/subs/freeiconB.png",
-  Basic: "/Trakzi/subs/TrakziBasiciconB.png",
   PRO: "/Trakzi/subs/TrakziProIconB.png",
   MAX: "/Trakzi/subs/TrakziMaxIconB.png",
 } as const
@@ -35,24 +34,6 @@ const pricingPlans = [
     priceId: null, // Free plan - no Stripe price
   },
   {
-    name: "Basic",
-    monthlyPrice: 1.99,
-    annualPrice: 19.99,
-    description: "Perfect for getting started",
-    features: [
-      "400 transactions (~ 1 year)",
-      "20 scans/month",
-      "1 AI chat/day",
-      "Advanced charts",
-      "10 custom categories",
-    ],
-    popular: false,
-    ctaMonthly: "Go Basic",
-    ctaAnnual: "Go Basic",
-    monthlyPriceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_BASIC_MONTHLY,
-    annualPriceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_BASIC_ANNUAL,
-  },
-  {
     name: "PRO",
     monthlyPrice: 4.99,
     annualPrice: 49.99,
@@ -61,7 +42,7 @@ const pricingPlans = [
       "3,000 transactions (~6 years)",
       "50 scans/month",
       "5 AI chats/day",
-      "Everything in Basic",
+      "Everything in Free",
       "AI insights & categorization",
       "40 custom categories",
     ],
@@ -100,12 +81,12 @@ export function PricingSection() {
 
   const handlePlanSelect = async (plan: typeof pricingPlans[0]) => {
     // Track pricing plan click
-    safeCapture('pricing_plan_clicked', {
+    typedCapture('pricing_plan_clicked', {
       plan_name: plan.name,
       billing_period: isAnnual ? 'annual' : 'monthly',
       price: plan.price || (isAnnual ? plan.annualPrice : plan.monthlyPrice),
       is_popular: plan.popular,
-      is_signed_in: isSignedIn,
+      is_signed_in: Boolean(isSignedIn),
     })
 
     // Free plan - just redirect to sign up or dashboard
@@ -161,7 +142,7 @@ export function PricingSection() {
     }
 
     // Track checkout started
-    safeCapture('checkout_started', {
+    typedCapture('checkout_started', {
       plan_name: plan.name,
       billing_period: isAnnual ? 'annual' : 'monthly',
       price_id: priceId,
@@ -185,7 +166,7 @@ export function PricingSection() {
         console.error('Checkout error:', data.error)
 
         // Track checkout error
-        safeCapture('checkout_error', {
+        typedCapture('checkout_error', {
           plan_name: plan.name,
           error: data.error,
           status: response.status,
@@ -206,7 +187,7 @@ export function PricingSection() {
           throw new Error('Invalid checkout redirect URL')
         }
         // Track successful redirect to Stripe
-        safeCapture('checkout_redirect', {
+        typedCapture('checkout_redirect', {
           plan_name: plan.name,
           billing_period: isAnnual ? 'annual' : 'monthly',
         })
@@ -216,7 +197,7 @@ export function PricingSection() {
       console.error('Checkout error:', error)
 
       // Track network/unexpected error
-      safeCapture('checkout_error', {
+      typedCapture('checkout_error', {
         plan_name: plan.name,
         error: 'Network error',
       })
@@ -231,26 +212,26 @@ export function PricingSection() {
   }
 
   return (
-    <section className="relative py-24 px-4">
+    <section className="relative py-48 px-4">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <motion.div
+          <m.div
             initial={{ opacity: 0, scale: 0.9 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm mb-6"
           >
-            <Sparkles className="w-4 h-4 text-[#e78a53]" />
+            <Sparkles className="w-4 h-4 text-primary" />
             <span className="text-sm font-medium text-white/80">Pricing</span>
-          </motion.div>
+          </m.div>
 
           <h2
             className={cn(
@@ -266,7 +247,7 @@ export function PricingSection() {
           </p>
 
           {/* Monthly/Annual Toggle */}
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 10 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -276,9 +257,9 @@ export function PricingSection() {
             <button
               onClick={() => {
                 setIsAnnual(false)
-                safeCapture('billing_period_toggled', { billing_period: 'monthly', previous_period: 'annual' })
+                typedCapture('billing_period_toggled', { billing_period: 'monthly', previous_period: 'annual' })
               }}
-              className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-200 ${!isAnnual ? "bg-[#e78a53] text-white shadow-lg" : "text-white/60 hover:text-white/80"
+              className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-200 ${!isAnnual ? "bg-primary text-primary-foreground shadow-lg" : "text-white/60 hover:text-white/80"
                 }`}
             >
               Monthly
@@ -286,9 +267,9 @@ export function PricingSection() {
             <button
               onClick={() => {
                 setIsAnnual(true)
-                safeCapture('billing_period_toggled', { billing_period: 'annual', previous_period: 'monthly' })
+                typedCapture('billing_period_toggled', { billing_period: 'annual', previous_period: 'monthly' })
               }}
-              className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-200 relative ${isAnnual ? "bg-[#e78a53] text-white shadow-lg" : "text-white/60 hover:text-white/80"
+              className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-200 relative ${isAnnual ? "bg-primary text-primary-foreground shadow-lg" : "text-white/60 hover:text-white/80"
                 }`}
             >
               Annual
@@ -296,13 +277,13 @@ export function PricingSection() {
                 Save 20%
               </span>
             </button>
-          </motion.div>
-        </motion.div>
+          </m.div>
+        </m.div>
 
         {/* Pricing Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
           {pricingPlans.map((plan, index) => (
-            <motion.div
+            <m.div
               key={plan.name}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -310,13 +291,13 @@ export function PricingSection() {
               transition={{ duration: 0.6, delay: index * 0.1 }}
               whileHover={{ y: -5 }}
               className={`relative rounded-2xl p-8 backdrop-blur-sm border transition-all duration-300 flex flex-col h-full ${plan.popular
-                ? "bg-gradient-to-b from-[#e78a53]/10 to-transparent border-[#e78a53]/30 shadow-lg shadow-[#e78a53]/10"
+                ? "bg-gradient-to-b from-primary/10 to-transparent border-primary/30 shadow-lg shadow-primary/10"
                 : "bg-white/5 border-white/10 hover:border-white/20"
                 }`}
             >
               {plan.popular && (
                 <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                  <div className="bg-gradient-to-r from-[#e78a53] to-[#e78a53]/80 text-white text-sm font-medium px-4 py-2 rounded-full">
+                  <div className="bg-primary text-primary-foreground text-sm font-medium px-4 py-2 rounded-full">
                     Most Popular
                   </div>
                 </div>
@@ -325,7 +306,7 @@ export function PricingSection() {
               <div className="text-center mb-8">
                 <div className="flex items-center justify-center gap-2 mb-2 h-10">
                   {/* Show plan logo for all plans */}
-                  {(plan.name === "PRO" || plan.name === "MAX" || plan.name === "Starter" || plan.name === "Basic") ? (
+                  {(plan.name === "PRO" || plan.name === "MAX" || plan.name === "Starter") ? (
                     <Image
                       src={planLogos[plan.name as keyof typeof planLogos]}
                       alt={`${plan.name} plan`}
@@ -355,19 +336,19 @@ export function PricingSection() {
               <ul className="space-y-4 mb-8 flex-grow">
                 {plan.features.map((feature, featureIndex) => (
                   <li key={featureIndex} className="flex items-center gap-3">
-                    <Check className="w-5 h-5 text-[#e78a53] flex-shrink-0" />
+                    <Check className="w-5 h-5 text-primary flex-shrink-0" />
                     <span className="text-white/80 text-sm">{feature}</span>
                   </li>
                 ))}
               </ul>
 
-              <motion.button
+              <m.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 disabled={loadingPlan === plan.name}
                 onClick={() => handlePlanSelect(plan)}
                 className={`w-full py-3 px-6 rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed mt-auto ${plan.popular
-                  ? "bg-gradient-to-r from-[#e78a53] to-[#e78a53]/80 text-white shadow-lg shadow-[#e78a53]/25 hover:shadow-[#e78a53]/40"
+                  ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25 hover:shadow-primary/40"
                   : "bg-white/10 text-white border border-white/20 hover:bg-white/20"
                   }`}
               >
@@ -379,13 +360,13 @@ export function PricingSection() {
                 ) : (
                   plan.cta || (isAnnual ? plan.ctaAnnual : plan.ctaMonthly)
                 )}
-              </motion.button>
-            </motion.div>
+              </m.button>
+            </m.div>
           ))}
         </div>
 
         {/* Bottom CTA */}
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -393,15 +374,15 @@ export function PricingSection() {
           className="text-center mt-16"
         >
           <p className="text-white/60 mb-4">Need a custom solution? We're here to help.</p>
-          <motion.a
+          <m.a
             href="mailto:sales@trakzi.com?subject=Custom Solution Inquiry"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="text-[#e78a53] hover:text-[#e78a53]/80 font-medium transition-colors"
+            className="text-primary hover:text-primary/80 font-medium transition-colors"
           >
             Contact our sales team →
-          </motion.a>
-        </motion.div>
+          </m.a>
+        </m.div>
       </div>
     </section>
   )

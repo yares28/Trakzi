@@ -1,3 +1,6 @@
+"use client"
+
+import { useState } from "react"
 import type { Dispatch, SetStateAction } from "react"
 import {
   IconChevronLeft,
@@ -47,9 +50,72 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
+import { toast } from "sonner"
+import { useAccounts } from "@/hooks/use-accounts"
+
 import { PAGE_SIZE_OPTIONS } from "../constants"
 import { formatDateLabel } from "../formatters"
 import type { Statement } from "../types"
+
+// Self-contained account-assign cell — only renders for CSV/statement rows.
+function AssignAccountCell({ statement }: { statement: Statement }) {
+  const { data: accounts = [] } = useAccounts()
+  const activeAccounts = accounts.filter((a) => a.isActive)
+
+  const [currentAccountId, setCurrentAccountId] = useState<string>(
+    statement.accountId ?? "none"
+  )
+  const [saving, setSaving] = useState(false)
+
+  if (statement.statementId === null) return null
+
+  const handleChange = async (value: string) => {
+    const newAccountId = value === "none" ? null : value
+    const previous = currentAccountId
+    setCurrentAccountId(value)
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/statements/${statement.statementId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountId: newAccountId }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to assign account")
+      }
+      const data = await res.json()
+      toast.success(
+        newAccountId
+          ? `Assigned ${data.updatedCount} transactions to account`
+          : `Cleared account from ${data.updatedCount} transactions`
+      )
+    } catch (error: any) {
+      setCurrentAccountId(previous)
+      toast.error(error.message || "Failed to assign account")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Select value={currentAccountId} onValueChange={handleChange} disabled={saving}>
+      <SelectTrigger className="h-7 w-[140px] text-xs">
+        <SelectValue placeholder="No account" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="none">
+          <span className="text-muted-foreground">No account</span>
+        </SelectItem>
+        {activeAccounts.map((acc) => (
+          <SelectItem key={acc.id} value={acc.id}>
+            {acc.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
 
 type ReportsTableProps = {
   statements: Statement[]
@@ -199,6 +265,7 @@ export function ReportsTable({
                   </TableHead>
                   <TableHead>Report</TableHead>
                   <TableHead className="hidden md:table-cell">Type</TableHead>
+                  <TableHead className="hidden lg:table-cell">Account</TableHead>
                   <TableHead>Uploaded</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -212,7 +279,7 @@ export function ReportsTable({
                   if (pageData.length === 0) {
                     return (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center h-24">
+                        <TableCell colSpan={6} className="text-center h-24">
                           <p className="text-sm text-muted-foreground">
                             {reportsSearch
                               ? "No reports match your search."
@@ -262,6 +329,9 @@ export function ReportsTable({
                           />
                           <span>{statement.type}</span>
                         </div>
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell">
+                        <AssignAccountCell statement={statement} />
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {formatDateLabel(statement.date)}

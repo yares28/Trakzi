@@ -1,0 +1,957 @@
+"use client"
+
+import { memo, useState, useCallback } from "react"
+import { ArrowLeft, ClipboardList, ScanLine, FileSpreadsheet, Upload, AlertTriangle, PenLine, Receipt } from "lucide-react"
+import { useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
+
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Separator } from "@/components/ui/separator"
+import { cn } from "@/lib/utils"
+import { useCurrency } from "@/components/currency-provider"
+import { demoFetch } from "@/lib/demo/demo-fetch"
+
+import {
+    AttributionStep,
+    type PendingItem,
+    type RoomMember,
+    type AttributionMode,
+} from "./attribution-step"
+import { BrowseTransactionsStep } from "./browse-transactions-step"
+import { BrowseReceiptsStep } from "./browse-receipts-step"
+
+type Step = "source" | "browse-expenses" | "upload-choose" | "upload-receipt" | "upload-statement" | "attribute" | "custom-expense"
+type BrowseTab = "transactions" | "receipts"
+type SourceType = "my-txns" | "receipt" | "statement" | "custom" | "my-receipts"
+
+interface AddToRoomDialogProps {
+    open: boolean
+    onOpenChange: (open: boolean) => void
+    roomId: string
+    members: RoomMember[]
+    currentUserId: string
+}
+
+function nanoid() {
+    return Math.random().toString(36).slice(2, 10)
+}
+
+// ─── Parsed Types ────────────────────────────────────────────────────────────
+
+interface ParsedReceiptItem {
+    name: string
+    amount: number
+    quantity: number
+    category: string | null
+}
+
+interface ParsedReceipt {
+    store_name: string | null
+    receipt_date: string | null
+    total_amount: number | null
+    currency: string | null
+    items: ParsedReceiptItem[]
+    warnings: string[]
+}
+
+interface ParsedRow {
+    date: string
+    description: string
+    amount: number
+    category: string | null
+}
+
+// ─── Receipt Upload Step ────────────────────────────────────────────────────
+
+function ReceiptUploadStep({
+    roomId,
+    onContinue,
+}: {
+    roomId: string
+    onContinue: (parsed: ParsedReceipt) => void
+}) {
+    const [parsedItems, setParsedItems] = useState<ParsedReceiptItem[]>([])
+    const [parsedMeta, setParsedMeta] = useState<Omit<ParsedReceipt, "items"> | null>(null)
+    const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+    const [isLoading, setIsLoading] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+    const { formatCurrency } = useCurrency()
+
+    const handleFile = async (f: File) => {
+        setError(null)
+        setIsLoading(true)
+        try {
+            const form = new FormData()
+            form.append("file", f)
+            const res = await demoFetch(`/api/rooms/${roomId}/transactions/parse-receipt`, {
+                method: "POST",
+                body: form,
+            })
+            const json = await res.json()
+            if (!res.ok) { setError(json.error ?? "Failed to parse receipt"); return }
+            const data = json.data as ParsedReceipt
+            setParsedItems(data.items)
+            setParsedMeta({ store_name: data.store_name, receipt_date: data.receipt_date, total_amount: data.total_amount, currency: data.currency, warnings: data.warnings })
+            setSelectedIds(new Set(data.items.map((_, i) => i)))
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    const selectedItems = parsedItems.filter((_, i) => selectedIds.has(i))
+    const selectedTotal = selectedItems.reduce((s, it) => s + it.amount, 0)
+
+    if (!parsedItems.length) {
+        return (
+            <div className="space-y-4">
+                {error && (
+                    <div className="flex items-center gap-2 text-sm text-rose-500 bg-rose-500/10 px-3 py-2 rounded-lg">
+                        <AlertTriangle className="w-4 h-4 shrink-0" />{error}
+                    </div>
+                )}
+                <div
+                    className={cn(
+                        "relative border-2 border-dashed rounded-2xl p-10 text-center transition-colors",
+                        isLoading ? "opacity-50 pointer-events-none" : "hover:border-primary/50 cursor-pointer"
+                    )}
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
+                    onClick={() => document.getElementById("receipt-file-input")?.click()}
+                >
+                    <Upload className="w-8 h-8 mx-auto mb-3 text-muted-foreground" />
+                    <p className="text-sm font-medium">{isLoading ? "Parsing receipt..." : "Drag & drop receipt image or PDF here"}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Supports: JPG, PNG, WebP, PDF</p>
+                    <input id="receipt-file-input" type="file" accept="image/*,application/pdf" className="hidden"
+                        onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
+                </div>
+                {isLoading && <div className="flex justify-center"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" /></div>}
+            </div>
+        )
+    }
+
+    return (
+        <div className="space-y-3">
+            <div className="flex items-center justify-between text-sm">
+                <div>
+                    {parsedMeta?.store_name && <span className="font-medium">{parsedMeta.store_name}</span>}
+                    {parsedMeta?.receipt_date && <span className="text-muted-foreground ml-2">{parsedMeta.receipt_date}</span>}
+                </div>
+                {parsedMeta?.total_amount && <span className="font-semibold">{formatCurrency(parsedMeta.total_amount)} total</span>}
+            </div>
+            {parsedMeta?.warnings && parsedMeta.warnings.length > 0 && (
+                <div className="text-xs text-amber-600 dark:text-amber-400 bg-amber-500/10 px-3 py-2 rounded-lg space-y-0.5">
+                    {parsedMeta.warnings.map((w, i) => <p key={i}>{w}</p>)}
+                </div>
+            )}
+            <div className="max-h-[280px] overflow-y-auto border rounded-xl divide-y divide-border/30">
+                {parsedItems.map((item, i) => (
+                    <div key={i} className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-muted/30"
+                        onClick={() => setSelectedIds(prev => { const next = new Set(prev); if (next.has(i)) next.delete(i); else next.add(i); return next })}>
+                        <Checkbox checked={selectedIds.has(i)} onCheckedChange={() => { }} />
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm truncate">{item.name}</p>
+                            {item.category && <span className="text-[10px] text-muted-foreground">{item.category}</span>}
+                        </div>
+                        <div className="text-right shrink-0">
+                            <p className="text-sm font-medium tabular-nums">{formatCurrency(item.amount)}</p>
+                            {item.quantity > 1 && <p className="text-[10px] text-muted-foreground">×{item.quantity}</p>}
+                        </div>
+                    </div>
+                ))}
+            </div>
+            <div className="flex items-center justify-between border-t pt-3">
+                <p className="text-sm text-muted-foreground">{selectedIds.size} items selected ({formatCurrency(selectedTotal)})</p>
+                <Button disabled={selectedIds.size === 0} size="sm" onClick={() => onContinue({ ...parsedMeta!, items: selectedItems })}>
+                    Continue to Attribution →
+                </Button>
+            </div>
+        </div>
+    )
+}
+
+// ─── Statement Upload Step ────────────────────────────────────────────────────
+
+function StatementUploadStep({ roomId, onContinue }: { roomId: string; onContinue: (rows: ParsedRow[]) => void }) {
+    const [parsedRows, setParsedRows] = useState<ParsedRow[]>([])
+    const [diagnostics, setDiagnostics] = useState<{ totalRows: number; validRows: number; warnings: string[] } | null>(null)
+    const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+    const [isLoading, setIsLoading] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+    const { formatCurrency } = useCurrency()
+
+    const handleFile = async (f: File) => {
+        setError(null)
+        setIsLoading(true)
+        try {
+            const form = new FormData()
+            form.append("file", f)
+            const res = await demoFetch(`/api/rooms/${roomId}/transactions/parse-statement`, { method: "POST", body: form })
+            const json = await res.json()
+            if (!res.ok) { setError(json.error ?? "Failed to parse statement"); return }
+            const rows = json.data.rows as ParsedRow[]
+            setParsedRows(rows)
+            setDiagnostics(json.data.diagnostics)
+            setSelectedIds(new Set(rows.map((_, i) => i).filter(i => rows[i].amount < 0)))
+        } finally { setIsLoading(false) }
+    }
+
+    const selectedRows = parsedRows.filter((_, i) => selectedIds.has(i))
+    const selectedTotal = selectedRows.reduce((s, r) => s + Math.abs(r.amount), 0)
+
+    if (!parsedRows.length) {
+        return (
+            <div className="space-y-4">
+                {error && (
+                    <div className="flex items-center gap-2 text-sm text-rose-500 bg-rose-500/10 px-3 py-2 rounded-lg">
+                        <AlertTriangle className="w-4 h-4 shrink-0" />{error}
+                    </div>
+                )}
+                <div
+                    className={cn(
+                        "relative border-2 border-dashed rounded-2xl p-10 text-center transition-colors",
+                        isLoading ? "opacity-50 pointer-events-none" : "hover:border-primary/50 cursor-pointer"
+                    )}
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
+                    onClick={() => document.getElementById("statement-file-input")?.click()}
+                >
+                    <Upload className="w-8 h-8 mx-auto mb-3 text-muted-foreground" />
+                    <p className="text-sm font-medium">{isLoading ? "Parsing statement..." : "Drag & drop bank statement here"}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Supports: CSV, XLSX, PDF</p>
+                    <input id="statement-file-input" type="file" accept=".csv,.xlsx,.xls,application/pdf,text/csv" className="hidden"
+                        onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
+                </div>
+                {isLoading && <div className="flex justify-center"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" /></div>}
+            </div>
+        )
+    }
+
+    return (
+        <div className="space-y-3">
+            {diagnostics && (
+                <div className="text-xs text-muted-foreground">
+                    Found {diagnostics.validRows} transactions
+                    {diagnostics.totalRows !== diagnostics.validRows && ` (${diagnostics.totalRows - diagnostics.validRows} skipped)`}
+                    {diagnostics.warnings.length > 0 && <span className="text-amber-600 ml-1">⚠ {diagnostics.warnings.length} warning(s)</span>}
+                </div>
+            )}
+            <div className="max-h-[300px] overflow-y-auto border rounded-xl divide-y divide-border/30">
+                {parsedRows.map((row, i) => (
+                    <div key={i} className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-muted/30"
+                        onClick={() => setSelectedIds(prev => { const next = new Set(prev); if (next.has(i)) next.delete(i); else next.add(i); return next })}>
+                        <Checkbox checked={selectedIds.has(i)} onCheckedChange={() => { }} />
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm truncate">{row.description}</p>
+                            <p className="text-xs text-muted-foreground">{row.date}</p>
+                        </div>
+                        <span className={cn("text-sm font-medium tabular-nums shrink-0", row.amount < 0 ? "text-rose-500" : "text-emerald-500")}>
+                            {row.amount < 0 ? "" : "+"}{formatCurrency(row.amount)}
+                        </span>
+                    </div>
+                ))}
+            </div>
+            <div className="flex items-center justify-between border-t pt-3">
+                <p className="text-sm text-muted-foreground">{selectedIds.size} selected ({formatCurrency(selectedTotal)})</p>
+                <Button disabled={selectedIds.size === 0} size="sm" onClick={() => onContinue(selectedRows)}>Continue to Attribution →</Button>
+            </div>
+        </div>
+    )
+}
+
+// ─── Custom Expense Step ──────────────────────────────────────────────────────
+
+function CustomExpenseStep({ members, currentUserId, roomId, onSaved }: {
+    members: RoomMember[]
+    currentUserId: string
+    roomId: string
+    onSaved: () => void
+}) {
+    const [description, setDescription] = useState("")
+    const [amount, setAmount] = useState("")
+    const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
+    const [paidBy, setPaidBy] = useState(() => currentUserId)
+    const [splitWith, setSplitWith] = useState<Set<string>>(() => new Set(members.map(m => m.user_id)))
+    // splitAmounts: always visible, pre-filled with equal split, user can edit freely
+    const [splitAmounts, setSplitAmounts] = useState<Record<string, string>>({})
+    const [splitMode, setSplitMode] = useState<"equal" | "amounts" | "pct">("equal")
+    const [inputPcts, setInputPcts] = useState<Record<string, string>>({})
+    const [alsoTrackPersonal, setAlsoTrackPersonal] = useState(false)
+    const [isSaving, setIsSaving] = useState(false)
+    const { formatCurrency } = useCurrency()
+
+    const totalAmt = parseFloat(amount)
+    const splitMembers = [...splitWith]
+
+    const equalShare = (splitMembers.length > 0 && !isNaN(totalAmt) && totalAmt > 0) ? totalAmt / splitMembers.length : 0
+    const defaultPct = splitMembers.length > 0 ? 100 / splitMembers.length : 0
+
+    // Amounts tab: live sum (blank = equalShare)
+    const currentSum = splitMembers.reduce((s, uid) => {
+        const raw = splitAmounts[uid]
+        return s + (raw !== undefined && raw !== "" ? (parseFloat(raw) || 0) : equalShare)
+    }, 0)
+    const sumOk = !isNaN(totalAmt) && totalAmt > 0 && Math.abs(currentSum - totalAmt) < 0.02
+
+    // Pct tab: live pct total (blank = defaultPct)
+    const pctSum = splitMembers.reduce((s, uid) => {
+        const raw = inputPcts[uid]
+        return s + (raw !== undefined && raw !== "" ? (parseFloat(raw) || 0) : defaultPct)
+    }, 0)
+    const pctOk = Math.abs(pctSum - 100) < 0.5
+
+    const quickFill = (divisor: number) => {
+        if (isNaN(totalAmt) || totalAmt <= 0) return
+        const amt = totalAmt / divisor
+        const next: Record<string, string> = {}
+        splitMembers.forEach(uid => { next[uid] = amt.toFixed(2) })
+        setSplitAmounts(next)
+    }
+
+    const handleSplitModeChange = (mode: "equal" | "amounts" | "pct") => {
+        setSplitMode(mode)
+        if (mode === "equal") { setSplitAmounts({}); setInputPcts({}) }
+    }
+
+    const handlePaidByChange = (uid: string) => {
+        setPaidBy(uid)
+        if (uid !== currentUserId) setAlsoTrackPersonal(false)
+    }
+
+    const toggleSplit = (uid: string) => {
+        setSplitWith(prev => {
+            const next = new Set(prev)
+            if (next.has(uid) && next.size > 1) next.delete(uid)
+            else next.add(uid)
+            return next
+        })
+        setSplitAmounts({})
+        setInputPcts({})
+        setSplitMode("equal")
+    }
+
+    const handleSave = async () => {
+        if (!description.trim()) { toast.error("Description is required"); return }
+        if (isNaN(totalAmt) || totalAmt <= 0) { toast.error("Enter a valid amount"); return }
+
+        const perPerson = Math.round((totalAmt / splitMembers.length) * 100) / 100
+
+        let splits: { user_id: string; amount: number }[]
+
+        if (splitMode === "equal") {
+            splits = splitMembers.map((uid, i) => ({
+                user_id: uid,
+                amount: i === 0
+                    ? Math.round((totalAmt - perPerson * (splitMembers.length - 1)) * 100) / 100
+                    : perPerson,
+            }))
+        } else if (splitMode === "amounts") {
+            splits = splitMembers.map((uid, i) => {
+                const raw = splitAmounts[uid]
+                if (raw !== undefined && raw !== "") return { user_id: uid, amount: parseFloat(raw) || 0 }
+                return {
+                    user_id: uid,
+                    amount: i === splitMembers.length - 1
+                        ? Math.round((totalAmt - perPerson * (splitMembers.length - 1)) * 100) / 100
+                        : perPerson,
+                }
+            })
+        } else {
+            splits = splitMembers.map(uid => {
+                const pStr = inputPcts[uid]
+                const pct = pStr !== undefined && pStr !== "" ? (parseFloat(pStr) || 0) : defaultPct
+                return { user_id: uid, amount: Math.round(totalAmt * pct / 100 * 100) / 100 }
+            })
+        }
+
+        const splitsTotal = splits.reduce((s, sp) => s + sp.amount, 0)
+        if (Math.abs(splitsTotal - totalAmt) >= 0.02) {
+            toast.error(`Split amounts sum to ${formatCurrency(splitsTotal)}, expected ${formatCurrency(totalAmt)}`)
+            return
+        }
+
+        setIsSaving(true)
+        try {
+            const res = await demoFetch(`/api/rooms/${roomId}/transactions`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    description: description.trim(),
+                    total_amount: totalAmt,
+                    transaction_date: date,
+                    split_type: "custom",
+                    source_type: "manual",
+                    paid_by: paidBy,
+                    splits,
+                    also_track_personal: alsoTrackPersonal && paidBy === currentUserId,
+                }),
+            })
+            if (!res.ok) { const json = await res.json(); toast.error(json.error ?? "Failed to save expense"); return }
+            toast.success("Expense added to room")
+            onSaved()
+        } finally { setIsSaving(false) }
+    }
+
+    return (
+        <div className="space-y-5">
+            <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Description</Label>
+                <Input placeholder="e.g. Dinner, Groceries, Hotel..." value={description} onChange={e => setDescription(e.target.value)} autoFocus />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                    <Label className="text-xs font-medium">Amount</Label>
+                    <Input type="number" min="0" step="0.01" placeholder="0.00" value={amount} onChange={e => { setAmount(e.target.value); setSplitAmounts({}) }} />
+                </div>
+                <div className="space-y-1.5">
+                    <Label className="text-xs font-medium">Date</Label>
+                    <Input type="date" value={date} onChange={e => setDate(e.target.value)} />
+                </div>
+            </div>
+            <Separator />
+            <div className="space-y-2">
+                <Label className="text-xs font-medium">Paid by</Label>
+                <div className="flex flex-wrap gap-2">
+                    {members.map(m => (
+                        <button key={m.user_id} type="button" onClick={() => handlePaidByChange(m.user_id)}
+                            className={cn("flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-all",
+                                paidBy === m.user_id ? "bg-primary text-primary-foreground border-primary" : "border-border/60 hover:border-primary/50 hover:bg-muted/60")}>
+                            <Avatar className="w-5 h-5">
+                                <AvatarImage src={m.avatar_url || undefined} />
+                                <AvatarFallback className="text-[9px]">{m.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                            {m.display_name.split(" ")[0]}
+                            {m.user_id === currentUserId && <span className="opacity-60">(you)</span>}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* ── Split section ── */}
+            <div className="space-y-3">
+                <Label className="text-xs font-medium">Split between</Label>
+
+                {/* Member chips — click to include/exclude */}
+                <div className="flex flex-wrap gap-2">
+                    {members.map(m => {
+                        const checked = splitWith.has(m.user_id)
+                        return (
+                            <button key={m.user_id} type="button" onClick={() => toggleSplit(m.user_id)}
+                                className={cn("flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-all",
+                                    checked ? "bg-primary/10 text-primary border-primary/40" : "border-border/60 text-muted-foreground hover:border-primary/30 hover:bg-muted/50")}>
+                                <Avatar className="w-5 h-5">
+                                    <AvatarImage src={m.avatar_url || undefined} />
+                                    <AvatarFallback className="text-[9px]">{m.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                </Avatar>
+                                {m.display_name.split(" ")[0]}
+                            </button>
+                        )
+                    })}
+                </div>
+
+                {/* Split type tabs */}
+                {splitMembers.length > 1 && (
+                    <div className="space-y-3">
+                        <div className="flex gap-1">
+                            {(["equal", "amounts", "pct"] as const).map(mode => (
+                                <button key={mode} type="button"
+                                    onClick={() => handleSplitModeChange(mode)}
+                                    className={cn(
+                                        "px-3 py-1 rounded-full text-xs font-medium transition-all",
+                                        splitMode === mode
+                                            ? "bg-primary text-primary-foreground"
+                                            : "bg-muted text-muted-foreground hover:bg-muted/80"
+                                    )}>
+                                    {mode === "equal" ? "Equal" : mode === "amounts" ? "Amounts" : "Percentages"}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Equal: read-only display */}
+                        {splitMode === "equal" && equalShare > 0 && (
+                            <div className="flex flex-wrap gap-x-5 gap-y-2 px-1">
+                                {splitMembers.map(uid => {
+                                    const m = members.find(mb => mb.user_id === uid)
+                                    if (!m) return null
+                                    const firstName = uid === currentUserId ? "You" : m.display_name.split(" ")[0]
+                                    return (
+                                        <div key={uid} className="flex items-center gap-2">
+                                            <Avatar className="w-6 h-6 shrink-0">
+                                                <AvatarImage src={m.avatar_url || undefined} />
+                                                <AvatarFallback className="text-[9px]">{m.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                            </Avatar>
+                                            <span className="text-sm font-medium">{firstName}</span>
+                                            <span className="text-sm tabular-nums font-semibold text-primary">{formatCurrency(equalShare)}</span>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        )}
+
+                        {/* Amounts: quick-fill + input rows */}
+                        {splitMode === "amounts" && (
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-xs text-muted-foreground">Quick:</span>
+                                    {[2, 3, 4].map(n => (
+                                        <button key={n} type="button" onClick={() => quickFill(n)}
+                                            className="px-2.5 py-1 rounded-md text-xs font-medium bg-muted hover:bg-muted/80 border border-border/40 transition-colors tabular-nums">
+                                            ÷{n}{equalShare > 0 ? ` · ${formatCurrency(totalAmt / n)}` : ""}
+                                        </button>
+                                    ))}
+                                </div>
+                                <div className="rounded-xl border border-border/50 divide-y divide-border/30 overflow-hidden">
+                                    {splitMembers.map(uid => {
+                                        const m = members.find(mb => mb.user_id === uid)
+                                        if (!m) return null
+                                        const firstName = uid === currentUserId ? "You" : m.display_name.split(" ")[0]
+                                        return (
+                                            <div key={uid} className="flex items-center gap-3 px-3 py-2.5 bg-muted/10">
+                                                <Avatar className="w-7 h-7 shrink-0">
+                                                    <AvatarImage src={m.avatar_url || undefined} />
+                                                    <AvatarFallback className="text-[10px] font-semibold">{m.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                                </Avatar>
+                                                <span className="text-sm font-medium flex-1 truncate">{firstName}</span>
+                                                <Input
+                                                    type="number" min="0" step="0.01"
+                                                    placeholder={equalShare > 0 ? equalShare.toFixed(2) : "0.00"}
+                                                    className="h-8 w-28 text-sm tabular-nums text-right"
+                                                    value={splitAmounts[uid] ?? ""}
+                                                    onChange={e => setSplitAmounts(prev => ({ ...prev, [uid]: e.target.value }))}
+                                                />
+                                            </div>
+                                        )
+                                    })}
+                                    {!isNaN(totalAmt) && totalAmt > 0 && (
+                                        <div className={cn("flex items-center justify-between px-3 py-2 text-xs font-medium",
+                                            sumOk ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-amber-500/10 text-amber-600 dark:text-amber-400")}>
+                                            <span>{sumOk ? "✓ Splits match total" : `Sum: ${formatCurrency(currentSum)}`}</span>
+                                            <span className="tabular-nums">{formatCurrency(totalAmt)} total</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Percentages: pct inputs + live dollar preview */}
+                        {splitMode === "pct" && (
+                            <div className="rounded-xl border border-border/50 divide-y divide-border/30 overflow-hidden">
+                                {splitMembers.map(uid => {
+                                    const m = members.find(mb => mb.user_id === uid)
+                                    if (!m) return null
+                                    const firstName = uid === currentUserId ? "You" : m.display_name.split(" ")[0]
+                                    const pStr = inputPcts[uid]
+                                    const pct = pStr !== undefined && pStr !== "" ? (parseFloat(pStr) || 0) : defaultPct
+                                    const computed = !isNaN(totalAmt) ? totalAmt * pct / 100 : 0
+                                    return (
+                                        <div key={uid} className="flex items-center gap-3 px-3 py-2.5 bg-muted/10">
+                                            <Avatar className="w-7 h-7 shrink-0">
+                                                <AvatarImage src={m.avatar_url || undefined} />
+                                                <AvatarFallback className="text-[10px] font-semibold">{m.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                            </Avatar>
+                                            <span className="text-sm font-medium flex-1 truncate">{firstName}</span>
+                                            <span className="text-sm tabular-nums text-muted-foreground w-16 text-right shrink-0">
+                                                {formatCurrency(computed)}
+                                            </span>
+                                            <div className="flex items-center gap-0.5 shrink-0">
+                                                <Input
+                                                    type="number" min="0" max="100" step="1"
+                                                    placeholder={defaultPct.toFixed(1)}
+                                                    className="h-8 w-20 text-sm tabular-nums text-right"
+                                                    value={inputPcts[uid] ?? ""}
+                                                    onChange={e => setInputPcts(prev => ({ ...prev, [uid]: e.target.value }))}
+                                                />
+                                                <span className="text-sm text-muted-foreground pl-0.5">%</span>
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                                <div className={cn("flex items-center justify-between px-3 py-2 text-xs font-medium",
+                                    pctOk ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-amber-500/10 text-amber-600 dark:text-amber-400")}>
+                                    <span>{pctOk ? "✓ 100% allocated" : `Total: ${pctSum.toFixed(1)}%`}</span>
+                                    <span className="tabular-nums">{!isNaN(totalAmt) && totalAmt > 0 ? formatCurrency(totalAmt) : "—"} total</span>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+            {paidBy === currentUserId && (
+                <div className="flex items-start gap-3 px-3 py-3 rounded-xl border border-border/40 bg-muted/20">
+                    <Checkbox
+                        id="also-track-personal"
+                        checked={alsoTrackPersonal}
+                        onCheckedChange={(checked) => setAlsoTrackPersonal(checked === true)}
+                        className="mt-0.5"
+                    />
+                    <div className="space-y-0.5">
+                        <Label htmlFor="also-track-personal" className="text-sm font-medium cursor-pointer">
+                            Also add to my personal transactions
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                            Turn on if you won't import this from your bank
+                        </p>
+                    </div>
+                </div>
+            )}
+            <Button className="w-full" onClick={handleSave} disabled={isSaving}>{isSaving ? "Saving…" : "Add Expense"}</Button>
+        </div>
+    )
+}
+
+// ─── Main Dialog ─────────────────────────────────────────────────────────────
+
+export const AddToRoomDialog = memo(function AddToRoomDialog({
+    open,
+    onOpenChange,
+    roomId,
+    members,
+    currentUserId,
+}: AddToRoomDialogProps) {
+    const queryClient = useQueryClient()
+    const [step, setStep] = useState<Step>("source")
+    const [browseTab, setBrowseTab] = useState<BrowseTab>("transactions")
+    const [pendingItems, setPendingItems] = useState<PendingItem[]>([])
+    const [sourceType, setSourceType] = useState<SourceType>("my-txns")
+    const [isSaving, setIsSaving] = useState(false)
+    const [receiptMeta, setReceiptMeta] = useState<{ store_name?: string | null; receipt_date?: string | null; total_amount?: number | null } | null>(null)
+    const [txnPaidBy, setTxnPaidBy] = useState(() => currentUserId)
+    const [txnSplitWith, setTxnSplitWith] = useState<string[]>(() => members.map(m => m.user_id))
+
+    const reset = () => {
+        setStep("source")
+        setPendingItems([])
+        setReceiptMeta(null)
+        setTxnPaidBy(currentUserId)
+        setTxnSplitWith(members.map(m => m.user_id))
+        setBrowseTab("transactions")
+    }
+
+    const handleOpenChange = (v: boolean) => { if (!v) reset(); onOpenChange(v) }
+
+    const handlePersonalTxsContinue = useCallback((
+        txs: { id: number; date: string; description: string; amount: number; category_name: string | null }[],
+        paidBy: string,
+        splitWith: string[],
+    ) => {
+        setTxnPaidBy(paidBy)
+        setTxnSplitWith(splitWith)
+        const items: PendingItem[] = txs.map(tx => ({
+            tempId: nanoid(),
+            name: tx.description,
+            amount: Math.abs(tx.amount),
+            category: tx.category_name,
+            date: tx.date,
+            original_tx_id: tx.id,
+            mode: splitWith.length > 1 ? "split" as AttributionMode : "mine" as AttributionMode,
+            splitMembers: splitWith,
+            splitAmounts: Object.fromEntries(splitWith.map(uid => [uid, Math.abs(tx.amount) / splitWith.length])),
+            assignedTo: paidBy !== currentUserId ? paidBy : "",
+        }))
+        setPendingItems(items)
+        setSourceType("my-txns")
+        setStep("attribute")
+    }, [currentUserId])
+
+    const handleReceiptContinue = useCallback((parsed: { store_name: string | null; receipt_date: string | null; total_amount: number | null; currency: string | null; items: ParsedReceiptItem[] }) => {
+        setReceiptMeta({ store_name: parsed.store_name, receipt_date: parsed.receipt_date, total_amount: parsed.total_amount })
+        const items: PendingItem[] = parsed.items.map(item => ({
+            tempId: nanoid(),
+            name: item.name,
+            amount: item.amount,
+            quantity: item.quantity,
+            category: item.category,
+            mode: "skip" as AttributionMode,
+            splitMembers: [],
+            splitAmounts: {},
+            assignedTo: "",
+        }))
+        setPendingItems(items)
+        setSourceType("receipt")
+        setStep("attribute")
+    }, [])
+
+    const handleStatementContinue = useCallback((rows: ParsedRow[]) => {
+        const items: PendingItem[] = rows.map(row => ({
+            tempId: nanoid(),
+            name: row.description,
+            amount: Math.abs(row.amount),
+            category: row.category,
+            date: row.date,
+            mode: "skip" as AttributionMode,
+            splitMembers: [],
+            splitAmounts: {},
+            assignedTo: "",
+        }))
+        setPendingItems(items)
+        setSourceType("statement")
+        setStep("attribute")
+    }, [])
+
+    const buildSplits = (item: PendingItem) => {
+        if (item.mode === "mine") return [{ user_id: currentUserId, amount: item.amount }]
+        if (item.mode === "split") return item.splitMembers.map(uid => ({ user_id: uid, amount: item.splitAmounts[uid] ?? 0 }))
+        if (item.mode === "other" && item.assignedTo) return [{ user_id: item.assignedTo, amount: item.amount }]
+        return []
+    }
+
+    const handleSave = async () => {
+        setIsSaving(true)
+        try {
+            if (sourceType === "receipt") {
+                const totalAmount = receiptMeta?.total_amount ?? pendingItems.reduce((s, it) => s + it.amount, 0)
+                const date = (receiptMeta?.receipt_date ?? new Date().toISOString()).slice(0, 10)
+                const description = receiptMeta?.store_name ?? "Receipt"
+
+                const res = await demoFetch(`/api/rooms/${roomId}/transactions`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        total_amount: totalAmount,
+                        description,
+                        transaction_date: date,
+                        split_type: "item_level",
+                        source_type: "receipt",
+                        splits: [],
+                        receipt_items: pendingItems.map(item => ({
+                            name: item.name,
+                            amount: item.amount,
+                            quantity: item.quantity ?? 1,
+                            category: item.category,
+                            splits: buildSplits(item),
+                        })),
+                    }),
+                })
+                if (!res.ok) { const json = await res.json(); toast.error(json.error ?? "Failed to save receipt"); return }
+            } else {
+                const transactions = pendingItems.map(item => ({
+                    total_amount: item.amount,
+                    description: item.name,
+                    category: item.category,
+                    transaction_date: (item.date ?? new Date().toISOString()).slice(0, 10),
+                    splits: buildSplits(item),
+                    ...(item.original_tx_id !== undefined && { original_tx_id: item.original_tx_id }),
+                }))
+
+                const res = await demoFetch(`/api/rooms/${roomId}/transactions/bulk`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        transactions,
+                        source_type: sourceType === "my-txns" ? "personal_import" : "statement",
+                        paid_by: sourceType === "my-txns" && txnPaidBy !== currentUserId ? txnPaidBy : undefined,
+                    }),
+                })
+                if (!res.ok) { const json = await res.json(); toast.error(json.error ?? "Failed to save transactions"); return }
+            }
+
+            queryClient.invalidateQueries({ queryKey: ["room-bundle", roomId] })
+            toast.success(`${pendingItems.length} transaction(s) added to room`)
+            handleOpenChange(false)
+        } finally { setIsSaving(false) }
+    }
+
+    const paidByMember = members.find(m => m.user_id === txnPaidBy) ?? null
+
+    const stepTitle: Record<Step, string> = {
+        source: "Add to Room",
+        "browse-expenses": "Expenses",
+        "upload-choose": "Upload Document",
+        "upload-receipt": "Upload Receipt",
+        "upload-statement": "Upload Statement",
+        attribute: "Attribute Transactions",
+        "custom-expense": "Quick Add Expense",
+    }
+
+    const getBackStep = (): Step | null => {
+        if (step === "source") return null
+        if (step === "attribute") {
+            if (sourceType === "my-txns" || sourceType === "my-receipts") return "browse-expenses"
+            if (sourceType === "receipt") return "upload-receipt"
+            return "upload-statement"
+        }
+        if (step === "upload-receipt" || step === "upload-statement") return "upload-choose"
+        return "source"
+    }
+
+    const isWide = step === "browse-expenses" || step === "attribute"
+
+    return (
+        <Dialog open={open} onOpenChange={handleOpenChange}>
+            <DialogContent className={cn("max-h-[92vh] overflow-y-auto", isWide ? "sm:max-w-2xl" : "sm:max-w-lg")}>
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                        {step !== "source" && (
+                            <button type="button"
+                                onClick={() => { const back = getBackStep(); if (back) setStep(back) }}
+                                className="text-muted-foreground hover:text-foreground transition-colors">
+                                <ArrowLeft className="w-4 h-4" />
+                            </button>
+                        )}
+                        {stepTitle[step]}
+                    </DialogTitle>
+                </DialogHeader>
+
+                <div className="mt-2">
+                    {/* ── Source Step: 3 options ── */}
+                    {step === "source" && (
+                        <div className="grid grid-cols-1 gap-3">
+                            {/* Quick Add */}
+                            <button type="button"
+                                onClick={() => setStep("custom-expense")}
+                                className="flex items-center gap-4 p-4 rounded-2xl border border-border/40 bg-muted/20 hover:bg-muted/50 hover:border-primary/40 transition-all text-left">
+                                <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                                    <PenLine className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <p className="font-medium text-sm">Quick Add</p>
+                                    <p className="text-xs text-muted-foreground">Manually enter an expense with split</p>
+                                </div>
+                            </button>
+
+                            {/* Expenses */}
+                            <button type="button"
+                                onClick={() => { setBrowseTab("transactions"); setStep("browse-expenses") }}
+                                className="flex items-center gap-4 p-4 rounded-2xl border border-border/40 bg-muted/20 hover:bg-muted/50 hover:border-primary/40 transition-all text-left">
+                                <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                                    <ClipboardList className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <p className="font-medium text-sm">Expenses</p>
+                                    <p className="text-xs text-muted-foreground">Browse your transactions or scanned receipts</p>
+                                </div>
+                            </button>
+
+                            {/* Upload */}
+                            <button type="button"
+                                onClick={() => setStep("upload-choose")}
+                                className="flex items-center gap-4 p-4 rounded-2xl border border-border/40 bg-muted/20 hover:bg-muted/50 hover:border-primary/40 transition-all text-left">
+                                <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                                    <Upload className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <p className="font-medium text-sm">Upload</p>
+                                    <p className="text-xs text-muted-foreground">Scan a receipt or upload a bank statement</p>
+                                </div>
+                            </button>
+                        </div>
+                    )}
+
+                    {/* ── Browse Expenses: Transactions | Receipts tabs ── */}
+                    {step === "browse-expenses" && (
+                        <div className="space-y-3">
+                            {/* Tab toggle */}
+                            <div className="flex items-center gap-1 p-1 rounded-full bg-muted/50 border w-max">
+                                <button type="button"
+                                    onClick={() => setBrowseTab("transactions")}
+                                    className={cn("rounded-full px-4 py-1.5 text-sm font-medium transition-all",
+                                        browseTab === "transactions" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
+                                    <span className="flex items-center gap-1.5"><ClipboardList className="w-3.5 h-3.5" /> Transactions</span>
+                                </button>
+                                <button type="button"
+                                    onClick={() => setBrowseTab("receipts")}
+                                    className={cn("rounded-full px-4 py-1.5 text-sm font-medium transition-all",
+                                        browseTab === "receipts" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
+                                    <span className="flex items-center gap-1.5"><Receipt className="w-3.5 h-3.5" /> Receipts</span>
+                                </button>
+                            </div>
+
+                            {browseTab === "transactions" && (
+                                <BrowseTransactionsStep
+                                    roomId={roomId}
+                                    members={members}
+                                    currentUserId={currentUserId}
+                                    onContinue={handlePersonalTxsContinue}
+                                />
+                            )}
+
+                            {browseTab === "receipts" && (
+                                <BrowseReceiptsStep
+                                    roomId={roomId}
+                                    members={members}
+                                    currentUserId={currentUserId}
+                                    onSaved={() => {
+                                        handleOpenChange(false)
+                                        queryClient.invalidateQueries({ queryKey: ["room-bundle", roomId] })
+                                        toast.success("Receipt items added to room")
+                                    }}
+                                />
+                            )}
+                        </div>
+                    )}
+
+                    {/* ── Upload Choose ── */}
+                    {step === "upload-choose" && (
+                        <div className="grid grid-cols-2 gap-3">
+                            <button type="button"
+                                onClick={() => { setSourceType("receipt"); setStep("upload-receipt") }}
+                                className="flex flex-col items-center gap-3 p-6 rounded-2xl border border-border/40 bg-muted/20 hover:bg-muted/50 hover:border-primary/40 transition-all">
+                                <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                                    <ScanLine className="w-6 h-6" />
+                                </div>
+                                <div className="text-center">
+                                    <p className="font-medium text-sm">Receipt</p>
+                                    <p className="text-xs text-muted-foreground mt-0.5">Photo or PDF of a receipt</p>
+                                </div>
+                            </button>
+                            <button type="button"
+                                onClick={() => { setSourceType("statement"); setStep("upload-statement") }}
+                                className="flex flex-col items-center gap-3 p-6 rounded-2xl border border-border/40 bg-muted/20 hover:bg-muted/50 hover:border-primary/40 transition-all">
+                                <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                                    <FileSpreadsheet className="w-6 h-6" />
+                                </div>
+                                <div className="text-center">
+                                    <p className="font-medium text-sm">Bank Statement</p>
+                                    <p className="text-xs text-muted-foreground mt-0.5">CSV, XLSX or PDF</p>
+                                </div>
+                            </button>
+                        </div>
+                    )}
+
+                    {/* ── Custom Expense ── */}
+                    {step === "custom-expense" && (
+                        <CustomExpenseStep members={members} currentUserId={currentUserId} roomId={roomId}
+                            onSaved={() => {
+                                handleOpenChange(false)
+                                queryClient.invalidateQueries({ queryKey: ["room-bundle", roomId] })
+                                toast.success("Room updated")
+                            }} />
+                    )}
+
+                    {/* ── Upload Receipt ── */}
+                    {step === "upload-receipt" && (
+                        <ReceiptUploadStep roomId={roomId} onContinue={handleReceiptContinue} />
+                    )}
+
+                    {/* ── Upload Statement ── */}
+                    {step === "upload-statement" && (
+                        <StatementUploadStep roomId={roomId} onContinue={handleStatementContinue} />
+                    )}
+
+                    {/* ── Attribution ── */}
+                    {step === "attribute" && (
+                        <div className="space-y-4">
+                            <AttributionStep
+                                items={pendingItems}
+                                members={members}
+                                currentUserId={currentUserId}
+                                paidByUserId={txnPaidBy}
+                                paidByMember={paidByMember}
+                                onChange={setPendingItems}
+                            />
+                            <Button className="w-full" onClick={handleSave} disabled={isSaving}>
+                                {isSaving ? "Saving..." : `Save Attribution (${pendingItems.length} items)`}
+                            </Button>
+                        </div>
+                    )}
+                </div>
+            </DialogContent>
+        </Dialog>
+    )
+})
+
+AddToRoomDialog.displayName = "AddToRoomDialog"

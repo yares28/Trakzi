@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { IconAlertTriangle, IconDatabase } from "@tabler/icons-react"
 
 import { Badge } from "@/components/ui/badge"
+import { ArrowLeftRight } from "lucide-react"
 import type { TransactionLimitExceededData } from "@/components/limits/transaction-limit-dialog"
 import type { CategoryLimitExceededData } from "@/components/limits/category-limit-dialog"
 import { useCurrency } from "@/components/currency-provider"
@@ -30,6 +31,8 @@ import {
   isDefaultReceiptType,
 } from "./utils/defaults"
 
+import { TransferReviewBanner } from "@/components/transfers/TransferReviewBanner"
+import { TransfersPanel } from "@/components/transfers/TransfersPanel"
 import { useCategoryManagement } from "./hooks/useCategoryManagement"
 import { useCategoryPreferences } from "./hooks/useCategoryPreferences"
 import { useStatementImport } from "./hooks/useStatementImport"
@@ -39,9 +42,12 @@ import { useReceiptTypeManagement } from "./hooks/useReceiptTypeManagement"
 import { useSearchPagination } from "./hooks/useSearchPagination"
 import { useStatementViewer } from "./hooks/useStatementViewer"
 
+type LibraryView = "library" | "transfers"
+
 export default function DataLibraryPage() {
   const { formatCurrency } = useCurrency()
   const [, startTransition] = useTransition()
+  const [view, setView] = useState<LibraryView>("library")
 
   const queryClient = useQueryClient()
   const {
@@ -140,6 +146,7 @@ export default function DataLibraryPage() {
       queryClient.invalidateQueries({ queryKey: ["transactions"] }),
       queryClient.invalidateQueries({ queryKey: ["trends-bundle"] }),
       queryClient.invalidateQueries({ queryKey: ["savings-bundle"] }),
+      queryClient.invalidateQueries({ queryKey: ["total-transaction-count"] }),
     ])
   }, [fetchLibraryData, queryClient])
 
@@ -245,23 +252,41 @@ export default function DataLibraryPage() {
       onDragOver={statementImport.handleDragOver}
       onDrop={statementImport.handleDrop}
     >
-      <div className="@container/main flex flex-1 flex-col gap-2">
-        <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+      <div className="@container/main flex flex-1 flex-col gap-2 overflow-y-auto">
+        <div className="flex flex-col gap-4 pb-4 md:gap-6 md:pb-6">
           <section className="px-4 lg:px-6">
-            <div className="flex flex-col justify-between gap-4 rounded-3xl border bg-muted/30 px-6 py-6 lg:flex-row lg:items-center">
+            <div className="rounded-3xl border bg-muted/30 px-4 py-6 lg:px-6 lg:py-6">
               <div className="space-y-2">
-                <Badge variant="outline" className="gap-1 px-3 py-1 text-sm">
-                  <IconDatabase className="size-4" />
-                  Unified Library
-                </Badge>
-                <h1 className="text-3xl font-semibold tracking-tight">
-                  Data Library
-                </h1>
-                <p className="text-muted-foreground max-w-2xl">
-                  Live view of every dataset powered by your statements,
-                  ledger, and AI interpretations. Tap into real backend
-                  telemetry without leaving the dashboard.
-                </p>
+                {view === "library" ? (
+                  <>
+                    <Badge variant="outline" className="gap-1 px-3 py-1 text-sm">
+                      <IconDatabase className="size-4" />
+                      Unified Library
+                    </Badge>
+                    <h1 className="text-3xl font-semibold tracking-tight">
+                      Data Library
+                    </h1>
+                    <p className="text-muted-foreground max-w-2xl">
+                      Live view of every dataset powered by your statements,
+                      ledger, and AI interpretations. Tap into real backend
+                      telemetry without leaving the dashboard.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <Badge variant="outline" className="gap-1 px-3 py-1 text-sm">
+                      <ArrowLeftRight className="size-4" />
+                      Transfers
+                    </Badge>
+                    <h1 className="text-3xl font-semibold tracking-tight">
+                      Transfers
+                    </h1>
+                    <p className="text-muted-foreground max-w-2xl">
+                      Internal moves between your accounts. Confirming a
+                      transfer removes both legs from spending and income totals.
+                    </p>
+                  </>
+                )}
               </div>
             </div>
             {error && !error.toLowerCase().includes("authentication") && (
@@ -285,6 +310,37 @@ export default function DataLibraryPage() {
               </div>
             )}
           </section>
+
+          <section className="px-4 lg:px-6">
+            <div className="flex justify-center">
+              <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/50 border">
+                <button
+                  type="button"
+                  onClick={() => setView("library")}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${view === "library" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  Library
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setView("transfers")}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${view === "transfers" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  Transfers
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {view === "transfers" ? (
+            <section className="px-4 lg:px-6">
+              <TransfersPanel hideHeader />
+            </section>
+          ) : (
+            <>
+          <div className="px-4 lg:px-6">
+            <TransferReviewBanner />
+          </div>
 
           <StatsCards
             transactions={transactions}
@@ -427,6 +483,8 @@ export default function DataLibraryPage() {
               />
             </div>
           </section>
+            </>
+          )}
 
         </div>
       </div>
@@ -557,7 +615,7 @@ export default function DataLibraryPage() {
       <StatementUploadDialog
         open={statementImport.isUploadDialogOpen}
         onOpenChange={statementImport.setIsUploadDialogOpen}
-        droppedFile={statementImport.droppedFile}
+        pendingFiles={statementImport.pendingFiles}
         isParsing={statementImport.isParsing}
         parsingProgress={statementImport.parsingProgress}
         parseError={statementImport.parseError}
@@ -566,6 +624,8 @@ export default function DataLibraryPage() {
         onFilesChange={(files) => statementImport.handleFilesChange(files)}
         onCancel={statementImport.handleCancelUpload}
         onContinue={statementImport.handleContinueUpload}
+        accountId={statementImport.accountId}
+        onAccountChange={statementImport.setAccountId}
       />
 
       <DataLibraryStatementReviewDialog
@@ -596,6 +656,7 @@ export default function DataLibraryPage() {
         setIsCategoryLimitDialogOpen={setIsCategoryLimitDialogOpen}
         setCategoryLimitData={setCategoryLimitData}
       />
+
     </DataLibraryLayout>
   )
 }

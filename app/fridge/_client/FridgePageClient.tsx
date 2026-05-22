@@ -20,6 +20,8 @@ import { UploadDialog } from "./components/UploadDialog"
 import { ReviewDialog } from "./components/ReviewDialog"
 import { CreateCategoryDialog } from "./components/CreateCategoryDialog"
 import { LimitDialogs } from "./components/LimitDialogs"
+import { ChartShoppingHeatmapHoursDaysFridge } from "@/components/fridge/chart-shopping-heatmap-hours-days-fridge"
+import { ChartShoppingHeatmapDaysMonthsFridge } from "@/components/fridge/chart-shopping-heatmap-days-months-fridge"
 import { useChartLayout } from "./hooks/useChartLayout"
 import { useFridgeChartData } from "./hooks/useFridgeChartData"
 import { useFridgeData } from "./hooks/useFridgeData"
@@ -27,13 +29,15 @@ import { useFridgeMetrics } from "./hooks/useFridgeMetrics"
 import { useReceiptCategoryManagement } from "./hooks/useReceiptCategoryManagement"
 import { useReceiptUpload } from "./hooks/useReceiptUpload"
 import { useReviewDialog } from "./hooks/useReviewDialog"
+import { OnboardingTour } from "@/components/onboarding/onboarding-tour"
+import { useOnboarding } from "@/components/onboarding/onboarding-context"
 
 type FridgeViewMode = "fridge" | "advanced" | "trends"
 
 export function FridgePageClient() {
   const { user, isLoaded: isUserLoaded } = useUser()
   const { filter: dateFilter } = useDateFilter()
-  const { data: bundleData, isLoading: bundleLoading, refetch: refetchBundle } = useFridgeBundleData()
+  const { data: bundleData, isLoading: bundleLoading, isError: bundleError, refetch: refetchBundle } = useFridgeBundleData()
 
   const [receiptsRefreshNonce, setReceiptsRefreshNonce] = useState(0)
   const [limitExceededData, setLimitExceededData] = useState<TransactionLimitExceededData | null>(null)
@@ -46,7 +50,7 @@ export function FridgePageClient() {
     refreshNonce: receiptsRefreshNonce,
   })
 
-  const { metrics, metricsTrends } = useFridgeMetrics({
+  const { metrics, metricsTrends, metricsChanges } = useFridgeMetrics({
     bundleData,
     receiptTransactions,
   })
@@ -77,6 +81,7 @@ export function FridgePageClient() {
     onCommitSuccess: () => {
       setReceiptsRefreshNonce((prev) => prev + 1)
       refetchBundle()
+      completeChecklistItem("upload_receipt")
     },
     onLimitExceeded: handleLimitExceeded,
   })
@@ -96,41 +101,37 @@ export function FridgePageClient() {
       const pendingFile = (window as any).__pendingUploadFile
       const targetPage = (window as any).__pendingUploadTargetPage
 
-      console.log('[Fridge Upload] Checking for pending upload:', {
-        hasPendingFile: !!pendingFile,
-        targetPage,
-        alreadyProcessed: uploadProcessedRef.current,
-      })
-
       if (pendingFile && targetPage === "fridge" && !uploadProcessedRef.current) {
-        console.log('[Fridge Upload] Processing pending upload:', pendingFile.name)
-
         // Mark as processed to prevent re-running
         uploadProcessedRef.current = true
 
         // Clear the pending upload markers
         delete (window as any).__pendingUploadFile
         delete (window as any).__pendingUploadTargetPage
+        delete (window as any).__pendingUploadNeedsDetection
 
         // Open the upload dialog with the pending file
         upload.handleUploadFilesChange([pendingFile])
         upload.handleUploadDialogOpenChange(true)
 
-        console.log('[Fridge Upload] Dialog state set to open')
         return true
       }
       return false
     }
 
-    // Check immediately
-    if (checkPendingUpload()) return
+    checkPendingUpload()
 
     // Also check after a short delay in case of timing issues
     const timeoutId = setTimeout(() => {
       checkPendingUpload()
     }, 100)
 
-    return () => clearTimeout(timeoutId)
+    window.addEventListener("trakzi:pending-upload", checkPendingUpload)
+
+    return () => {
+      clearTimeout(timeoutId)
+      window.removeEventListener("trakzi:pending-upload", checkPendingUpload)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // Only run on mount to avoid performance issues
 
@@ -174,6 +175,12 @@ export function FridgePageClient() {
 
   const isChartsLoading = bundleLoading || isLoadingReceiptTransactions
 
+  const { completeChecklistItem } = useOnboarding()
+
+  useEffect(() => {
+    completeChecklistItem("explore_fridge")
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   const [viewMode, setViewMode] = useState<FridgeViewMode>("fridge")
   const handleViewModeChange = useCallback((mode: FridgeViewMode) => {
     setViewMode(mode)
@@ -188,49 +195,51 @@ export function FridgePageClient() {
       onDrop={upload.handleUploadDrop}
     >
       <div className="@container/main flex flex-1 flex-col gap-2 min-w-0">
-        <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6 min-w-0 w-full">
-          <MetricsCards metrics={metrics} metricsTrends={metricsTrends} />
+        <div className="flex flex-col gap-4 pb-4 md:gap-6 md:pb-6 min-w-0 w-full">
+          <MetricsCards metrics={metrics} metricsTrends={metricsTrends} metricsChanges={metricsChanges} receiptTransactions={receiptTransactions} isLoading={isChartsLoading} />
 
-          {/* Fridge / Advanced / Trends switch */}
+          {/* Fridge / Advanced / Trends switch - Horizontal scroll on mobile */}
           <section>
-            <div className="relative flex items-center justify-center">
-              <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/50 border">
-                <button
-                  type="button"
-                  onClick={() => handleViewModeChange("fridge")}
-                  className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
-                    viewMode === "fridge"
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  Fridge
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleViewModeChange("advanced")}
-                  className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
-                    viewMode === "advanced"
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  Advanced
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleViewModeChange("trends")}
-                  className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
-                    viewMode === "trends"
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  Trends
-                </button>
+            <div className="overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden -mx-4 px-4 lg:mx-0 lg:px-0">
+              <div className="relative flex items-center justify-center">
+                <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/50 border w-max min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => handleViewModeChange("fridge")}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap shrink-0",
+                      viewMode === "fridge"
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    Fridge
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleViewModeChange("advanced")}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap shrink-0",
+                      viewMode === "advanced"
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    Advanced
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleViewModeChange("trends")}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap shrink-0",
+                      viewMode === "trends"
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    Trends
+                  </button>
+                </div>
               </div>
             </div>
           </section>
@@ -246,6 +255,7 @@ export function FridgePageClient() {
                 receiptTransactions={receiptTransactions}
                 dateFilter={dateFilter}
                 isLoading={isChartsLoading}
+                isError={bundleError}
               />
 
               <ReceiptsTable
@@ -259,22 +269,27 @@ export function FridgePageClient() {
           )}
 
           {viewMode === "advanced" && (
-            <section>
-              <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-1">
-                <Card className="@container/card h-full flex flex-col">
-                  <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-                    <div className="flex items-center gap-2">
-                      <CardTitle className="text-base font-medium">
-                        Advanced Fridge
-                      </CardTitle>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1">
-                    <div className="h-[250px] w-full flex items-center justify-center text-sm text-muted-foreground">
-                      This area is ready for advanced fridge analytics.
-                    </div>
-                  </CardContent>
-                </Card>
+            <section className="px-4 lg:px-6">
+              {/*
+                Advanced Fridge tab houses heatmap-style charts that are too dense
+                for the main grid. Moved here from the main view: Shopping Hours
+                Heatmap (hour × day) and Monthly Shopping Patterns (day × month).
+              */}
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 min-w-0">
+                <div className="lg:col-span-6">
+                  <ChartShoppingHeatmapHoursDaysFridge
+                    receiptTransactions={receiptTransactions}
+                    hourDayHeatmapData={chartData.hourDayHeatmapData}
+                    isLoading={isChartsLoading}
+                  />
+                </div>
+                <div className="lg:col-span-6">
+                  <ChartShoppingHeatmapDaysMonthsFridge
+                    receiptTransactions={receiptTransactions}
+                    dayMonthHeatmapData={chartData.dayMonthHeatmapData}
+                    isLoading={isChartsLoading}
+                  />
+                </div>
               </div>
             </section>
           )}
@@ -282,6 +297,8 @@ export function FridgePageClient() {
           {viewMode === "trends" && <FridgeTrendsTab />}
         </div>
       </div>
+
+      <OnboardingTour pageId="fridge" />
 
       <UploadDialog
         open={upload.isUploadDialogOpen}

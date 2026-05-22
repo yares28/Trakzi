@@ -8,6 +8,7 @@ import { useCurrency } from "@/components/currency-provider"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Skeleton } from "@/components/ui/skeleton"
 import { OtherTransactionsDialog } from "./OtherTransactionsDialog"
 
 export interface OtherCardData {
@@ -222,13 +223,13 @@ export const OtherCardsGrid = memo(function OtherCardsGrid({
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @md/main:grid-cols-2 @3xl/main:grid-cols-3">
-        {[1, 2, 3].map((i) => (
-          <Card key={i} className="overflow-hidden">
+        {[0, 1, 2].map((i) => (
+          <Card key={i} className="overflow-hidden animate-in fade-in duration-300" style={{ animationDelay: `${i * 80}ms`, animationFillMode: "both" }}>
             <CardContent className="p-4">
               <div className="flex flex-col gap-3">
-                <div className="h-3 w-12 rounded bg-muted animate-pulse" />
-                <div className="h-5 w-2/3 rounded bg-muted animate-pulse" />
-                <div className="h-6 w-1/3 rounded bg-muted animate-pulse" />
+                <Skeleton className="h-3 w-12 rounded" style={{ "--skeleton-delay": `${i * 80}ms` } as React.CSSProperties} />
+                <Skeleton className="h-5 w-2/3 rounded" style={{ "--skeleton-delay": `${i * 80 + 40}ms` } as React.CSSProperties} />
+                <Skeleton className="h-6 w-1/3 rounded" style={{ "--skeleton-delay": `${i * 80 + 80}ms` } as React.CSSProperties} />
               </div>
             </CardContent>
           </Card>
@@ -240,17 +241,26 @@ export const OtherCardsGrid = memo(function OtherCardsGrid({
   if (items.length === 0) {
     return (
       <div className="px-4 lg:px-6">
-        <Card className="flex flex-col items-center justify-center py-12">
-          <Package className="mb-4 h-12 w-12 text-muted-foreground" />
-          <p className="mb-4 text-center text-muted-foreground">No items added yet</p>
-          <p className="mb-6 max-w-md text-center text-sm text-muted-foreground">
-            Track other assets and their value. Add an item to get started.
-          </p>
-          <Button variant="outline" onClick={onOpenAdd}>
+        <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border py-14 text-center animate-in fade-in slide-in-from-bottom-2 duration-500">
+          <div className="relative">
+            <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-dashed border-border bg-[oklch(0.6716_0.1368_48.513/0.06)]">
+              <Package className="h-9 w-9" style={{ color: "oklch(0.6716 0.1368 48.513)" }} />
+            </div>
+            <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border border-border bg-card px-2.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+              ASSETS · NIL
+            </div>
+          </div>
+          <div className="mt-1">
+            <h3 className="text-base font-semibold">No items added yet</h3>
+            <p className="text-sm text-muted-foreground max-w-sm mx-auto mt-1.5">
+              Track other assets and their value. Add an item to get started.
+            </p>
+          </div>
+          <Button variant="outline" size="sm" onClick={onOpenAdd}>
             <Plus className="mr-2 h-4 w-4" />
             Add your first item
           </Button>
-        </Card>
+        </div>
       </div>
     )
   }

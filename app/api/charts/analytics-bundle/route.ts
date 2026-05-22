@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getCurrentUserId } from '@/lib/auth'
 import { getAnalyticsBundle, type AnalyticsSummary } from '@/lib/charts/aggregations'
+import { canonicalizeAccountFilter } from '@/lib/charts/account-filter'
 import { getCachedOrCompute, buildCacheKey, CACHE_TTL } from '@/lib/cache/upstash'
 import { autoEnforceTransactionCap } from '@/lib/limits/auto-enforce-cap'
 import { neonQuery } from '@/lib/neonClient'
@@ -16,21 +17,31 @@ export const GET = async (request: Request) => {
             return createRateLimitResponse(rateLimitResult.resetIn)
         }
 
-        // Automatically enforce transaction cap on page load
-        // This ensures users who exceed limits (e.g., after downgrade) are brought back within limits
-        await autoEnforceTransactionCap(userId, true)
-
-        // Get filter from query params
+        // Get filter + effective cost mode + account filter from query params
         const { searchParams } = new URL(request.url)
         const filter = searchParams.get('filter')
+        const useEffectiveCost = searchParams.get('effective_cost') !== '0'
+        const accountsParam = searchParams.get('accounts')
+        const accountIds = canonicalizeAccountFilter(
+            accountsParam ? accountsParam.split(',').filter(Boolean) : null
+        )
 
-        // Build cache key
-        const cacheKey = buildCacheKey('analytics', userId, filter, 'bundle')
+        // Build cache key (include ec flag + account filter to avoid stale cross-mode cache hits)
+        const cacheKey = buildCacheKey(
+            'analytics',
+            userId,
+            filter,
+            useEffectiveCost ? 'bundle-ec1' : 'bundle-ec0',
+            accountIds
+        )
 
-        // Try cache first, otherwise compute
+        // Fire cap enforcement in the background — the result is never used to gate
+        // the response so there is no reason to await it at all.
+        void autoEnforceTransactionCap(userId, true)
+
         const data = await getCachedOrCompute<AnalyticsSummary>(
             cacheKey,
-            () => getAnalyticsBundle(userId!, filter),
+            () => getAnalyticsBundle(userId!, filter, useEffectiveCost, accountIds),
             CACHE_TTL.analytics
         )
 

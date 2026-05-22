@@ -1,12 +1,10 @@
 "use client"
-
 import { useMemo, useState, useEffect } from "react"
 import { useTheme } from "next-themes"
 import { ResponsivePie } from "@nivo/pie"
 import {
     Card,
     CardContent,
-    CardDescription,
     CardHeader,
     CardTitle,
     CardAction,
@@ -18,7 +16,6 @@ import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
-
 interface ChartPaymentMethodsProps {
     data: Array<{
         date: string
@@ -27,7 +24,6 @@ interface ChartPaymentMethodsProps {
     }>
     isLoading?: boolean
 }
-
 export function ChartPaymentMethods({
     data,
     isLoading = false,
@@ -37,21 +33,16 @@ export function ChartPaymentMethods({
     const { formatCurrency } = useCurrency()
     const palette = getPalette()
     const [mounted, setMounted] = useState(false)
-
     useEffect(() => {
         setMounted(true)
     }, [])
-
     const chartData = useMemo(() => {
         if (!data || data.length === 0) return []
-
         const methodTotals = new Map<string, number>()
-
         // Try to detect payment method from description
         data.forEach((tx) => {
             if (tx.amount >= 0) return
             const desc = tx.description.toLowerCase()
-
             let method = 'Other'
             if (desc.includes('card') || desc.includes('visa') || desc.includes('mastercard') || desc.includes('amex')) {
                 method = 'Card'
@@ -68,10 +59,8 @@ export function ChartPaymentMethods({
             } else if (desc.includes('ach') || desc.includes('direct')) {
                 method = 'ACH/Direct'
             }
-
             methodTotals.set(method, (methodTotals.get(method) || 0) + Math.abs(tx.amount))
         })
-
         const paletteLength = palette?.length || 0
         return Array.from(methodTotals.entries())
             .sort((a, b) => b[1] - a[1])
@@ -83,15 +72,11 @@ export function ChartPaymentMethods({
                 color: paletteLength > 0 ? (palette[i % paletteLength] || "#6b7280") : "#6b7280",
             }))
     }, [data, palette])
-
     const isDark = resolvedTheme === "dark"
     const textColor = isDark ? "#9ca3af" : "#6b7280"
-
     const chartTitle = "Payment Methods"
     const chartDescription = "How you're paying - card, cash, transfers, and more."
-
     const total = chartData.reduce((sum, d) => sum + d.value, 0)
-
     const renderInfoTrigger = () => (
         <div className="flex flex-col items-center gap-2">
             <ChartInfoPopover
@@ -112,7 +97,6 @@ export function ChartPaymentMethods({
             />
         </div>
     )
-
     if (!mounted || chartData.length === 0) {
         return (
             <Card className="@container/card h-full flex flex-col">
@@ -130,7 +114,6 @@ export function ChartPaymentMethods({
             </Card>
         )
     }
-
     return (
         <Card className="@container/card h-full flex flex-col">
             <CardHeader>
@@ -139,10 +122,6 @@ export function ChartPaymentMethods({
                     <ChartFavoriteButton chartId="testCharts:paymentMethods" chartTitle={chartTitle} size="md" />
                     <CardTitle>{chartTitle}</CardTitle>
                 </div>
-                <CardDescription>
-                    <span className="hidden @[540px]/card:block">{chartDescription}</span>
-                    <span className="@[540px]/card:hidden">Payment breakdown</span>
-                </CardDescription>
                 <CardAction>{renderInfoTrigger()}</CardAction>
             </CardHeader>
             <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">

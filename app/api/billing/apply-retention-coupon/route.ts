@@ -5,6 +5,8 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { getStripe } from '@/lib/stripe';
 import { getUserSubscription } from '@/lib/subscriptions';
+import { checkRateLimit, createRateLimitResponse } from '@/lib/security/rate-limiter';
+import { getSubscriptionBlockReason } from '@/lib/billing-utils';
 
 export async function POST() {
     try {
@@ -17,7 +19,17 @@ export async function POST() {
             );
         }
 
+        const rateLimitResult = await checkRateLimit(userId, 'mutation');
+        if (rateLimitResult.limited) {
+            return createRateLimitResponse(rateLimitResult.resetIn);
+        }
+
         const subscription = await getUserSubscription(userId);
+
+        const blockReason = getSubscriptionBlockReason(subscription?.status);
+        if (blockReason) {
+            return NextResponse.json({ error: blockReason }, { status: 403 });
+        }
 
         if (!subscription || !subscription.stripeSubscriptionId) {
             return NextResponse.json(
@@ -35,25 +47,22 @@ export async function POST() {
 
         const stripe = getStripe();
 
-        // Create or retrieve a 30% off coupon for 1 month (duration: once)
-        // Check if coupon already exists
         let couponId = 'retention_30_off';
-        
+
         try {
-            // Try to retrieve existing coupon
             await stripe.coupons.retrieve(couponId);
-        } catch (error: any) {
-            // Coupon doesn't exist, create it
-            if (error.code === 'resource_missing') {
+        } catch (error: unknown) {
+            const e = error as { code?: string };
+            if (e.code === 'resource_missing') {
                 try {
                     await stripe.coupons.create({
                         id: couponId,
                         percent_off: 30,
-                        duration: 'once', // Applies to next invoice only (1 month)
+                        duration: 'once',
                         name: '30% Off - Stay One More Month',
                     });
                     console.log(`[Retention Coupon] Created coupon ${couponId}`);
-                } catch (createError: any) {
+                } catch (createError: unknown) {
                     console.error('[Retention Coupon] Failed to create coupon:', createError);
                     return NextResponse.json(
                         { error: 'Failed to create discount coupon. Please contact support.' },
@@ -69,7 +78,6 @@ export async function POST() {
             }
         }
 
-        // Apply coupon to subscription
         try {
             const updatedSubscription = await stripe.subscriptions.update(
                 subscription.stripeSubscriptionId,
@@ -80,7 +88,6 @@ export async function POST() {
                 }
             );
 
-            // Remove cancel_at_period_end if it was set
             if (updatedSubscription.cancel_at_period_end) {
                 await stripe.subscriptions.update(
                     subscription.stripeSubscriptionId,
@@ -97,17 +104,18 @@ export async function POST() {
                 message: '30% discount applied! Your next invoice will be discounted. Your subscription will continue.',
                 couponId,
             });
-        } catch (stripeError: any) {
+        } catch (stripeError: unknown) {
             console.error('[Retention Coupon] Failed to apply coupon:', stripeError);
             return NextResponse.json(
-                { error: stripeError.message || 'Failed to apply discount. Please contact support.' },
-                { status: 500 }
+                { error: 'Failed to apply discount. Please contact support.' },
+                { status: 400 }
             );
         }
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[Retention Coupon] Error:', error);
+        const msg = error instanceof Error ? error.message : '';
 
-        if (error.message?.includes('Stripe is not initialized')) {
+        if (msg.includes('Stripe is not initialized')) {
             return NextResponse.json(
                 { error: 'Payment system not configured. Please contact support.' },
                 { status: 503 }
@@ -115,9 +123,8 @@ export async function POST() {
         }
 
         return NextResponse.json(
-            { error: error.message || 'Failed to apply retention discount' },
+            { error: 'Failed to apply retention discount. Please try again or contact support.' },
             { status: 500 }
         );
     }
 }
-

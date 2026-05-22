@@ -1,10 +1,18 @@
 "use client"
 
-import { useRef } from "react"
-import { File, FileSpreadsheet, FileText, HelpCircle, Loader2, Trash2, Upload } from "lucide-react"
+import { useRef, useState } from "react"
+import { File, FileSpreadsheet, FileText, HelpCircle, Loader2, Plus, Trash2, Upload } from "lucide-react"
+import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import {
+    Drawer,
+    DrawerContent,
+    DrawerDescription,
+    DrawerHeader,
+    DrawerTitle,
+} from "@/components/ui/drawer"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -22,6 +30,22 @@ import {
     TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
+import { useAccounts, useCreateAccount } from "@/hooks/use-accounts"
+import { useIsMobile } from "@/hooks/use-mobile"
+import { usePlanFeatures } from "@/hooks/use-plan-features"
+import { AccountLimitDialog } from "@/components/limits/account-limit-dialog"
+import type { AccountType } from "@/lib/types/accounts"
+
+const CREATE_SENTINEL = "__create__"
+
+const ACCOUNT_TYPE_OPTIONS: { value: AccountType; label: string }[] = [
+    { value: "checking", label: "Checking / Debit" },
+    { value: "savings", label: "Savings" },
+    { value: "credit_card", label: "Credit card" },
+    { value: "cash", label: "Cash" },
+    { value: "investment", label: "Investment" },
+    { value: "loan", label: "Loan" },
+]
 
 export type FileUploadStatementLead = {
     id: string
@@ -39,6 +63,9 @@ export interface FileUploadStatementProps {
     projectName: string
     onProjectNameChange: (next: string) => void
     projectLead?: FileUploadStatementLead | null
+
+    accountId?: string | null
+    onAccountChange?: (id: string | null) => void
 
     accept?: string
     onFilesChange: (nextFiles: File[]) => void
@@ -75,7 +102,9 @@ export function FileUploadStatement({
     parsingStatus,
     projectName,
     onProjectNameChange,
-    projectLead,
+    projectLead: _projectLead,
+    accountId,
+    onAccountChange,
     accept = ".csv,.xlsx,.xls,.pdf,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/pdf",
     onFilesChange,
     onCancel,
@@ -83,6 +112,65 @@ export function FileUploadStatement({
     continueLabel = "Parse file",
 }: FileUploadStatementProps) {
     const fileInputRef = useRef<HTMLInputElement>(null)
+    const { data: accounts = [] } = useAccounts()
+    const isMobile = useIsMobile()
+    const planFeatures = usePlanFeatures()
+    const createAccount = useCreateAccount()
+
+    const [createOpen, setCreateOpen] = useState(false)
+    const [limitOpen, setLimitOpen] = useState(false)
+    const [newAccountName, setNewAccountName] = useState("")
+    const [newAccountType, setNewAccountType] = useState<AccountType>("checking")
+    const [newAccountInstitution, setNewAccountInstitution] = useState("")
+    const [newAccountCurrency, setNewAccountCurrency] = useState("EUR")
+
+    const maxAccounts = planFeatures?.maxAccounts ?? Infinity
+    const planName = planFeatures?.plan ?? "free"
+    const atAccountLimit = accounts.length >= maxAccounts
+
+    const resetCreateForm = () => {
+        setNewAccountName("")
+        setNewAccountType("checking")
+        setNewAccountInstitution("")
+        setNewAccountCurrency(accounts[0]?.currency ?? "EUR")
+    }
+
+    const openCreateFlow = () => {
+        if (atAccountLimit) {
+            setLimitOpen(true)
+            return
+        }
+        resetCreateForm()
+        setCreateOpen(true)
+    }
+
+    const handleCreateAccount = async () => {
+        const trimmedName = newAccountName.trim()
+        if (!trimmedName) {
+            toast.error("Account name is required")
+            return
+        }
+        try {
+            const account = await createAccount.mutateAsync({
+                name: trimmedName,
+                accountType: newAccountType,
+                currency: newAccountCurrency.trim().toUpperCase() || "EUR",
+                institution: newAccountInstitution.trim() || null,
+            })
+            onAccountChange?.(account.id)
+            setCreateOpen(false)
+            resetCreateForm()
+            toast.success(`${account.name} added`)
+        } catch (err: any) {
+            const message = err?.message ?? "Failed to create account"
+            if (message.toLowerCase().includes("limit") || message.toLowerCase().includes("reached")) {
+                setCreateOpen(false)
+                setLimitOpen(true)
+                return
+            }
+            toast.error(message)
+        }
+    }
 
     const handleFileSelect = (selected: FileList | null) => {
         if (!selected) return
@@ -107,9 +195,6 @@ export function FileUploadStatement({
     const removeFile = (fileKey: string) => {
         onFilesChange(files.filter((file) => getFileKey(file) !== fileKey))
     }
-
-    const leadLabel = projectLead?.name ?? "You"
-    const leadValue = projectLead?.id ?? "me"
 
     return (
         <Card className="w-full mx-auto max-w-xl bg-background rounded-lg p-0 shadow-2xl">
@@ -141,32 +226,52 @@ export function FileUploadStatement({
                         </div>
 
                         <div>
-                            <Label htmlFor="projectLead" className="mb-2">
-                                Project lead
+                            <Label htmlFor="accountPicker" className="mb-2">
+                                Account / Card
                             </Label>
-                            <Select value={leadValue} onValueChange={() => { }} disabled>
-                                <SelectTrigger id="projectLead" className="ps-2 w-full">
-                                    <SelectValue placeholder="Select project lead" />
+                            <Select
+                                value={accountId ?? undefined}
+                                onValueChange={(v) => {
+                                    if (v === CREATE_SENTINEL) {
+                                        openCreateFlow()
+                                        return
+                                    }
+                                    onAccountChange?.(v)
+                                }}
+                            >
+                                <SelectTrigger id="accountPicker" className="w-full">
+                                    <SelectValue placeholder={accounts.length === 0 ? "Create your first account" : "Pick an account"} />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectGroup>
-                                        <SelectItem value={leadValue}>
-                                            {projectLead?.imageUrl ? (
-                                                <img
-                                                    className="size-5 rounded"
-                                                    src={projectLead.imageUrl}
-                                                    alt={leadLabel}
-                                                    width={20}
-                                                    height={20}
-                                                />
-                                            ) : (
-                                                <div className="size-5 rounded bg-muted" />
-                                            )}
-                                            <span className="truncate">{leadLabel}</span>
+                                        {accounts.map((acc) => (
+                                            <SelectItem key={acc.id} value={acc.id}>
+                                                {acc.name}
+                                                {acc.institution ? ` · ${acc.institution}` : ""}
+                                            </SelectItem>
+                                        ))}
+                                        <SelectItem value={CREATE_SENTINEL} className="text-primary">
+                                            <Plus className="h-4 w-4" /> Create new account
                                         </SelectItem>
                                     </SelectGroup>
                                 </SelectContent>
                             </Select>
+                            {!isMobile && createOpen ? (
+                                <CreateAccountForm
+                                    name={newAccountName}
+                                    onNameChange={setNewAccountName}
+                                    type={newAccountType}
+                                    onTypeChange={setNewAccountType}
+                                    institution={newAccountInstitution}
+                                    onInstitutionChange={setNewAccountInstitution}
+                                    currency={newAccountCurrency}
+                                    onCurrencyChange={setNewAccountCurrency}
+                                    onCancel={() => setCreateOpen(false)}
+                                    onSubmit={handleCreateAccount}
+                                    submitting={createAccount.isPending}
+                                    className="mt-3"
+                                />
+                            ) : null}
                         </div>
                     </div>
                 </div>
@@ -202,7 +307,7 @@ export function FileUploadStatement({
                             ref={fileInputRef}
                             className="hidden"
                             accept={accept}
-                            multiple={false}
+                            multiple
                             onChange={(e) => handleFileSelect(e.target.files)}
                         />
                     </div>
@@ -313,6 +418,161 @@ export function FileUploadStatement({
                     </div>
                 </div>
             </CardContent>
+
+            {isMobile ? (
+                <Drawer
+                    open={createOpen}
+                    onOpenChange={(open) => {
+                        if (!createAccount.isPending) setCreateOpen(open)
+                    }}
+                >
+                    <DrawerContent>
+                        <DrawerHeader>
+                            <DrawerTitle>New account</DrawerTitle>
+                            <DrawerDescription>
+                                Add the bank, card, or cash pocket this statement belongs to.
+                            </DrawerDescription>
+                        </DrawerHeader>
+                        <div className="px-4 pb-4">
+                            <CreateAccountForm
+                                name={newAccountName}
+                                onNameChange={setNewAccountName}
+                                type={newAccountType}
+                                onTypeChange={setNewAccountType}
+                                institution={newAccountInstitution}
+                                onInstitutionChange={setNewAccountInstitution}
+                                currency={newAccountCurrency}
+                                onCurrencyChange={setNewAccountCurrency}
+                                onCancel={() => setCreateOpen(false)}
+                                onSubmit={handleCreateAccount}
+                                submitting={createAccount.isPending}
+                                buttonHeight="h-11"
+                            />
+                        </div>
+                    </DrawerContent>
+                </Drawer>
+            ) : null}
+
+            <AccountLimitDialog
+                open={limitOpen}
+                onOpenChange={setLimitOpen}
+                data={{
+                    plan: planName,
+                    current: accounts.length,
+                    max: maxAccounts === Infinity ? accounts.length : maxAccounts,
+                }}
+            />
         </Card>
+    )
+}
+
+interface CreateAccountFormProps {
+    name: string
+    onNameChange: (v: string) => void
+    type: AccountType
+    onTypeChange: (v: AccountType) => void
+    institution: string
+    onInstitutionChange: (v: string) => void
+    currency: string
+    onCurrencyChange: (v: string) => void
+    onCancel: () => void
+    onSubmit: () => void
+    submitting: boolean
+    className?: string
+    buttonHeight?: string
+}
+
+function CreateAccountForm({
+    name,
+    onNameChange,
+    type,
+    onTypeChange,
+    institution,
+    onInstitutionChange,
+    currency,
+    onCurrencyChange,
+    onCancel,
+    onSubmit,
+    submitting,
+    className,
+    buttonHeight = "h-9",
+}: CreateAccountFormProps) {
+    return (
+        <div className={cn("rounded-md border border-border bg-muted/40 p-3 space-y-3", className)}>
+            <div>
+                <Label htmlFor="newAccountName" className="mb-1.5 text-xs">
+                    Name
+                </Label>
+                <Input
+                    id="newAccountName"
+                    value={name}
+                    onChange={(e) => onNameChange(e.target.value)}
+                    placeholder="Chase Checking"
+                    autoFocus
+                />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+                <div>
+                    <Label htmlFor="newAccountType" className="mb-1.5 text-xs">
+                        Type
+                    </Label>
+                    <Select value={type} onValueChange={(v) => onTypeChange(v as AccountType)}>
+                        <SelectTrigger id="newAccountType" className="w-full">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {ACCOUNT_TYPE_OPTIONS.map((opt) => (
+                                <SelectItem key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div>
+                    <Label htmlFor="newAccountCurrency" className="mb-1.5 text-xs">
+                        Currency
+                    </Label>
+                    <Input
+                        id="newAccountCurrency"
+                        value={currency}
+                        onChange={(e) => onCurrencyChange(e.target.value.toUpperCase().slice(0, 3))}
+                        placeholder="EUR"
+                        maxLength={3}
+                    />
+                </div>
+            </div>
+            <div>
+                <Label htmlFor="newAccountInstitution" className="mb-1.5 text-xs">
+                    Institution <span className="text-muted-foreground text-xs">(optional)</span>
+                </Label>
+                <Input
+                    id="newAccountInstitution"
+                    value={institution}
+                    onChange={(e) => onInstitutionChange(e.target.value)}
+                    placeholder="Chase, Revolut, …"
+                />
+            </div>
+            <div className="flex gap-2 justify-end pt-1">
+                <Button
+                    variant="outline"
+                    type="button"
+                    onClick={onCancel}
+                    disabled={submitting}
+                    className={buttonHeight}
+                >
+                    Cancel
+                </Button>
+                <Button
+                    type="button"
+                    onClick={onSubmit}
+                    disabled={submitting || !name.trim()}
+                    className={buttonHeight}
+                >
+                    {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                    Create account
+                </Button>
+            </div>
+        </div>
     )
 }

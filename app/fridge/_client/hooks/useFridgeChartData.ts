@@ -2,6 +2,7 @@ import { useMemo } from "react"
 
 import type { FridgeBundleData } from "@/hooks/use-dashboard-data"
 import { getReceiptCategoryByName } from "@/lib/receipt-categories"
+import type { ChartDataStatusMap } from "@/lib/types/chart-data-status"
 
 import type { ReceiptTransactionRow } from "../types"
 import { normalizeCategoryName } from "../utils/categories"
@@ -93,19 +94,24 @@ export function useFridgeChartData({ bundleData, receiptTransactions }: UseFridg
     return bundleData.dailySpending.map((item) => ({
       date: item.date,
       total: item.total,
-      count: 0,
+      count: item.count,
     }))
   }, [bundleData?.dailySpending])
 
-  // ── Chart data status map ────────────────────────────────────────────
-  const chartDataStatusMap = useMemo(() => {
+  // Build a status map so ChartsGrid knows which charts have data
+  const chartDataStatusMap = useMemo<ChartDataStatusMap>(() => {
     const hasArr = (arr: unknown[] | undefined | null) => Array.isArray(arr) && arr.length > 0
     const hasTx = hasArr(receiptTransactions)
 
     return {
       grocerySpendTrend: hasArr(spendTrendData) ? "has-data" : "empty",
       groceryCategoryRankings: hasTx ? "has-data" : "empty",
-      groceryExpenseBreakdown: hasArr(expenseBreakdownData) ? "has-data" : "empty",
+      groceryExpenseBreakdown:
+        hasArr(expenseBreakdownData) ||
+        hasArr(bundleData?.macronutrientBreakdown as unknown[] | undefined) ||
+        hasTx
+          ? "has-data"
+          : "empty",
       groceryMacronutrientBreakdown: hasArr(bundleData?.macronutrientBreakdown as unknown[] | undefined) ? "has-data" : "empty",
       grocerySnackPercentage: hasArr(categorySpendingData) ? "has-data" : "empty",
       groceryDailyActivity: hasArr(dailySpendingData) || hasTx ? "has-data" : "empty",
@@ -120,7 +126,7 @@ export function useFridgeChartData({ bundleData, receiptTransactions }: UseFridg
       groceryShoppingHeatmapHoursDays: hasArr(bundleData?.hourDayHeatmap as unknown[] | undefined) || hasTx ? "has-data" : "empty",
       groceryShoppingHeatmapDaysMonths: hasArr(bundleData?.dayMonthHeatmap as unknown[] | undefined) || hasTx ? "has-data" : "empty",
       groceryNetWorthAllocation: hasArr(categorySpendingData) || hasTx ? "has-data" : "empty",
-    } as Record<string, "has-data" | "empty">
+    }
   }, [
     spendTrendData,
     receiptTransactions,

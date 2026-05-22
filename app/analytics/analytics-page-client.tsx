@@ -189,7 +189,7 @@ interface SpendingActivityRingsProps {
   config: ActivityRingsConfig
   theme: "light" | "dark"
   ringLimits?: Record<string, number>
-  getDefaultLimit?: () => number
+  getDefaultLimit?: () => number | null
   colorScheme?: string
 }
 
@@ -1567,7 +1567,6 @@ export default function AnalyticsPage() {
       }
 
       switch (dateFilter) {
-        case "last7days":
         case "last30days":
           // For short periods, use weeks
           const weekStart = new Date(date)
@@ -1944,9 +1943,6 @@ export default function AnalyticsPage() {
       }
 
       switch (dateFilter) {
-        case "last7days":
-          // Daily grouping for 7 days
-          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
         case "last30days":
           // Weekly grouping for 30 days
           const weekStart = new Date(date)
@@ -2311,6 +2307,56 @@ export default function AnalyticsPage() {
     }))
   }, [rawTransactions, incomeExpenseTopVisibility.hiddenCategorySet, normalizeCategoryName])
 
+  const incomeExpenseCumulativeData = useMemo(() => {
+    if (!rawTransactions || rawTransactions.length === 0) {
+      return [] as Array<{ date: string; desktop: number; mobile: number }>
+    }
+    const filteredSource =
+      incomeExpenseVisibility.hiddenCategorySet.size === 0
+        ? rawTransactions
+        : rawTransactions.filter((tx) => {
+          const category = normalizeCategoryName(tx.category)
+          return !incomeExpenseVisibility.hiddenCategorySet.has(category)
+        })
+    const transactionsByDate = new Map<string, Array<{ amount: number }>>()
+    filteredSource.forEach(tx => {
+      const date = tx.date.split('T')[0]
+      if (!transactionsByDate.has(date)) {
+        transactionsByDate.set(date, [])
+      }
+      transactionsByDate.get(date)!.push({ amount: tx.amount })
+    })
+    const sortedDates = Array.from(transactionsByDate.keys()).sort((a, b) => a.localeCompare(b))
+    const incomeByDate = new Map<string, number>()
+    sortedDates.forEach(date => {
+      const dayTransactions = transactionsByDate.get(date)!
+      const dayIncome = dayTransactions
+        .filter(tx => tx.amount > 0)
+        .reduce((sum, tx) => sum + tx.amount, 0)
+      if (dayIncome > 0) {
+        incomeByDate.set(date, dayIncome)
+      }
+    })
+    let cumulativeExpenses = 0
+    const cumulativeExpensesByDate = new Map<string, number>()
+    sortedDates.forEach(date => {
+      const dayTransactions = transactionsByDate.get(date)!
+      dayTransactions.forEach(tx => {
+        if (tx.amount < 0) {
+          cumulativeExpenses += Math.abs(tx.amount)
+        } else if (tx.amount > 0) {
+          cumulativeExpenses = Math.max(0, cumulativeExpenses - tx.amount)
+        }
+      })
+      cumulativeExpensesByDate.set(date, cumulativeExpenses)
+    })
+    return sortedDates.map(date => ({
+      date,
+      desktop: incomeByDate.get(date) || 0,
+      mobile: cumulativeExpensesByDate.get(date) || 0
+    }))
+  }, [rawTransactions, incomeExpenseVisibility.hiddenCategorySet, normalizeCategoryName])
+
   const netWorthAllocationData = useMemo(() => {
     const filteredSource =
       treeMapVisibility.hiddenCategorySet.size === 0
@@ -2388,7 +2434,7 @@ export default function AnalyticsPage() {
       <AppSidebar variant="inset" />
       <SidebarInset>
         <SiteHeader />
-        <div className="flex-1 overflow-y-auto p-6 pb-0">
+        <div className="flex-1 overflow-y-auto px-6 pb-0 pt-[72px] md:pt-6">
           <div className="max-w-full space-y-6">
 
             <div className="@container/main flex flex-1 flex-col gap-2">
@@ -2508,6 +2554,7 @@ export default function AnalyticsPage() {
                                 chartId="incomeExpensesTracking2"
                                 categoryControls={incomeExpenseControls}
                                 data={incomeExpenseChart.data}
+                                cumulativeData={incomeExpenseCumulativeData}
                               />
                             </SortableAnalyticsChart>
                           )
@@ -2773,19 +2820,10 @@ export default function AnalyticsPage() {
                                                       if (savedLimit) {
                                                         const limitValue = parseFloat(savedLimit)
                                                         if (!isNaN(limitValue) && limitValue >= 0) {
-                                                          setRingLimits((prev) => {
-                                                            const updated = {
-                                                              ...prev,
-                                                              [savedCategory]: limitValue,
-                                                            }
-                                                            if (typeof window !== "undefined") {
-                                                              localStorage.setItem(
-                                                                "activityRingLimits",
-                                                                JSON.stringify(updated)
-                                                              )
-                                                            }
-                                                            return updated
-                                                          })
+                                                          setRingLimits((prev) => ({
+                                                            ...prev,
+                                                            [savedCategory]: limitValue,
+                                                          }))
 
                                                           // Save to database with current filter
                                                           try {

@@ -1,10 +1,12 @@
 // lib/ai/categoriseTransactions.ts
 import { TxRow } from "../types/transactions";
 import { DEFAULT_CATEGORIES as MAIN_DEFAULT_CATEGORIES } from '@/lib/categories';
+import { sanitizeForAI } from "@/lib/security/input-sanitizer";
 import { normalizeTransactionDescriptionKey } from "@/lib/transactions/transaction-category-preferences";
 import { detectLanguage, detectLanguageFromSamples, SupportedLocale, type LanguageDetection } from "@/lib/language/language-detection";
 import { logAiCategoryFeedbackBatch } from "@/lib/ai/ai-category-feedback";
 import { trackGeminiCall } from "@/lib/ai/posthog-gemini";
+import { normaliseMerchantName } from "@/lib/parsing/merchant-normalisation";
 
 // Default categories - synced with lib/categories.ts
 // These are the categories the AI can assign to transactions
@@ -443,14 +445,25 @@ const CATEGORY_RULES: CategoryRule[] = [
 ];
 
 const CATEGORY_CONFLICT_PRIORITIES: Record<string, number> = {
+    // Food
     "Takeaway/Delivery": 90,
     "Restaurants": 80,
     "Coffee": 70,
     "Bars": 60,
     "Groceries": 50,
+    // Non-food (added to prevent lower-priority array-order wins)
+    "Subscriptions": 85,
+    "Fuel": 85,
+    "Insurance": 80,
+    "Pharmacy": 80,
+    "Electricity": 75,
+    "Mobile": 75,
+    "Taxi/Rideshare": 70,
+    "Public Transport": 65,
+    "Parking/Tolls": 60,
 };
 
-const FOOD_CONFLICT_CATEGORIES = new Set(Object.keys(CATEGORY_CONFLICT_PRIORITIES));
+const PRIORITISED_CATEGORIES = new Set(Object.keys(CATEGORY_CONFLICT_PRIORITIES));
 
 function pickConflictWinner(matches: Array<{ category: string; score: number }>): string {
     let best = matches[0];
@@ -991,61 +1004,13 @@ function extractSummary(description: string): string {
     const normalized = normalizeText(desc);
     const normalizedKeyword = normalizeKeywordText(desc);
 
-    // Check against known merchant patterns first
+    // Known merchant patterns take priority over the normalisation pipeline
     const matched = matchMerchantPattern(normalized, normalizedKeyword);
     if (matched) {
         return matched.summary;
     }
 
-    // Remove common prefixes (Spanish bank formats)
-    let cleaned = desc
-        .replace(/^(COMPRA|PAGO|RECIBO|TRANSFERENCIA|BIZUM|CARGO|ABONO|INGRESO|TARJETA|TPV|POS)\s+/i, "")
-        .replace(/^(EN|DE|A|DESDE|HACIA)\s+/i, "")
-        .replace(/^WWW\./i, "")
-        .replace(/^HTTP[S]?:\/\//i, "");
-
-    // Remove trailing reference numbers and codes
-    cleaned = cleaned
-        .replace(/\s+[A-Z0-9]{6,}$/i, "")  // Remove trailing codes like "CW4WE8Q35"
-        .replace(/\s+REF[:\s]*[\w-]+$/i, "")  // Remove REF: XXX
-        .replace(/\s+Nº?\s*RECIBO[\s:\d]+$/i, "")  // Remove receipt numbers
-        .replace(/\s+DEL\s+\d{2}\d{2}\d{4}\s+AL\s+\d{2}\d{2}\d{4}/i, "")  // Remove date ranges
-        .replace(/\s+NIF[:\s]*[A-Z0-9]+$/i, "")  // Remove NIF
-        .replace(/\s+POLIZA[:\s]*[\d]+$/i, "")  // Remove policy numbers
-        .replace(/\s+\*+\d+$/i, "")  // Remove masked card numbers
-        .replace(/\s+\d{2}\/\d{2}\/\d{2,4}$/i, "")  // Remove trailing dates
-        .replace(/\s+\d+[.,]\d{2}\s*(EUR|€)?$/i, "");  // Remove amounts
-
-    cleaned = cleaned.replace(/\b(TPV|POS|TARJETA|CARD)\b/gi, "").trim();
-
-    // Extract domain name if it looks like a website
-    const domainMatch = cleaned.match(/([a-zA-Z0-9-]+)\.(com|es|net|org|eu|co)/i);
-    if (domainMatch) {
-        cleaned = domainMatch[1].charAt(0).toUpperCase() + domainMatch[1].slice(1).toLowerCase();
-    }
-
-    // Clean up and capitalize
-    cleaned = cleaned
-        .replace(/[*]+/g, " ")  // Replace asterisks with spaces
-        .replace(/\s+/g, " ")   // Normalize whitespace
-        .trim();
-
-    // If still too long or messy, take first meaningful words
-    if (cleaned.length > 30) {
-        const words = cleaned.split(" ").slice(0, 3);
-        cleaned = words.join(" ");
-    }
-
-    // Capitalize first letter of each word for clean display
-    if (cleaned.length > 0) {
-        cleaned = cleaned
-            .toLowerCase()
-            .split(" ")
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(" ");
-    }
-
-    return cleaned || description.substring(0, 30);
+    return normaliseMerchantName(desc);
 }
 
 /**
@@ -1109,7 +1074,7 @@ export async function categoriseTransactions(
     const sanitizedCustomCategories = Array.isArray(customCategories)
         ? customCategories
             .filter((category): category is string => typeof category === "string")
-            .map((category) => category.trim())
+            .map((category) => sanitizeForAI(category.trim(), 50))
             .filter((category) => category.length > 0)
         : [];
 
@@ -1125,7 +1090,7 @@ export async function categoriseTransactions(
     const languageHint = detectLanguageFromSamples(rows.map((row) => row.description));
     const useGlobalLocale =
         languageHint.locale !== "unknown" &&
-        languageHint.score >= 0.4 &&
+        languageHint.score >= 0.35 &&
         languageHint.confidence >= 0.1;
     const localeByIndex = new Map<number, SupportedLocale>();
     const localeSourceByIndex = new Map<number, LanguageDetection["source"]>();
@@ -1513,7 +1478,7 @@ You MUST include ALL ${batch.length} transactions. Each entry needs:
             if (matchCount > 0) {
                 const normalized = resolveCategoryName(rule.category, resolveCategory);
                 if (!normalized) continue;
-                if (FOOD_CONFLICT_CATEGORIES.has(normalized)) {
+                if (PRIORITISED_CATEGORIES.has(normalized)) {
                     conflictMatches.push({ category: normalized, score: matchCount });
                     continue;
                 }
@@ -1621,6 +1586,23 @@ You MUST include ALL ${batch.length} transactions. Each entry needs:
             ? (reviewFromLanguageRules ? "Language-based rule match" : "Heuristic category fallback")
             : null;
 
+        const CONFIDENCE_BY_SOURCE: Record<string, number> = {
+            preference:        0.98,
+            statement:         0.85,
+            pattern:           0.90,
+            keyword:           0.65,
+            ai:                0.80,
+            fallback_pattern:  0.60,
+            fallback_keyword:  0.55,
+            fallback_default:  0.35,
+            fallback_other:    0.30,
+        };
+        // Normalise fallback_* variants → 'fallback' for the DB column
+        const normalisedSource = categorySource.startsWith('fallback')
+            ? 'fallback'
+            : categorySource as 'preference' | 'statement' | 'pattern' | 'keyword' | 'ai';
+        const categorisationConfidence = CONFIDENCE_BY_SOURCE[categorySource] ?? 0.30;
+
         return {
             date: r.date,
             time: r.time ?? null,
@@ -1630,7 +1612,9 @@ You MUST include ALL ${batch.length} transactions. Each entry needs:
             category,
             summary: r.summary,
             needsReview,
-            reviewReason
+            reviewReason,
+            categorisationSource: normalisedSource,
+            categorisationConfidence,
         } as TxRow;
     });
 

@@ -2,9 +2,10 @@
 
 // Home Food vs Outside Food Spending Chart - Monthly stacked bar chart comparing spending
 import * as React from "react"
-import { useMemo, useState, useEffect } from "react"
+import { memo, useMemo, useState, useEffect } from "react"
 import { useTheme } from "next-themes"
 import { ResponsiveBar, BarDatum, BarTooltipProps } from "@nivo/bar"
+import { HoverableBar } from "@/components/chart-hoverable-bar"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
@@ -15,9 +16,9 @@ import { NivoChartTooltip } from "@/components/chart-tooltip"
 import { deduplicatedFetch } from "@/lib/request-deduplication"
 import {
     Card,
-    CardAction,
+  CardAction,
     CardContent,
-    CardDescription,
+    CardFooter,
     CardHeader,
     CardTitle,
 } from "@/components/ui/card"
@@ -35,6 +36,43 @@ interface MonthlyData {
     "Outside Food": number
     [key: string]: string | number
 }
+
+interface GroceryVsRestaurantInfoTriggerProps {
+    totals: { homeFood: number; outsideFood: number }
+    dataLength: number
+}
+
+const GroceryVsRestaurantInfoTrigger = React.memo(function GroceryVsRestaurantInfoTrigger({
+    totals,
+    dataLength,
+}: GroceryVsRestaurantInfoTriggerProps) {
+    return (
+        <div className="flex flex-col items-center gap-2">
+            <ChartInfoPopover
+                title="Home Food vs Outside Food"
+                details={[
+                    "This chart shows spending from your transaction categories, not receipt items.",
+                    "Home Food: Grocery/Groceries/Supermarket categories.",
+                    "Outside Food: Restaurant/Dining/Food/Eating Out/Delivery/Takeout categories.",
+                    "Each bar shows a month, with home and outside food stacked for comparison.",
+                ]}
+                ignoredFootnote="Only expense transactions (amount < 0) are included."
+            />
+            <ChartAiInsightButton
+                chartId="fridge:groceryVsRestaurant"
+                chartTitle="Home Food vs Outside Food"
+                chartData={{
+                    totalHomeFood: totals.homeFood,
+                    totalOutsideFood: totals.outsideFood,
+                    months: dataLength,
+                }}
+                size="sm"
+            />
+        </div>
+    )
+})
+
+GroceryVsRestaurantInfoTrigger.displayName = "GroceryVsRestaurantInfoTrigger"
 
 export const ChartGroceryVsRestaurantFridge = React.memo(function ChartGroceryVsRestaurantFridge({ dateFilter, groceryVsRestaurantData }: ChartGroceryVsRestaurantFridgeProps) {
     const { resolvedTheme } = useTheme()
@@ -110,34 +148,9 @@ export const ChartGroceryVsRestaurantFridge = React.memo(function ChartGroceryVs
         return { homeFood, outsideFood }
     }, [data])
 
-    const renderInfoTrigger = () => (
-        <div className="flex flex-col items-center gap-2">
-            <ChartInfoPopover
-                title="Home Food vs Outside Food"
-                details={[
-                    "This chart shows spending from your transaction categories, not receipt items.",
-                    "Home Food: Grocery/Groceries/Supermarket categories.",
-                    "Outside Food: Restaurant/Dining/Food/Eating Out/Delivery/Takeout categories.",
-                    "Each bar shows a month, with home and outside food stacked for comparison.",
-                ]}
-                ignoredFootnote="Only expense transactions (amount < 0) are included."
-            />
-            <ChartAiInsightButton
-                chartId="fridge:groceryVsRestaurant"
-                chartTitle="Home Food vs Outside Food"
-                chartData={{
-                    totalHomeFood: totals.homeFood,
-                    totalOutsideFood: totals.outsideFood,
-                    months: data.length,
-                }}
-                size="sm"
-            />
-        </div>
-    )
-
     if (!mounted || isLoading) {
         return (
-            <Card className="@container/card">
+            <Card className="@container/card" suppressHydrationWarning>
                 <CardHeader>
                     <div className="flex items-center gap-2">
                         <GridStackCardDragHandle />
@@ -149,7 +162,7 @@ export const ChartGroceryVsRestaurantFridge = React.memo(function ChartGroceryVs
                         <CardTitle>Home Food vs Outside Food</CardTitle>
                     </div>
                     <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-                        {renderInfoTrigger()}
+                        <GroceryVsRestaurantInfoTrigger totals={totals} dataLength={data.length} />
                     </CardAction>
                 </CardHeader>
                 <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
@@ -175,10 +188,8 @@ export const ChartGroceryVsRestaurantFridge = React.memo(function ChartGroceryVs
                     />
                     <CardTitle>Home Food vs Outside Food</CardTitle>
                 </div>
-                <CardDescription>
-                </CardDescription>
                 <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-                    {renderInfoTrigger()}
+                    <GroceryVsRestaurantInfoTrigger totals={totals} dataLength={data.length} />
                 </CardAction>
             </CardHeader>
             <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
@@ -191,10 +202,13 @@ export const ChartGroceryVsRestaurantFridge = React.memo(function ChartGroceryVs
                                 keys={["Home Food", "Outside Food"]}
                                 indexBy="month"
                                 margin={{ top: 10, right: 20, bottom: 50, left: 60 }}
-                                padding={0.3}
+                                padding={0.35}
                                 layout="vertical"
                                 colors={palette}
-                                borderRadius={2}
+                                borderRadius={10}
+                                animate={true}
+                                motionConfig="gentle"
+                                barComponent={HoverableBar as any}
                                 axisTop={null}
                                 axisRight={null}
                                 axisBottom={{

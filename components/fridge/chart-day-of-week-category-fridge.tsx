@@ -14,7 +14,6 @@ import {
     Card,
     CardAction,
     CardContent,
-    CardDescription,
     CardHeader,
     CardTitle,
 } from "@/components/ui/card"
@@ -66,6 +65,44 @@ function normalizeCategoryName(value: string | null | undefined) {
     const trimmed = (value ?? "").trim()
     return trimmed || "Other"
 }
+
+interface DayOfWeekInfoTriggerProps {
+    selectedDay: number | null
+    data: Array<{ category: string; dayOfWeek: number; total: number }>
+}
+
+const DayOfWeekInfoTrigger = React.memo(function DayOfWeekInfoTrigger({
+    selectedDay,
+    data,
+}: DayOfWeekInfoTriggerProps) {
+    return (
+        <div className="flex flex-col items-center gap-2">
+            <ChartInfoPopover
+                title="Day of Week Category Spending"
+                description="Compare grocery spending across categories for a selected day of the week."
+                details={[
+                    "Each bar represents total spending in a category for the selected day.",
+                    "Data is aggregated from your uploaded receipts.",
+                    "Use the day selector to switch between different days of the week.",
+                ]}
+                ignoredFootnote="Only receipt transactions with assigned categories are included."
+            />
+            <ChartAiInsightButton
+                chartId="fridge:dayOfWeekCategory"
+                chartTitle="Day of Week Category Spending"
+                chartDescription="Compare grocery spending across categories for a selected day of the week."
+                chartData={{
+                    selectedDay: selectedDay !== null ? DAY_NAMES[selectedDay] : null,
+                    totalSpent: data.reduce((sum, item) => sum + item.total, 0),
+                    topCategories: data.slice(0, 5).map(d => ({ category: d.category, amount: d.total })),
+                }}
+                size="sm"
+            />
+        </div>
+    )
+})
+
+DayOfWeekInfoTrigger.displayName = "DayOfWeekInfoTrigger"
 
 export const ChartDayOfWeekCategoryFridge = React.memo(function ChartDayOfWeekCategoryFridge({ receiptTransactions = [], dayOfWeekCategoryData, isLoading = false }: ChartDayOfWeekCategoryFridgeProps) {
     const { resolvedTheme } = useTheme()
@@ -253,32 +290,6 @@ export const ChartDayOfWeekCategoryFridge = React.memo(function ChartDayOfWeekCa
         }
     }, [tooltip])
 
-    const renderInfoTrigger = () => (
-        <div className="flex flex-col items-center gap-2">
-            <ChartInfoPopover
-                title="Day of Week Category Spending"
-                description="Compare grocery spending across categories for a selected day of the week."
-                details={[
-                    "Each bar represents total spending in a category for the selected day.",
-                    "Data is aggregated from your uploaded receipts.",
-                    "Use the day selector to switch between different days of the week.",
-                ]}
-                ignoredFootnote="Only receipt transactions with assigned categories are included."
-            />
-            <ChartAiInsightButton
-                chartId="fridge:dayOfWeekCategory"
-                chartTitle="Day of Week Category Spending"
-                chartDescription="Compare grocery spending across categories for a selected day of the week."
-                chartData={{
-                    selectedDay: selectedDay !== null ? DAY_NAMES[selectedDay] : null,
-                    totalSpent: data.reduce((sum, item) => sum + item.total, 0),
-                    topCategories: data.slice(0, 5).map(d => ({ category: d.category, amount: d.total })),
-                }}
-                size="sm"
-            />
-        </div>
-    )
-
     const option = React.useMemo(() => {
         if (!data.length || selectedDay === null) return null
 
@@ -318,6 +329,7 @@ export const ChartDayOfWeekCategoryFridge = React.memo(function ChartDayOfWeekCa
                 {
                     type: "bar",
                     itemStyle: {
+                        borderRadius: [10, 10, 0, 0],
                         color: (params: any) => barColors[params.dataIndex] ?? palette[params.dataIndex % palette.length],
                     },
                 },
@@ -359,8 +371,8 @@ export const ChartDayOfWeekCategoryFridge = React.memo(function ChartDayOfWeekCa
 
     if (!mounted || isLoading) {
         return (
-            <Card className="@container/card">
-                <CardHeader>
+            <Card className="@container/card gap-[20px]">
+                <CardHeader className="pb-0">
                     <div className="flex items-center gap-2">
                         <GridStackCardDragHandle />
                         <ChartFavoriteButton
@@ -371,10 +383,10 @@ export const ChartDayOfWeekCategoryFridge = React.memo(function ChartDayOfWeekCa
                         <CardTitle>Day of Week Category Spending</CardTitle>
                     </div>
                     <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-                        {renderInfoTrigger()}
+                        <DayOfWeekInfoTrigger selectedDay={selectedDay} data={data} />
                     </CardAction>
                 </CardHeader>
-                <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+                <CardContent className="px-2 pt-0 sm:px-6 h-[250px]">
                     <ChartLoadingState isLoading />
                 </CardContent>
             </Card>
@@ -383,8 +395,8 @@ export const ChartDayOfWeekCategoryFridge = React.memo(function ChartDayOfWeekCa
 
     if (!availableDays.length || selectedDay === null) {
         return (
-            <Card className="@container/card">
-                <CardHeader>
+            <Card className="@container/card gap-[20px]">
+                <CardHeader className="pb-0">
                     <div className="flex items-center gap-2">
                         <GridStackCardDragHandle />
                         <ChartFavoriteButton
@@ -395,10 +407,10 @@ export const ChartDayOfWeekCategoryFridge = React.memo(function ChartDayOfWeekCa
                         <CardTitle>Day of Week Category Spending</CardTitle>
                     </div>
                     <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-                        {renderInfoTrigger()}
+                        <DayOfWeekInfoTrigger selectedDay={selectedDay} data={data} />
                     </CardAction>
                 </CardHeader>
-                <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+                <CardContent className="px-2 pt-0 sm:px-6 h-[250px]">
                     <ChartLoadingState isLoading={false} />
                 </CardContent>
             </Card>
@@ -406,8 +418,8 @@ export const ChartDayOfWeekCategoryFridge = React.memo(function ChartDayOfWeekCa
     }
 
     return (
-        <Card className="@container/card">
-            <CardHeader>
+        <Card className="@container/card gap-[20px]">
+            <CardHeader className="pb-0">
                 <div className="flex items-center gap-2">
                     <GridStackCardDragHandle />
                     <ChartFavoriteButton
@@ -418,7 +430,6 @@ export const ChartDayOfWeekCategoryFridge = React.memo(function ChartDayOfWeekCa
                     <CardTitle>Day of Week Category Spending</CardTitle>
                 </div>
                 <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-                    {renderInfoTrigger()}
                     <Select
                         value={selectedDay !== null ? selectedDay.toString() : ""}
                         onValueChange={(value) => setSelectedDay(parseInt(value, 10))}
@@ -438,14 +449,12 @@ export const ChartDayOfWeekCategoryFridge = React.memo(function ChartDayOfWeekCa
                             ))}
                         </SelectContent>
                     </Select>
+                    <DayOfWeekInfoTrigger selectedDay={selectedDay} data={data} />
                 </CardAction>
             </CardHeader>
-            <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+            <CardContent className="px-2 pt-0 sm:px-6 h-[250px]">
                 {option && data.length > 0 ? (
                     <div className="h-full w-full flex flex-col">
-                        <div className="mb-2 text-sm font-medium text-foreground text-center">
-                            Total: {formatCurrency(data.reduce((sum, item) => sum + item.total, 0))}
-                        </div>
                         <div ref={containerRef} className="relative flex-1 min-h-0" style={{ minHeight: 0, minWidth: 0 }}>
                             {chartElement}
                             {mounted && tooltip && tooltipPosition && createPortal(
@@ -469,6 +478,12 @@ export const ChartDayOfWeekCategoryFridge = React.memo(function ChartDayOfWeekCa
                                 </div>,
                                 document.body
                             )}
+                        </div>
+                        <div className="flex items-center justify-end gap-1 pt-2 text-xs text-muted-foreground">
+                            <span>Total:</span>
+                            <span className="font-semibold text-foreground">
+                                {formatCurrency(data.reduce((sum, item) => sum + item.total, 0))}
+                            </span>
                         </div>
                     </div>
                 ) : (

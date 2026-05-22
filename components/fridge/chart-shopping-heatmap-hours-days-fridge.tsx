@@ -15,9 +15,9 @@ import { getChartTextColor, DEFAULT_FALLBACK_PALETTE } from "@/lib/chart-colors"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
     Card,
-    CardAction,
+  CardAction,
     CardContent,
-    CardDescription,
+    CardFooter,
     CardHeader,
     CardTitle,
 } from "@/components/ui/card"
@@ -380,8 +380,6 @@ export const ChartShoppingHeatmapHoursDaysFridge = React.memo(function ChartShop
                     />
                     <CardTitle>Shopping Hours Heatmap</CardTitle>
                 </div>
-                <CardDescription>
-                </CardDescription>
                 <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
                     {renderInfoTrigger()}
                 </CardAction>

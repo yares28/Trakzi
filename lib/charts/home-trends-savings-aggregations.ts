@@ -1,5 +1,6 @@
 import { neonQuery } from '@/lib/neonClient'
 import { getDateRange } from '@/app/api/transactions/route'
+import { appendAccountFilter, hasAccountFilter, type AccountFilter } from '@/lib/charts/account-filter'
 
 // Types
 export interface HomeKPIs {
@@ -74,10 +75,11 @@ export interface SavingsSummary {
 export async function getHomeKPIs(
     userId: string,
     startDate?: string,
-    endDate?: string
+    endDate?: string,
+    accountIds?: AccountFilter
 ): Promise<HomeKPIs> {
     let query = `
-        SELECT 
+        SELECT
             SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) AS total_income,
             ABS(SUM(CASE WHEN amount < 0 THEN amount ELSE 0 END)) AS total_expense,
             SUM(amount) AS net_savings,
@@ -85,8 +87,9 @@ export async function getHomeKPIs(
             AVG(ABS(amount)) AS avg_transaction
         FROM transactions
         WHERE user_id = $1
+          AND (tx_type IS NULL OR tx_type IN ('expense', 'income'))
     `
-    const params: (string | number)[] = [userId]
+    const params: unknown[] = [userId]
 
     if (startDate) {
         params.push(startDate)
@@ -96,6 +99,8 @@ export async function getHomeKPIs(
         params.push(endDate)
         query += ` AND tx_date <= $${params.length}::date`
     }
+
+    query = appendAccountFilter(query, params, accountIds, '')
 
     const rows = await neonQuery<{
         total_income: string | null
@@ -122,15 +127,17 @@ export async function getTopCategories(
     userId: string,
     startDate?: string,
     endDate?: string,
-    limit: number = 10
+    limit: number = 10,
+    accountIds?: AccountFilter
 ): Promise<TopCategory[]> {
     let query = `
         WITH totals AS (
             SELECT ABS(SUM(amount)) AS grand_total
             FROM transactions
             WHERE user_id = $1 AND amount < 0
+              AND (tx_type IS NULL OR tx_type = 'expense')
     `
-    const params: (string | number)[] = [userId]
+    const params: unknown[] = [userId]
 
     if (startDate) {
         params.push(startDate)
@@ -141,9 +148,20 @@ export async function getTopCategories(
         query += ` AND tx_date <= $${params.length}::date`
     }
 
+    // Account filter pushed once into the CTE; re-referenced (not re-pushed) in
+    // the outer SELECT below so the totals and per-category rows agree.
+    let accountClauseInner = ''
+    let accountClauseOuter = ''
+    if (hasAccountFilter(accountIds)) {
+        params.push(accountIds as string[])
+        accountClauseInner = ` AND account_id = ANY($${params.length})`
+        accountClauseOuter = ` AND t.account_id = ANY($${params.length})`
+    }
+    query += accountClauseInner
+
     query += `
         )
-        SELECT 
+        SELECT
             COALESCE(c.name, 'Uncategorized') AS category,
             ABS(SUM(t.amount)) AS total,
             COUNT(*)::int AS count,
@@ -152,14 +170,19 @@ export async function getTopCategories(
         FROM transactions t
         LEFT JOIN categories c ON t.category_id = c.id
         WHERE t.user_id = $1 AND t.amount < 0
+          AND (t.tx_type IS NULL OR t.tx_type = 'expense')
     `
 
     if (startDate) {
         query += ` AND t.tx_date >= $2::date`
     }
     if (endDate) {
-        query += ` AND t.tx_date <= $${params.length}::date`
+        // $3 if both startDate+endDate present, else $2
+        const endParamIdx = startDate ? 3 : 2
+        query += ` AND t.tx_date <= $${endParamIdx}::date`
     }
+
+    query += accountClauseOuter
 
     query += ` GROUP BY c.name, c.color ORDER BY total DESC LIMIT ${limit}`
 
@@ -186,16 +209,18 @@ export async function getTopCategories(
 export async function getHomeDailySpending(
     userId: string,
     startDate?: string,
-    endDate?: string
+    endDate?: string,
+    accountIds?: AccountFilter
 ): Promise<DailyTrend[]> {
     let query = `
-        SELECT 
+        SELECT
             to_char(tx_date, 'YYYY-MM-DD') AS date,
             ABS(SUM(CASE WHEN amount < 0 THEN amount ELSE 0 END)) AS total
         FROM transactions
         WHERE user_id = $1
+          AND (tx_type IS NULL OR tx_type = 'expense')
     `
-    const params: (string | number)[] = [userId]
+    const params: unknown[] = [userId]
 
     if (startDate) {
         params.push(startDate)
@@ -205,6 +230,8 @@ export async function getHomeDailySpending(
         params.push(endDate)
         query += ` AND tx_date <= $${params.length}::date`
     }
+
+    query = appendAccountFilter(query, params, accountIds, '')
 
     query += ` GROUP BY tx_date ORDER BY tx_date`
 
@@ -224,14 +251,15 @@ export async function getHomeDailySpending(
  */
 export async function getHomeBundle(
     userId: string,
-    filter: string | null
+    filter: string | null,
+    accountIds?: AccountFilter
 ): Promise<HomeSummary> {
     const { startDate, endDate } = getDateRange(filter)
 
     const [kpis, topCategories, dailySpending] = await Promise.all([
-        getHomeKPIs(userId, startDate ?? undefined, endDate ?? undefined),
-        getTopCategories(userId, startDate ?? undefined, endDate ?? undefined, 10),
-        getHomeDailySpending(userId, startDate ?? undefined, endDate ?? undefined),
+        getHomeKPIs(userId, startDate ?? undefined, endDate ?? undefined, accountIds),
+        getTopCategories(userId, startDate ?? undefined, endDate ?? undefined, 10, accountIds),
+        getHomeDailySpending(userId, startDate ?? undefined, endDate ?? undefined, accountIds),
     ])
 
     // Compute activity rings from top categories
@@ -257,18 +285,20 @@ export async function getHomeBundle(
 export async function getCategoryTrends(
     userId: string,
     startDate?: string,
-    endDate?: string
+    endDate?: string,
+    accountIds?: AccountFilter
 ): Promise<TrendsSummary> {
     let query = `
-        SELECT 
+        SELECT
             COALESCE(c.name, 'Other') AS category,
             to_char(t.tx_date, 'YYYY-MM-DD') AS date,
             ABS(SUM(t.amount)) AS total
         FROM transactions t
         LEFT JOIN categories c ON t.category_id = c.id
         WHERE t.user_id = $1 AND t.amount < 0
+          AND (t.tx_type IS NULL OR t.tx_type = 'expense')
     `
-    const params: (string | number)[] = [userId]
+    const params: unknown[] = [userId]
 
     if (startDate) {
         params.push(startDate)
@@ -278,6 +308,8 @@ export async function getCategoryTrends(
         params.push(endDate)
         query += ` AND t.tx_date <= $${params.length}::date`
     }
+
+    query = appendAccountFilter(query, params, accountIds)
 
     query += ` GROUP BY c.name, t.tx_date ORDER BY c.name, t.tx_date`
 
@@ -315,10 +347,11 @@ export async function getCategoryTrends(
  */
 export async function getTrendsBundle(
     userId: string,
-    filter: string | null
+    filter: string | null,
+    accountIds?: AccountFilter
 ): Promise<TrendsSummary> {
     const { startDate, endDate } = getDateRange(filter)
-    return getCategoryTrends(userId, startDate ?? undefined, endDate ?? undefined)
+    return getCategoryTrends(userId, startDate ?? undefined, endDate ?? undefined, accountIds)
 }
 
 /**
@@ -327,19 +360,21 @@ export async function getTrendsBundle(
 export async function getSavingsKPIs(
     userId: string,
     startDate?: string,
-    endDate?: string
+    endDate?: string,
+    accountIds?: AccountFilter
 ): Promise<SavingsKPIs> {
     // Savings are positive amounts in savings category
     let query = `
-        SELECT 
+        SELECT
             SUM(t.amount) AS total_saved,
             COUNT(*)::int AS transaction_count,
             AVG(t.amount) AS avg_savings
         FROM transactions t
         JOIN categories c ON t.category_id = c.id
         WHERE t.user_id = $1 AND LOWER(c.name) = 'savings'
+          AND (t.tx_type IS NULL OR t.tx_type IN ('expense', 'income'))
     `
-    const params: (string | number)[] = [userId]
+    const params: unknown[] = [userId]
 
     if (startDate) {
         params.push(startDate)
@@ -349,6 +384,8 @@ export async function getSavingsKPIs(
         params.push(endDate)
         query += ` AND t.tx_date <= $${params.length}::date`
     }
+
+    query = appendAccountFilter(query, params, accountIds)
 
     const rows = await neonQuery<{
         total_saved: string | null
@@ -365,8 +402,9 @@ export async function getSavingsKPIs(
         SELECT SUM(amount) AS total_income
         FROM transactions
         WHERE user_id = $1 AND amount > 0
+          AND (tx_type IS NULL OR tx_type = 'income')
     `
-    const incomeParams: (string | number)[] = [userId]
+    const incomeParams: unknown[] = [userId]
 
     if (startDate) {
         incomeParams.push(startDate)
@@ -376,6 +414,8 @@ export async function getSavingsKPIs(
         incomeParams.push(endDate)
         incomeQuery += ` AND tx_date <= $${incomeParams.length}::date`
     }
+
+    incomeQuery = appendAccountFilter(incomeQuery, incomeParams, accountIds, '')
 
     const incomeRows = await neonQuery<{ total_income: string | null }>(incomeQuery, incomeParams)
     const totalIncome = parseFloat(incomeRows[0]?.total_income || '0') || 0
@@ -395,17 +435,19 @@ export async function getSavingsKPIs(
 export async function getSavingsChartData(
     userId: string,
     startDate?: string,
-    endDate?: string
+    endDate?: string,
+    accountIds?: AccountFilter
 ): Promise<SavingsChartPoint[]> {
     let query = `
-        SELECT 
+        SELECT
             to_char(t.tx_date, 'YYYY-MM-DD') AS date,
             SUM(t.amount) AS amount
         FROM transactions t
         JOIN categories c ON t.category_id = c.id
         WHERE t.user_id = $1 AND LOWER(c.name) = 'savings'
+          AND (t.tx_type IS NULL OR t.tx_type IN ('expense', 'income'))
     `
-    const params: (string | number)[] = [userId]
+    const params: unknown[] = [userId]
 
     if (startDate) {
         params.push(startDate)
@@ -415,6 +457,8 @@ export async function getSavingsChartData(
         params.push(endDate)
         query += ` AND t.tx_date <= $${params.length}::date`
     }
+
+    query = appendAccountFilter(query, params, accountIds)
 
     query += ` GROUP BY t.tx_date ORDER BY t.tx_date`
 
@@ -441,13 +485,14 @@ export async function getSavingsChartData(
  */
 export async function getSavingsBundle(
     userId: string,
-    filter: string | null
+    filter: string | null,
+    accountIds?: AccountFilter
 ): Promise<SavingsSummary> {
     const { startDate, endDate } = getDateRange(filter)
 
     const [kpis, chartData] = await Promise.all([
-        getSavingsKPIs(userId, startDate ?? undefined, endDate ?? undefined),
-        getSavingsChartData(userId, startDate ?? undefined, endDate ?? undefined),
+        getSavingsKPIs(userId, startDate ?? undefined, endDate ?? undefined, accountIds),
+        getSavingsChartData(userId, startDate ?? undefined, endDate ?? undefined, accountIds),
     ])
 
     return {

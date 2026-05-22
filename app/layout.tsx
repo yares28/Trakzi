@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { LazyMotion, domAnimation } from "framer-motion";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -11,11 +12,22 @@ import { TransactionDialogProvider } from "@/components/transaction-dialog-provi
 import { UserPreferencesProvider } from "@/components/user-preferences-provider";
 import { FavoritesProvider } from "@/components/favorites-provider";
 import { DateFilterProvider } from "@/components/date-filter-provider";
+import { AccountFilterProvider } from "@/components/account-filter-provider";
 import { QueryProvider } from "@/components/query-provider";
+import { LangSetter } from "@/components/lang-setter";
 import { ChartResizeProvider } from "@/lib/chart-resize-context";
 import { ChartVisibilityProvider } from "@/components/chart-visibility-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { PostHogUserIdentifier } from "@/components/posthog-user-identifier";
+import { PostHogPageView } from "@/components/posthog-pageview";
+import { PostHogInit } from "@/components/posthog-init";
+import { GoogleAnalytics } from "@/components/google-analytics";
+import { DemoModeProvider } from "@/lib/demo/demo-context";
+import { DemoBanner } from "@/components/demo-banner";
+import { OnboardingProvider } from "@/components/onboarding/onboarding-provider";
+import { OnboardingRoot } from "@/components/onboarding/onboarding-root";
+import { OfflineIndicator } from "@/components/offline-indicator"
+import { CookieConsentBanner } from "@/components/cookie-consent-banner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,16 +39,94 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+export const viewport: Viewport = {
+  viewportFit: "cover",
+  userScalable: false,
+  maximumScale: 1,
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#1e1624" },
+  ],
+}
+
 export const metadata: Metadata = {
-  title: "Trakzi",
-  description: "Track your income, expenses, savings, and net worth",
+  metadataBase: new URL("https://trakzi.com"),
+  title: {
+    default: "Trakzi — The All-in-One Budgeting Workspace",
+    template: "%s | Trakzi",
+  },
+  description:
+    "Trakzi is an all-in-one budgeting workspace. Import bank CSVs, scan receipts, track expenses, visualize spending with AI-powered charts, and manage shared costs with friends — all in one place.",
+  keywords: [
+    "budgeting app",
+    "expense tracker",
+    "personal finance",
+    "budget planner",
+    "track expenses",
+    "CSV import budget",
+    "receipt scanner",
+    "shared expenses",
+    "split bills",
+    "savings tracker",
+    "spending analytics",
+    "AI budgeting",
+    "money management",
+    "financial dashboard",
+    "grocery budget tracker",
+  ],
+  authors: [{ name: "Trakzi" }],
+  creator: "Trakzi",
+  publisher: "Trakzi",
+  applicationName: "Trakzi",
   appleWebApp: {
     title: "Trakzi",
     capable: true,
     statusBarStyle: "default",
   },
-  applicationName: "Trakzi",
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://trakzi.com",
+    siteName: "Trakzi",
+    title: "Trakzi — The All-in-One Budgeting Workspace",
+    description:
+      "Import bank CSVs, scan receipts, track expenses, and visualize spending with AI-powered charts. Manage shared costs with friends — all in one place.",
+    images: [
+      {
+        url: "/Trakzi/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Trakzi — The All-in-One Budgeting Workspace",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Trakzi — The All-in-One Budgeting Workspace",
+    description:
+      "Import bank CSVs, scan receipts, track expenses, and visualize spending with AI-powered charts.",
+    images: ["/Trakzi/og-image.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  category: "finance",
+  verification: {
+    google: "PSPqzlfW_g-VeDgdFsMHMFqieCe6F9GKKhfOrt8YokU",
+  },
 };
+
+// Inline theme-detection script — hardcoded string, no user input, safe from XSS.
+// Reads stored user preference and applies dark class before first paint to prevent flash.
+const themeScript = `(function(){try{var s=localStorage.getItem('trakzi-theme');if(s!=='light')document.documentElement.classList.add('dark');}catch(e){document.documentElement.classList.add('dark');}})();`
 
 export default function RootLayout({
   children,
@@ -45,48 +135,110 @@ export default function RootLayout({
 }>) {
   // Build-time fallback so prerender succeeds when .env.local is missing (e.g. CI). Set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY in .env.local for real auth.
   const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || "pk_test_placeholder";
+  const enableVercelObservability = process.env.VERCEL === "1"
+
+  const websiteJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "Trakzi",
+    url: "https://trakzi.com",
+    potentialAction: {
+      "@type": "SearchAction",
+      target: "https://trakzi.com/?q={search_term_string}",
+      "query-input": "required name=search_term_string",
+    },
+  }
+
+  const organizationJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "Trakzi",
+    url: "https://trakzi.com",
+    logo: "https://trakzi.com/Trakzi/LogoShort.svg",
+    contactPoint: {
+      "@type": "ContactPoint",
+      email: "help@trakzi.com",
+      contactType: "customer support",
+    },
+  }
 
   return (
-    <ClerkProvider publishableKey={publishableKey} afterSignOutUrl="/" signInFallbackRedirectUrl="/home" signUpFallbackRedirectUrl="/home">
+    <ClerkProvider
+      publishableKey={publishableKey}
+      afterSignOutUrl="/"
+      signInForceRedirectUrl="/home"
+      signUpForceRedirectUrl="/home"
+    >
       <html lang="en" suppressHydrationWarning className="overflow-x-hidden">
+        <head>
+          {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+          <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        </head>
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-x-hidden`}
           suppressHydrationWarning
         >
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+          />
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+          />
+          <LangSetter />
+          <LazyMotion features={domAnimation}>
           <ThemeProvider
             attribute="class"
-            defaultTheme="light"
+            defaultTheme="dark"
             enableSystem={false}
             disableTransitionOnChange
             storageKey="trakzi-theme"
           >
             <QueryProvider>
               <UserPreferencesProvider>
-              <ChartResizeProvider>
-                <ChartVisibilityProvider storageScope="analytics">
-                <ColorSchemeProvider>
-                  <CurrencyProvider>
-                    <FavoritesProvider>
-                      <DateFilterProvider>
-                        <TransactionDialogProvider>
-                          <PostHogUserIdentifier />
-                          {children}
-                        </TransactionDialogProvider>
-                      </DateFilterProvider>
-                    </FavoritesProvider>
-                    <Toaster />
-                    <Analytics />
-                    <SpeedInsights />
-                  </CurrencyProvider>
-                </ColorSchemeProvider>
-                </ChartVisibilityProvider>
-              </ChartResizeProvider>
+                <OnboardingProvider>
+                  <ChartResizeProvider>
+                    <ChartVisibilityProvider storageScope="analytics">
+                      <ColorSchemeProvider>
+                        <CurrencyProvider>
+                          <FavoritesProvider>
+                            <DateFilterProvider>
+                              <AccountFilterProvider>
+                                <TransactionDialogProvider>
+                                  <DemoModeProvider>
+                                    <div className="flex flex-col min-h-screen overflow-x-hidden bg-background">
+                                      <PostHogInit />
+                                      <PostHogUserIdentifier />
+                                      <PostHogPageView />
+                                      <GoogleAnalytics />
+                                      <DemoBanner />
+                                      <OnboardingRoot />
+                                      <OfflineIndicator />
+                                      <div className="flex-1">
+                                        {children}
+                                      </div>
+                                    </div>
+                                  </DemoModeProvider>
+                                </TransactionDialogProvider>
+                              </AccountFilterProvider>
+                            </DateFilterProvider>
+                          </FavoritesProvider>
+                          <Toaster />
+                          {enableVercelObservability ? <Analytics /> : null}
+                          {enableVercelObservability ? <SpeedInsights /> : null}
+                        </CurrencyProvider>
+                      </ColorSchemeProvider>
+                    </ChartVisibilityProvider>
+                  </ChartResizeProvider>
+                </OnboardingProvider>
               </UserPreferencesProvider>
             </QueryProvider>
           </ThemeProvider>
+          <CookieConsentBanner />
+          </LazyMotion>
         </body>
       </html>
     </ClerkProvider>
   );
 }
-

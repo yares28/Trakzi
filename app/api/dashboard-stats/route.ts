@@ -154,6 +154,7 @@ export const GET = async () => {
             FROM transactions t
             LEFT JOIN categories c ON t.category_id = c.id
             WHERE t.user_id = $1 AND t.amount < 0
+              AND (t.tx_type IS NULL OR t.tx_type = 'expense')
             GROUP BY c.name
         `, [userId]);
 
@@ -230,8 +231,9 @@ export const GET = async () => {
             SELECT 
                 COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) as total_income,
                 COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 0) as total_expenses
-            FROM transactions 
+            FROM transactions
             WHERE user_id = $1
+              AND (tx_type IS NULL OR tx_type IN ('expense', 'income'))
         `, [userId]);
 
         const totalIncome = toNumber(financialStatsResult[0]?.total_income);
@@ -277,8 +279,9 @@ export const GET = async () => {
                 TO_CHAR(tx_date, 'YYYY-MM') as month_key,
                 COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) as income,
                 COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 0) as expenses
-            FROM transactions 
-            WHERE user_id = $1 
+            FROM transactions
+            WHERE user_id = $1
+                AND (tx_type IS NULL OR tx_type IN ('expense', 'income'))
                 AND tx_date >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '2 months'
             GROUP BY TO_CHAR(tx_date, 'YYYY-MM')
             ORDER BY month_key DESC
@@ -331,8 +334,9 @@ export const GET = async () => {
                 TO_CHAR(tx_date, 'YYYY-MM') as month_key,
                 COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) as income,
                 COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 0) as expenses
-            FROM transactions 
-            WHERE user_id = $1 
+            FROM transactions
+            WHERE user_id = $1
+                AND (tx_type IS NULL OR tx_type IN ('expense', 'income'))
                 AND tx_date >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '6 months'
             GROUP BY TO_CHAR(tx_date, 'YYYY-MM')
             ORDER BY month_key ASC
@@ -372,8 +376,9 @@ export const GET = async () => {
                 COALESCE(SUM(ABS(t.amount)), 0) as total_spent
             FROM transactions t
             LEFT JOIN categories c ON t.category_id = c.id
-            WHERE t.user_id = $1 
+            WHERE t.user_id = $1
                 AND t.amount < 0
+                AND (t.tx_type IS NULL OR t.tx_type = 'expense')
                 AND t.tx_date >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '6 months'
             GROUP BY TO_CHAR(t.tx_date, 'YYYY-MM'), c.name
             ORDER BY month_key ASC

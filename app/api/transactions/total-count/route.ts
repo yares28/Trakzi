@@ -12,18 +12,28 @@ export interface TotalTransactionCount {
 }
 
 async function getTotalTransactionCount(userId: string): Promise<TotalTransactionCount> {
-    // Get total count and date range in a single query
+    // Trakzi counts a user's "transactions" across BOTH the bank-imported
+    // `transactions` table AND the OCR-scanned `receipts` table — the cap-enforcement
+    // logic (lib/limits/transactions-cap.ts) treats them as one bucket, and the
+    // wallet count in lib/limits/transaction-wallet.ts queries both too. Previously
+    // this route only queried `transactions`, so receipts-only users (or anyone whose
+    // imports landed mostly in receipts) saw "Total Transactions 0 / Spanning No data"
+    // even when they clearly had data. UNION ALL ties the source-of-truth together.
     const countResult = await neonQuery<{
         count: string
         first_date: string | null
         last_date: string | null
     }>(
-        `SELECT 
-            COUNT(*)::text as count,
-            MIN(tx_date)::text as first_date,
-            MAX(tx_date)::text as last_date
-        FROM transactions 
-        WHERE user_id = $1`,
+        `WITH all_tx AS (
+            SELECT tx_date::date AS d FROM transactions WHERE user_id = $1
+            UNION ALL
+            SELECT receipt_date::date AS d FROM receipts WHERE user_id = $1
+        )
+        SELECT
+            COUNT(*)::text AS count,
+            MIN(d)::text AS first_date,
+            MAX(d)::text AS last_date
+        FROM all_tx`,
         [userId]
     )
 
@@ -61,14 +71,18 @@ async function getTotalTransactionCount(userId: string): Promise<TotalTransactio
         }
     }
 
-    // Get monthly trend (transaction count per month) - all time
+    // Monthly trend across both tables — same UNION ALL pattern as the count above.
     const trendResult = await neonQuery<{ month: string; count: string }>(
-        `SELECT 
-            TO_CHAR(tx_date, 'YYYY-MM') as month,
-            COUNT(*)::text as count
-        FROM transactions 
-        WHERE user_id = $1
-        GROUP BY TO_CHAR(tx_date, 'YYYY-MM')
+        `WITH all_tx AS (
+            SELECT tx_date::date AS d FROM transactions WHERE user_id = $1
+            UNION ALL
+            SELECT receipt_date::date AS d FROM receipts WHERE user_id = $1
+        )
+        SELECT
+            TO_CHAR(d, 'YYYY-MM') AS month,
+            COUNT(*)::text AS count
+        FROM all_tx
+        GROUP BY TO_CHAR(d, 'YYYY-MM')
         ORDER BY month ASC`,
         [userId]
     )

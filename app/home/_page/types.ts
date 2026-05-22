@@ -25,6 +25,18 @@ export type StatsSummary = {
   expensesChange: number
   savingsRateChange: number
   netWorthChange: number
+  spendingScore: number
+  spendingGrade: string
+  spendingScoreTrend: "improving" | "worsening" | "stable"
+  spendingScoreTrendData: { date: string; value: number }[]
+  savingsScore: number
+  savingsGrade: string
+  savingsScoreTrend: "improving" | "worsening" | "stable"
+  savingsScoreTrendData: { date: string; value: number }[]
+  fridgeScore: number
+  fridgeGrade: string
+  fridgeScoreTrend: "improving" | "worsening" | "stable"
+  fridgeScoreTrendData: { date: string; value: number }[]
 }
 
 export type StatsTrends = {
@@ -53,6 +65,7 @@ export type ActivityRingsDatum = {
   backgroundColor?: string
   category?: string
   spent?: number
+  budget?: number | null
 }
 
 export type ActivityRingsData = ActivityRingsDatum[]
@@ -69,5 +82,5 @@ export type SpendingActivityRingsProps = {
   config: ActivityRingsConfig
   theme: "light" | "dark"
   ringLimits?: Record<string, number>
-  getDefaultLimit?: () => number
+  getDefaultLimit?: () => number | null
 }

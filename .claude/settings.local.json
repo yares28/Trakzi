@@ -42,7 +42,20 @@
       "WebFetch(domain:madlogos.github.io)",
       "Bash(grep:*)",
       "mcp__Neon__prepare_database_migration",
-      "Bash(powershell -Command:*)"
+      "Bash(powershell -Command:*)",
+      "Bash(git branch:*)",
+      "Bash(for f:*)",
+      "Bash(do echo:*)",
+      "Bash(npx jest *)",
+      "Bash(git commit *)",
+      "Bash(xxd)",
+      "Bash(python3 *)",
+      "Bash(xargs ls *)",
+      "Bash(claude plugin *)",
+      "Bash(sips *)",
+      "Bash(lsof -ti:3000)",
+      "Bash(npx --yes jest@29 __tests__/lib/charts/budgets-aggregations.test.ts --config jest.config.js)",
+      "AskUserQuestion"
     ]
   },
   "enabledPlugins": {
@@ -54,5 +67,6 @@
     "stripe@claude-plugins-official": false
   },
   "outputStyle": "Explanatory",
-  "spinnerTipsEnabled": false
+  "spinnerTipsEnabled": false,
+  "prefersReducedMotion": true
 }

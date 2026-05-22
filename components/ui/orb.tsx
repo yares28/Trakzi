@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import { Suspense, useEffect, useMemo, useRef, useState } from "react"
-import { useTexture } from "@react-three/drei"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import * as THREE from "three"
 
@@ -41,6 +40,7 @@ export function Orb({
 }: OrbProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [dimensions, setDimensions] = useState({ width: 40, height: 40 })
+  const [canRenderWebGL, setCanRenderWebGL] = useState<boolean | null>(null)
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -67,12 +67,39 @@ export function Orb({
     }
   }, [])
 
+  useEffect(() => {
+    const canvas = document.createElement("canvas")
+    const context =
+      canvas.getContext("webgl2", { alpha: true, antialias: true }) ||
+      canvas.getContext("webgl", { alpha: true, antialias: true }) ||
+      canvas.getContext("experimental-webgl", { alpha: true, antialias: true })
+
+    setCanRenderWebGL(Boolean(context))
+  }, [])
+
+  const fallbackBackground = useMemo(() => {
+    const [color1, color2] = colors
+    return `radial-gradient(circle at 35% 35%, ${color2} 0%, ${color1} 45%, rgba(255,255,255,0) 72%)`
+  }, [colors])
+
   return (
     <div 
       ref={containerRef}
       className={className ?? "relative h-full w-full"} 
       style={{ minWidth: "40px", minHeight: "40px", width: "100%", height: "100%" }}
     >
+      {canRenderWebGL === false ? (
+        <div
+          aria-hidden="true"
+          className="h-full w-full rounded-full"
+          style={{
+            background: fallbackBackground,
+            boxShadow: `0 0 24px ${colors[0]}33 inset, 0 0 18px ${colors[1]}22`,
+          }}
+        />
+      ) : null}
+
+      {canRenderWebGL === true ? (
       <Canvas
         camera={{ position: [0, 0, 5], fov: 50 }}
         gl={{
@@ -105,6 +132,7 @@ export function Orb({
           />
         </Suspense>
       </Canvas>
+      ) : null}
     </div>
   )
 }
@@ -141,9 +169,6 @@ function Scene({
   const targetColor1Ref = useRef(new THREE.Color(colors[0]))
   const targetColor2Ref = useRef(new THREE.Color(colors[1]))
   const animSpeedRef = useRef(0.1)
-  const perlinNoiseTexture = useTexture(
-    "https://storage.googleapis.com/eleven-public-cdn/images/perlin-noise.png"
-  )
 
   const agentRef = useRef<AgentState>(agentState)
   const modeRef = useRef<"auto" | "manual">(volumeMode)
@@ -174,6 +199,10 @@ function Scene({
 
   const random = useMemo(
     () => splitmix32(seed ?? Math.floor(Math.random() * 2 ** 32)),
+    [seed]
+  )
+  const perlinNoiseTexture = useMemo(
+    () => createNoiseTexture(seed),
     [seed]
   )
   const offsets = useMemo(
@@ -275,8 +304,6 @@ function Scene({
   }, [gl])
 
   const uniforms = useMemo(() => {
-    perlinNoiseTexture.wrapS = THREE.RepeatWrapping
-    perlinNoiseTexture.wrapT = THREE.RepeatWrapping
     const isDark =
       typeof document !== "undefined" &&
       document.documentElement.classList.contains("dark")
@@ -327,6 +354,38 @@ function splitmix32(a: number) {
 function clamp01(n: number) {
   if (!Number.isFinite(n)) return 0
   return Math.min(1, Math.max(0, n))
+}
+
+function createNoiseTexture(seed?: number) {
+  const size = 128
+  const data = new Uint8Array(size * size * 4)
+  const random = splitmix32(seed ?? 0x9e3779b9)
+
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const index = (y * size + x) * 4
+
+      const center = random()
+      const right = x < size - 1 ? random() : center
+      const bottom = y < size - 1 ? random() : center
+      const value = Math.round(((center * 0.6) + (right * 0.2) + (bottom * 0.2)) * 255)
+
+      data[index] = value
+      data[index + 1] = value
+      data[index + 2] = value
+      data[index + 3] = 255
+    }
+  }
+
+  const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat)
+  texture.wrapS = THREE.RepeatWrapping
+  texture.wrapT = THREE.RepeatWrapping
+  texture.magFilter = THREE.LinearFilter
+  texture.minFilter = THREE.LinearMipmapLinearFilter
+  texture.generateMipmaps = true
+  texture.needsUpdate = true
+
+  return texture
 }
 const vertexShader = /* glsl */ `
 uniform float uTime;

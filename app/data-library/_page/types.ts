@@ -11,6 +11,12 @@ export type Transaction = {
   category: string
   receiptTransactionId?: number
   isReceipt?: boolean
+  shared_tx_id?: string | null
+  shared_room_name?: string | null
+  effective_cost?: number | null
+  tx_type?: string | null
+  pending_import_match?: boolean | null
+  settlement_for_split_id?: string | null
 }
 
 export type Statement = {
@@ -22,6 +28,8 @@ export type Statement = {
   statementId: number | null
   fileId: string | null
   receiptId: string | null
+  accountId?: string | null
+  accountName?: string | null
 }
 
 export type ReceiptCategoryOption = {

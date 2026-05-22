@@ -43,6 +43,25 @@ export interface SettingsPreferences {
   date_filter?: string
   /** Font family — "geist-sans" | "geist-mono". */
   font?: string
+  /** Compact number display — true = abbreviated (42.6K), false = full (42,616.68). */
+  compactNumbers?: boolean
+  /**
+   * Selected account IDs to filter analytics by. Empty/missing means "all accounts".
+   * Stored canonically sorted to keep the Redis cache key stable across reorders.
+   */
+  account_filter?: string[]
+}
+
+/** Onboarding state — tracks tour completion and checklist progress. */
+export interface OnboardingPreferences {
+  /** True once the Welcome modal has been shown. */
+  welcomeSeen?: boolean
+  /** Page IDs whose tours have been completed or skipped. */
+  completedTours?: string[]
+  /** Checklist item IDs the user has completed. */
+  completedItems?: string[]
+  /** True when user permanently collapses the checklist widget. */
+  checklistDismissed?: boolean
 }
 
 /**
@@ -54,6 +73,7 @@ export interface UserPreferences {
   analytics?: PageLayoutPreferences
   fridge?: PageLayoutPreferences
   settings?: SettingsPreferences
+  onboarding?: OnboardingPreferences
 }
 
 /** Shape returned by GET /api/user-preferences. */

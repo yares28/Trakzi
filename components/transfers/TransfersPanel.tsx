@@ -1,0 +1,364 @@
+"use client"
+
+import { memo, useMemo, useState } from "react"
+import { toast } from "sonner"
+import { ArrowRight, Check, X, AlertCircle, ListChecks } from "lucide-react"
+
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table"
+import { cn } from "@/lib/utils"
+import { useIsMobile } from "@/hooks/use-mobile"
+import {
+    useTransfers,
+    useResolveTransfer,
+    type TransferStatusFilter,
+} from "@/hooks/use-transfers"
+import type { AccountTransferWithDetails } from "@/lib/types/accounts"
+
+const FILTER_TABS: { value: TransferStatusFilter; label: string }[] = [
+    { value: "open", label: "Open" },
+    { value: "pending", label: "Pending" },
+    { value: "suggested", label: "Suggested" },
+    { value: "confirmed", label: "Confirmed" },
+    { value: "all", label: "All" },
+]
+
+const fmtAmount = (n: number) =>
+    n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+function statusVariant(status: AccountTransferWithDetails["status"]) {
+    switch (status) {
+        case "pending":   return { label: "Pending",   className: "bg-muted text-muted-foreground" }
+        case "suggested": return { label: "Suggested", className: "bg-secondary/15 text-secondary" }
+        case "confirmed": return { label: "Confirmed", className: "bg-primary/10 text-primary" }
+        case "rejected":  return { label: "Rejected",  className: "bg-muted text-muted-foreground" }
+    }
+}
+
+const TransferCard = memo(function TransferCard({
+    transfer,
+    isResolving,
+    onResolve,
+}: {
+    transfer: AccountTransferWithDetails
+    isResolving: boolean
+    onResolve: (id: string, action: "confirm" | "reject") => void
+}) {
+    const v = statusVariant(transfer.status)
+    const isSuggested = transfer.status === "suggested"
+
+    return (
+        <div className="rounded-lg border bg-card p-4 flex flex-col gap-3">
+            <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                    <p className="text-base font-semibold tabular-nums">
+                        {fmtAmount(transfer.amount)}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                        {transfer.fromTx.txDate}
+                        {transfer.toTx.txDate !== transfer.fromTx.txDate && (
+                            <> → {transfer.toTx.txDate}</>
+                        )}
+                    </p>
+                </div>
+                <Badge className={cn("shrink-0 text-[10px] tracking-wide uppercase", v.className)}>
+                    {v.label}
+                </Badge>
+            </div>
+
+            <div className="flex flex-col gap-1.5 text-sm">
+                <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-xs text-muted-foreground shrink-0">↗ From</span>
+                    <Badge variant="outline" className="shrink-0">
+                        {transfer.fromTx.accountName ?? "Unknown"}
+                    </Badge>
+                    <span className="truncate text-muted-foreground">
+                        {transfer.fromTx.description}
+                    </span>
+                </div>
+                <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-xs text-muted-foreground shrink-0">↙ To</span>
+                    <Badge variant="outline" className="shrink-0">
+                        {transfer.toTx.accountName ?? "Unknown"}
+                    </Badge>
+                    <span className="truncate text-muted-foreground">
+                        {transfer.toTx.description}
+                    </span>
+                </div>
+            </div>
+
+            {isSuggested && (
+                <p className="text-xs text-blue-700 dark:text-blue-300 flex items-start gap-1.5">
+                    <AlertCircle className="size-3.5 mt-0.5 shrink-0" />
+                    Multiple matches looked plausible. Confirming below picks the best guess.
+                </p>
+            )}
+
+            {(transfer.status === "pending" || transfer.status === "suggested") ? (
+                <div className="flex gap-2">
+                    <Button
+                        className="flex-1 h-11 gap-1.5"
+                        disabled={isResolving}
+                        onClick={() => onResolve(transfer.id, "confirm")}
+                    >
+                        <Check className="size-4" />
+                        Confirm
+                    </Button>
+                    <Button
+                        variant="outline"
+                        className="flex-1 h-11 gap-1.5"
+                        disabled={isResolving}
+                        onClick={() => onResolve(transfer.id, "reject")}
+                    >
+                        <X className="size-4" />
+                        Not a transfer
+                    </Button>
+                </div>
+            ) : null}
+        </div>
+    )
+})
+TransferCard.displayName = "TransferCard"
+
+const TransferTableRow = memo(function TransferTableRow({
+    transfer,
+    isResolving,
+    onResolve,
+}: {
+    transfer: AccountTransferWithDetails
+    isResolving: boolean
+    onResolve: (id: string, action: "confirm" | "reject") => void
+}) {
+    const v = statusVariant(transfer.status)
+    const resolvable = transfer.status === "pending" || transfer.status === "suggested"
+
+    return (
+        <TableRow>
+            <TableCell className="whitespace-nowrap text-xs text-muted-foreground tabular-nums">
+                {transfer.fromTx.txDate}
+            </TableCell>
+            <TableCell>
+                <div className="flex items-center gap-2 min-w-0">
+                    <Badge variant="outline" className="shrink-0">
+                        {transfer.fromTx.accountName ?? "Unknown"}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground truncate max-w-[180px]">
+                        {transfer.fromTx.description}
+                    </span>
+                </div>
+            </TableCell>
+            <TableCell className="text-center">
+                <ArrowRight className="size-3.5 text-muted-foreground inline" />
+            </TableCell>
+            <TableCell>
+                <div className="flex items-center gap-2 min-w-0">
+                    <Badge variant="outline" className="shrink-0">
+                        {transfer.toTx.accountName ?? "Unknown"}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground truncate max-w-[180px]">
+                        {transfer.toTx.description}
+                    </span>
+                </div>
+            </TableCell>
+            <TableCell className="text-right tabular-nums font-medium">
+                {fmtAmount(transfer.amount)}
+            </TableCell>
+            <TableCell>
+                <Badge className={cn("text-[10px] tracking-wide uppercase", v.className)}>
+                    {v.label}
+                </Badge>
+            </TableCell>
+            <TableCell className="text-right">
+                {resolvable ? (
+                    <div className="flex justify-end gap-1.5">
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 px-2 gap-1"
+                            disabled={isResolving}
+                            onClick={() => onResolve(transfer.id, "confirm")}
+                        >
+                            <Check className="size-3.5" />
+                            Confirm
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 px-2 gap-1 text-muted-foreground"
+                            disabled={isResolving}
+                            onClick={() => onResolve(transfer.id, "reject")}
+                        >
+                            <X className="size-3.5" />
+                            Reject
+                        </Button>
+                    </div>
+                ) : null}
+            </TableCell>
+        </TableRow>
+    )
+})
+TransferTableRow.displayName = "TransferTableRow"
+
+export const TransfersPanel = memo(function TransfersPanel({ hideHeader = false }: { hideHeader?: boolean }) {
+    const isMobile = useIsMobile()
+    const [filter, setFilter] = useState<TransferStatusFilter>("all")
+    const { data: transfers = [], isLoading } = useTransfers(filter)
+    const resolve = useResolveTransfer()
+    const [resolvingId, setResolvingId] = useState<string | null>(null)
+    const [bulkRunning, setBulkRunning] = useState(false)
+
+    const handleResolve = async (id: string, action: "confirm" | "reject") => {
+        setResolvingId(id)
+        try {
+            await resolve.mutateAsync({ id, action })
+            toast.success(action === "confirm" ? "Transfer confirmed" : "Marked as not a transfer")
+        } catch (err: any) {
+            toast.error(err.message || "Failed to update transfer")
+        } finally {
+            setResolvingId(null)
+        }
+    }
+
+    const bulkConfirmable = useMemo(
+        () => transfers.filter(t => t.status === "pending"),
+        [transfers]
+    )
+
+    const handleBulkConfirm = async () => {
+        if (bulkConfirmable.length === 0) return
+        setBulkRunning(true)
+        const results = await Promise.allSettled(
+            bulkConfirmable.map((t) => resolve.mutateAsync({ id: t.id, action: "confirm" }))
+        )
+        setBulkRunning(false)
+        const succeeded = results.filter((r) => r.status === "fulfilled").length
+        const failed = results.filter((r) => r.status === "rejected").length
+        if (succeeded > 0) toast.success(`Confirmed ${succeeded} transfer${succeeded > 1 ? "s" : ""}`)
+        if (failed > 0) toast.error(`Failed to confirm ${failed} transfer${failed > 1 ? "s" : ""}`)
+    }
+
+    return (
+        <div className="flex flex-col gap-4">
+            {!hideHeader && (
+                <div>
+                    <h2 className="text-xl font-semibold tracking-tight">Transfers</h2>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                        Internal moves between your accounts. Confirming removes both legs from spending totals.
+                    </p>
+                </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-2 justify-end">
+                <Select value={filter} onValueChange={(v) => setFilter(v as TransferStatusFilter)}>
+                    <SelectTrigger className="w-40">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {FILTER_TABS.map(t => (
+                            <SelectItem key={t.value} value={t.value}>
+                                {t.label}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+
+                {bulkConfirmable.length > 0 && (
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5"
+                        disabled={bulkRunning}
+                        onClick={handleBulkConfirm}
+                    >
+                        <ListChecks className="size-4" />
+                        Confirm {bulkConfirmable.length} pending
+                    </Button>
+                )}
+            </div>
+
+            {isLoading ? (
+                <div className="space-y-3">
+                    {[0, 1, 2].map(i => (
+                        <div key={i} className="flex items-center gap-3 rounded-xl border border-border p-4">
+                            <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+                            <div className="flex-1 space-y-2">
+                                <Skeleton className="h-3.5 w-2/3" />
+                                <Skeleton className="h-3 w-1/3" />
+                            </div>
+                            <Skeleton className="h-5 w-14 rounded-full" />
+                        </div>
+                    ))}
+                </div>
+            ) : transfers.length === 0 ? (
+                <div className="flex flex-col items-center gap-3 py-10 text-center animate-in fade-in duration-500">
+                    <div className="relative">
+                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-dashed border-border bg-primary/[0.06]">
+                            <ArrowRight className="size-6 text-primary" />
+                        </div>
+                        <div className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border border-border bg-card px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+                            TXN · NIL
+                        </div>
+                    </div>
+                    <div className="mt-1">
+                        <p className="text-sm font-medium">No transfers in this view</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Detected transfers from imports show up here for review</p>
+                    </div>
+                </div>
+            ) : isMobile ? (
+                <div className="flex flex-col gap-3">
+                    {transfers.map(t => (
+                        <TransferCard
+                            key={t.id}
+                            transfer={t}
+                            isResolving={resolvingId === t.id || bulkRunning}
+                            onResolve={handleResolve}
+                        />
+                    ))}
+                </div>
+            ) : (
+                <div className="rounded-lg border bg-card">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Date</TableHead>
+                                <TableHead>From</TableHead>
+                                <TableHead className="w-8" />
+                                <TableHead>To</TableHead>
+                                <TableHead className="text-right">Amount</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead className="text-right w-[180px]">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {transfers.map(t => (
+                                <TransferTableRow
+                                    key={t.id}
+                                    transfer={t}
+                                    isResolving={resolvingId === t.id || bulkRunning}
+                                    onResolve={handleResolve}
+                                />
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
+            )}
+        </div>
+    )
+})
+TransfersPanel.displayName = "TransfersPanel"

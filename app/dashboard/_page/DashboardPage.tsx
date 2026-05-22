@@ -1,9 +1,9 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
-import { PolarAngleAxis, RadialBar, RadialBarChart } from "recharts";
+import dynamic from "next/dynamic";
+import { m, AnimatePresence } from "framer-motion";
 import {
     ChevronDown,
     ChevronUp,
@@ -14,19 +14,19 @@ import {
     TrendingUp,
 } from "lucide-react";
 
-import { safeCapture } from "@/lib/posthog-safe";
+import { typedCapture } from "@/types/posthog-events";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { ChartContainer } from "@/components/ui/chart";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { GoalSettingModal } from "@/components/dashboard/goal-setting-modal";
 import { TransactionProgressBar } from "@/components/dashboard/transaction-progress-bar";
 import { SubscriptionCard } from "@/components/dashboard/subscription-card";
 
-import { pagesConfig, chartConfig } from "./constants";
+import { pagesConfig } from "./constants";
 import { DashboardLayout } from "./components/DashboardLayout";
 import { AnimatedScore } from "./components/AnimatedScore";
-import { ScoreSparkline } from "./components/ScoreSparkline";
 import { ComparisonPopover } from "./components/ComparisonPopover";
+
 import { getAnalyticsInsight, getSavingsInsight, getFridgeInsight } from "./insights";
 import {
     getCardGradient,
@@ -39,6 +39,17 @@ import {
 } from "./score-style";
 import { getCardIcon, getIconForTip, IconLightbulb } from "./icons";
 import type { DashboardStats, ScoreInsight } from "./types";
+import { demoFetch } from "@/lib/demo/demo-fetch";
+
+const ScoreRadialChart = dynamic(
+    () => import("./components/ScoreRadialChart").then((m) => ({ default: m.ScoreRadialChart })),
+    { ssr: false, loading: () => <Skeleton className="h-[120px] w-[120px] rounded-full" /> }
+)
+const ScoreSparkline = dynamic(
+    () => import("./components/ScoreSparkline").then((m) => ({ default: m.ScoreSparkline })),
+    { ssr: false, loading: () => <Skeleton className="h-8 w-24" /> }
+)
+
 export default function DashboardPage() {
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -51,7 +62,7 @@ export default function DashboardPage() {
         async function fetchDashboardStats() {
             try {
                 setIsLoading(true);
-                const response = await fetch("/api/dashboard-stats");
+                const response = await demoFetch("/api/dashboard-stats");
                 if (!response.ok) {
                     throw new Error("Failed to fetch dashboard stats");
                 }
@@ -125,34 +136,15 @@ export default function DashboardPage() {
 
     return (
         <DashboardLayout>
-            <div className="flex flex-1 flex-col">
-                <div className="@container/main flex flex-1 flex-col gap-2">
-                    <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-                        {/* Header Section */}
-                        <section className="px-4 lg:px-6">
-                            <div className="flex flex-col justify-between gap-4 rounded-3xl border bg-muted/30 px-6 py-6 lg:flex-row lg:items-center">
-                                <div className="space-y-2">
-                                    <span className="inline-flex items-center gap-1 px-3 py-1 text-sm border rounded-full">
-                                        <Sparkles className="size-4" />
-                                        AI-Powered
-                                    </span>
-                                    <h1 className="text-3xl font-semibold tracking-tight">
-                                        Dashboard
-                                    </h1>
-                                    <p className="text-muted-foreground max-w-2xl">
-                                        Real-time analysis of your spending, savings, and habits.
-                                        Track your financial health with AI-powered insights and personalized recommendations.
-                                    </p>
-                                </div>
-                            </div>
-                        </section>
-
+            <div className="flex flex-1 flex-col overflow-hidden">
+                <div className="@container/main flex flex-1 flex-col gap-2 pt-[72px] md:pt-0 overflow-y-auto overflow-x-hidden">
+                    <div className="flex flex-col gap-4 pb-4 md:gap-6 md:pb-6">
                         <section className="px-4 lg:px-6">
                             <dl className="grid grid-cols-1 gap-8 lg:grid-cols-2 xl:grid-cols-3 w-full">
                                 {displayData.map((item, index) => {
                                     const scoreLabel = getScoreLabel(item.progress);
                                     return (
-                                        <motion.div
+                                        <m.div
                                             key={item.name}
                                             initial={{ opacity: 0, y: 20 }}
                                             animate={{ opacity: 1, y: 0 }}
@@ -206,35 +198,10 @@ export default function DashboardPage() {
                                                     <div className="flex items-start gap-6">
                                                         {/* Phase 1: Radial Chart with Glow Effect */}
                                                         <div className={`relative flex items-center justify-center shrink-0 rounded-full ${!isLoading ? getScoreGlow(item.progress) : ''}`}>
-                                                            <ChartContainer
-                                                                config={chartConfig}
-                                                                className="h-[120px] w-[120px]"
-                                                            >
-                                                                <RadialBarChart
-                                                                    data={[item]}
-                                                                    innerRadius={42}
-                                                                    outerRadius={55}
-                                                                    barSize={10}
-                                                                    startAngle={90}
-                                                                    endAngle={-270}
-                                                                >
-                                                                    <PolarAngleAxis
-                                                                        type="number"
-                                                                        domain={[0, 100]}
-                                                                        angleAxisId={0}
-                                                                        tick={false}
-                                                                        axisLine={false}
-                                                                    />
-                                                                    <RadialBar
-                                                                        dataKey="progress"
-                                                                        background
-                                                                        cornerRadius={10}
-                                                                        fill={item.fill}
-                                                                        angleAxisId={0}
-                                                                        animationDuration={1500}
-                                                                    />
-                                                                </RadialBarChart>
-                                                            </ChartContainer>
+                                                            <ScoreRadialChart
+                                                                progress={item.progress}
+                                                                fill={item.fill}
+                                                            />
                                                             <div className="absolute inset-0 flex flex-col items-center justify-center">
                                                                 {isLoading ? (
                                                                     <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -259,7 +226,7 @@ export default function DashboardPage() {
                                                             <div className="mb-3">
                                                                 <dd className="text-2xl font-bold text-foreground">
                                                                     {isLoading ? (
-                                                                        <span className="text-muted-foreground text-lg">Loading...</span>
+                                                                        <Skeleton className="h-7 w-28 mt-1" />
                                                                     ) : (
                                                                         item.mainStat
                                                                     )}
@@ -292,7 +259,7 @@ export default function DashboardPage() {
 
                                                     {/* AI Insights Section */}
                                                     {!isLoading && (
-                                                        <motion.div
+                                                        <m.div
                                                             initial={{ opacity: 0, y: 10 }}
                                                             animate={{ opacity: 1, y: 0 }}
                                                             transition={{ delay: index * 0.1 + 0.3, duration: 0.3 }}
@@ -336,7 +303,7 @@ export default function DashboardPage() {
                                                                 {/* Animated tips list */}
                                                                 <AnimatePresence>
                                                                     {expandedTips[item.key] && (
-                                                                        <motion.ul
+                                                                        <m.ul
                                                                             initial={{ height: 0, opacity: 0 }}
                                                                             animate={{ height: "auto", opacity: 1 }}
                                                                             exit={{ height: 0, opacity: 0 }}
@@ -344,7 +311,7 @@ export default function DashboardPage() {
                                                                             className="space-y-2 overflow-hidden"
                                                                         >
                                                                             {item.insight.tips.map((tip, tipIndex) => (
-                                                                                <motion.li
+                                                                                <m.li
                                                                                     key={tipIndex}
                                                                                     initial={{ opacity: 0, x: -10 }}
                                                                                     animate={{ opacity: 1, x: 0 }}
@@ -361,13 +328,13 @@ export default function DashboardPage() {
                                                                                             <span className="text-sm text-foreground/80">{tip.text}</span>
                                                                                         </div>
                                                                                     </div>
-                                                                                </motion.li>
+                                                                                </m.li>
                                                                             ))}
-                                                                        </motion.ul>
+                                                                        </m.ul>
                                                                     )}
                                                                 </AnimatePresence>
                                                             </div>
-                                                        </motion.div>
+                                                        </m.div>
                                                     )}
                                                 </CardContent>
 
@@ -379,7 +346,7 @@ export default function DashboardPage() {
                                                     <Link
                                                         href={item.href}
                                                         className="text-sm font-medium text-primary px-6 py-4 hover:text-primary/80 hover:bg-primary/5 transition-all flex items-center gap-2"
-                                                        onClick={() => safeCapture('dashboard_card_viewed', {
+                                                        onClick={() => typedCapture('dashboard_card_viewed', {
                                                             card_name: item.name,
                                                             card_key: item.key,
                                                             card_score: item.progress,
@@ -391,7 +358,7 @@ export default function DashboardPage() {
                                                     </Link>
                                                 </CardFooter>
                                             </Card>
-                                        </motion.div>
+                                        </m.div>
                                     );
                                 })}
                             </dl>
@@ -431,5 +398,3 @@ export default function DashboardPage() {
         </DashboardLayout>
     );
 }
-
-

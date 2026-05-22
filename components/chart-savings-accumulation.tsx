@@ -9,6 +9,7 @@ import {
   Card,
   CardAction,
   CardContent,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -33,7 +34,6 @@ import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { ChartExpandButton } from "@/components/chart-expand-button"
 import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
-import { useDragHandle } from "@/components/sortable-grid"
 
 export const description = "A savings accumulation chart with moving averages"
 
@@ -75,9 +75,6 @@ export const ChartSavingsAccumulation = React.memo(function ChartSavingsAccumula
   const [tooltipPosition, setTooltipPosition] = React.useState<{ x: number; y: number } | null>(null)
   const chartWrapperRef = React.useRef<HTMLDivElement>(null)
   const mousePositionRef = React.useRef<{ x: number; y: number } | null>(null)
-
-  // Full-header drag functionality
-  const { setActivatorNodeRef, listeners, attributes, isDragging } = useDragHandle()
   const gradientId = `fillSavings-${React.useId().replace(/:/g, "")}`
 
   const isDark = resolvedTheme === "dark"
@@ -130,6 +127,40 @@ export const ChartSavingsAccumulation = React.memo(function ChartSavingsAccumula
         size={forFullscreen ? "sm" : "sm"}
       />
     </>
+  )
+
+  const renderMAToggle = () => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-8 w-8">
+          <IconChartLine className="h-4 w-4" />
+          <span className="sr-only">Chart options</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuLabel>Moving Averages</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuCheckboxItem checked={show7DayMA} onCheckedChange={setShow7DayMA}>
+          <span className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: ma7Color }} />
+            7-Day MA
+          </span>
+        </DropdownMenuCheckboxItem>
+        <DropdownMenuCheckboxItem checked={show30DayMA} onCheckedChange={setShow30DayMA}>
+          <span className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: ma30Color }} />
+            30-Day MA
+          </span>
+        </DropdownMenuCheckboxItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+
+  const renderHeaderActions = (forFullscreen?: boolean) => (
+    <div className="flex items-center gap-2">
+      {renderInfoTrigger(forFullscreen)}
+      {renderMAToggle()}
+    </div>
   )
 
   const renderChart = (withExternalTooltip = true) => (
@@ -252,38 +283,19 @@ export const ChartSavingsAccumulation = React.memo(function ChartSavingsAccumula
   // Empty/Loading state — Card content-sized so skeleton lines up with card (no h-full)
   if (!chartData || chartData.length === 0) {
     return (
-      <Card className="@container/card flex w-full flex-col self-start">
-        <CardHeader
-          ref={setActivatorNodeRef}
-          className="flex flex-row items-center justify-between gap-2 pb-2 cursor-grab touch-none"
-          {...attributes}
-          {...listeners}
-        >
-          <div className="flex items-center gap-2">
+      <Card className="@container/card h-full flex w-full flex-col">
+        <CardHeader className="flex flex-row items-start justify-between gap-2 pb-0">
+          <div className="flex items-center gap-2 min-w-0">
             <GridStackCardDragHandle />
             <ChartFavoriteButton chartId="savingsAccumulation" chartTitle="Savings Accumulation" size="md" />
-            <CardTitle>Savings Accumulation</CardTitle>
+            <CardTitle className="truncate">Savings Accumulation</CardTitle>
           </div>
-          <CardAction className="flex items-center gap-2">
-            <ChartInfoPopover
-              title="Savings Accumulation"
-              description="Track your cumulative savings over time."
-              details={[
-                "Shows total savings accumulated day by day",
-                "Toggle moving averages to see trends",
-              ]}
-            />
-            <ChartAiInsightButton
-              chartId="savingsAccumulation"
-              chartTitle="Savings Accumulation"
-              chartDescription="Track savings over time"
-              chartData={[]}
-              size="sm"
-            />
+          <CardAction className="flex items-center gap-2 self-start shrink-0">
+            {renderMAToggle()}
           </CardAction>
         </CardHeader>
-        <CardContent className="flex flex-col px-2 pt-4 sm:px-6 sm:pt-6">
-          <div className="h-[250px] min-h-0 w-full overflow-hidden">
+        <CardContent className="flex flex-1 flex-col min-h-0 px-2 pt-4 sm:px-6 sm:pt-6">
+          <div className="flex-1 min-h-[250px] w-full overflow-hidden">
             <ChartLoadingState
               isLoading={isLoading}
               skeletonType="area"
@@ -293,6 +305,9 @@ export const ChartSavingsAccumulation = React.memo(function ChartSavingsAccumula
             />
           </div>
         </CardContent>
+        <CardFooter className="pb-3 gap-2">
+          {renderInfoTrigger()}
+        </CardFooter>
       </Card>
     )
   }
@@ -304,93 +319,55 @@ export const ChartSavingsAccumulation = React.memo(function ChartSavingsAccumula
         onClose={() => setIsFullscreen(false)}
         title="Savings Accumulation"
         description="Track your cumulative savings over time with daily aggregates and moving averages."
-        headerActions={renderInfoTrigger(true)}
+        headerActions={renderHeaderActions(true)}
       >
         <div className="h-full w-full min-h-[400px]">
           {renderChart(false)}
         </div>
       </ChartFullscreenModal>
 
-      <Card className="@container/card flex w-full flex-col self-start">
-        {/* CardHeader - entire header is draggable */}
-        <CardHeader
-        ref={setActivatorNodeRef}
-        className="flex flex-row items-center justify-between gap-2 pb-2 cursor-grab touch-none select-none"
-        style={{
-          cursor: isDragging ? 'grabbing' : 'grab',
-          opacity: isDragging ? 0.85 : 1
-        }}
-        {...attributes}
-        {...listeners}
-      >
-        {/* Left: Drag handle + Expand + Favorite + Title (CHARTS_CLONE_SPEC Step 9) */}
-        <div className="flex items-center gap-2">
-          <GridStackCardDragHandle />
-          <ChartExpandButton onClick={() => setIsFullscreen(true)} />
-          <ChartFavoriteButton
-            chartId="savingsAccumulation"
-            chartTitle="Savings Accumulation"
-            size="md"
-          />
-          <CardTitle className="text-base font-medium">Savings Accumulation</CardTitle>
-        </div>
-
-        {/* Right: Info + AI Insight + MA Toggle (time period from global date filter, not on card) */}
-        <CardAction className="flex items-center gap-2">
-          {renderInfoTrigger()}
-
-          {/* Moving Average Toggle */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <IconChartLine className="h-4 w-4" />
-                <span className="sr-only">Chart options</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuLabel>Moving Averages</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuCheckboxItem checked={show7DayMA} onCheckedChange={setShow7DayMA}>
-                <span className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: ma7Color }} />
-                  7-Day MA
-                </span>
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem checked={show30DayMA} onCheckedChange={setShow30DayMA}>
-                <span className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: ma30Color }} />
-                  30-Day MA
-                </span>
-              </DropdownMenuCheckboxItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </CardAction>
-      </CardHeader>
-
-      <CardContent className="flex flex-col px-2 pt-4 sm:px-6 sm:pt-6">
-        <div className="h-[250px] min-h-0 w-full">
-          {renderChart()}
-
-        </div>
-        {/* Legend for active MAs */}
-        {(show7DayMA || show30DayMA) && (
-          <div className="mt-3 flex shrink-0 items-center justify-center gap-4 text-xs text-muted-foreground">
-            {show7DayMA && (
-              <span className="flex items-center gap-1.5">
-                <span className="h-0.5 w-4 rounded" style={{ backgroundColor: ma7Color }} />
-                7-Day Moving Average
-              </span>
-            )}
-            {show30DayMA && (
-              <span className="flex items-center gap-1.5">
-                <span className="h-0.5 w-4 rounded" style={{ backgroundColor: ma30Color }} />
-                30-Day Moving Average
-              </span>
-            )}
+      <Card className="@container/card h-full flex w-full flex-col">
+        <CardHeader className="flex flex-row items-start justify-between gap-2 pb-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <GridStackCardDragHandle />
+            <ChartExpandButton onClick={() => setIsFullscreen(true)} />
+            <ChartFavoriteButton
+              chartId="savingsAccumulation"
+              chartTitle="Savings Accumulation"
+              size="md"
+            />
+            <CardTitle className="truncate text-base font-medium">Savings Accumulation</CardTitle>
           </div>
-        )}
-      </CardContent>
-    </Card>
+          <CardAction className="flex items-center gap-2 self-start shrink-0">
+            {renderMAToggle()}
+          </CardAction>
+        </CardHeader>
+
+        <CardContent className="flex flex-1 flex-col min-h-0 px-2 pt-4 sm:px-6 sm:pt-6">
+          <div className="flex-1 min-h-[250px] w-full">
+            {renderChart()}
+          </div>
+          {(show7DayMA || show30DayMA) && (
+            <div className="mt-3 flex shrink-0 items-center justify-center gap-4 text-xs text-muted-foreground">
+              {show7DayMA && (
+                <span className="flex items-center gap-1.5">
+                  <span className="h-0.5 w-4 rounded" style={{ backgroundColor: ma7Color }} />
+                  7-Day Moving Average
+                </span>
+              )}
+              {show30DayMA && (
+                <span className="flex items-center gap-1.5">
+                  <span className="h-0.5 w-4 rounded" style={{ backgroundColor: ma30Color }} />
+                  30-Day Moving Average
+                </span>
+              )}
+            </div>
+          )}
+        </CardContent>
+        <CardFooter className="pb-3 gap-2">
+          {renderInfoTrigger()}
+        </CardFooter>
+      </Card>
     </>
   )
 })

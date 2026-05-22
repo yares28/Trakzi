@@ -19,9 +19,9 @@ export function WorldMapLayout({ children }: WorldMapLayoutProps) {
       }
     >
       <AppSidebar variant="inset" />
-      <SidebarInset>
+      <SidebarInset className="md:h-svh md:overflow-hidden flex flex-col">
         <SiteHeader />
-        <main className="flex-1 space-y-4 p-4 pt-0 lg:p-6 lg:pt-2">
+        <main className="flex-1 space-y-4 pt-[72px] md:pt-0 lg:pt-2 overflow-y-auto overflow-x-hidden">
           {children}
         </main>
       </SidebarInset>

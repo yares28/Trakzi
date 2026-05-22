@@ -1,6 +1,8 @@
 "use client"
 
 import * as React from "react"
+import { usePathname } from "next/navigation"
+import { useUser } from "@clerk/nextjs"
 import { useTheme } from "next-themes"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
@@ -16,9 +18,11 @@ import {
     IconBug,
     IconPalette,
     IconCreditCard,
-    IconExternalLink,
     IconX,
     IconCheck,
+    IconShoppingCart,
+    IconDatabase,
+    IconLock,
 } from "@tabler/icons-react"
 import {
     Dialog,
@@ -29,6 +33,7 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import { useColorScheme, colorPalettes } from "@/components/color-scheme-provider"
@@ -40,8 +45,13 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import type { PlanType, SubscriptionStatus } from "@/components/subscription-dialog/types"
 import { AnimatedThemeSwitcher } from "@/components/animated-theme-switcher"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { useOnboarding } from "@/components/onboarding/onboarding-context"
+import { getTourPageIdFromPathname } from "@/components/onboarding/tour-content"
+import { MapPin, Users, Landmark } from "lucide-react"
+import { AccountsSection } from "@/components/accounts/AccountsSection"
 
-type SettingsSection = "preferences" | "subscription" | "bug-report"
+
+type SettingsSection = "preferences" | "accounts" | "subscription" | "privacy" | "bug-report"
 
 interface SettingsPanelProps {
     children: React.ReactNode
@@ -49,7 +59,9 @@ interface SettingsPanelProps {
 
 const sidebarItems: { id: SettingsSection; label: string; icon: React.ReactNode }[] = [
     { id: "preferences", label: "Preferences", icon: <IconPalette className="size-4" /> },
+    { id: "accounts", label: "Accounts", icon: <Landmark className="size-4" /> },
     { id: "subscription", label: "Subscription", icon: <IconCrown className="size-4" /> },
+    { id: "privacy", label: "Privacy", icon: <IconLock className="size-4" /> },
     { id: "bug-report", label: "Bug Report", icon: <IconBug className="size-4" /> },
 ]
 
@@ -71,7 +83,6 @@ const paletteInfo: { id: string; label: string; enabled: boolean }[] = [
 
 // Date filter options
 const timeFilterOptions = [
-    { value: "last7days", label: "Last 7 Days", mobileVisible: true },
     { value: "last30days", label: "Last 30 Days", mobileVisible: true },
     { value: "last3months", label: "Last 3 Months", mobileVisible: true },
     { value: "last6months", label: "Last 6 Months", mobileVisible: true },
@@ -83,6 +94,39 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
     const [open, setOpen] = React.useState(false)
     const [activeSection, setActiveSection] = React.useState<SettingsSection>("preferences")
     const isMobile = useIsMobile()
+    const pathname = usePathname()
+    const { isSignedIn } = useUser()
+    const { startTour } = useOnboarding()
+    const [isLocalhost, setIsLocalhost] = React.useState(false)
+
+    React.useEffect(() => {
+        if (typeof window === "undefined") return
+        const { hostname } = window.location
+        setIsLocalhost(hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1")
+    }, [])
+
+    const currentTourPageId = React.useMemo(() => getTourPageIdFromPathname(pathname), [pathname])
+    const canReplayCurrentTour = isLocalhost && isSignedIn === true && currentTourPageId !== null
+
+    const handleReplayCurrentTour = React.useCallback(() => {
+        if (!currentTourPageId) return
+
+        setOpen(false)
+        window.setTimeout(() => {
+            startTour(currentTourPageId)
+        }, 150)
+    }, [currentTourPageId, startTour])
+
+    // Allow external code (e.g. toast action buttons) to open a specific section
+    React.useEffect(() => {
+        const handler = (e: Event) => {
+            const section = (e as CustomEvent<{ section?: SettingsSection }>).detail?.section
+            setActiveSection(section ?? "preferences")
+            setOpen(true)
+        }
+        window.addEventListener("open-settings", handler)
+        return () => window.removeEventListener("open-settings", handler)
+    }, [])
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -142,8 +186,17 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
                                     scrollbarColor: 'hsl(var(--muted-foreground) / 0.3) transparent'
                                 }}
                             >
-                                {activeSection === "preferences" && <PreferencesContent />}
+                                {activeSection === "preferences" && (
+                                    <PreferencesContent
+                                        canReplayCurrentTour={canReplayCurrentTour}
+                                        onReplayCurrentTour={handleReplayCurrentTour}
+                                    />
+                                )}
+                                {activeSection === "accounts" && (
+                                    <AccountsSection />
+                                )}
                                 {activeSection === "subscription" && <SubscriptionSection />}
+                                {activeSection === "privacy" && <PrivacySection />}
                                 {activeSection === "bug-report" && <BugReportSection />}
                             </main>
                         </>
@@ -182,8 +235,17 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
                                     scrollbarColor: 'hsl(var(--muted-foreground) / 0.3) transparent'
                                 }}
                             >
-                                {activeSection === "preferences" && <PreferencesContent />}
+                                {activeSection === "preferences" && (
+                                    <PreferencesContent
+                                        canReplayCurrentTour={canReplayCurrentTour}
+                                        onReplayCurrentTour={handleReplayCurrentTour}
+                                    />
+                                )}
+                                {activeSection === "accounts" && (
+                                    <AccountsSection />
+                                )}
                                 {activeSection === "subscription" && <SubscriptionSection />}
+                                {activeSection === "privacy" && <PrivacySection />}
                                 {activeSection === "bug-report" && <BugReportSection />}
                             </main>
                         </>
@@ -196,14 +258,86 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
 
 
 // ============ PREFERENCES CONTENT WRAPPER ============
-function PreferencesContent() {
+function PreferencesContent({
+    canReplayCurrentTour,
+    onReplayCurrentTour,
+}: {
+    canReplayCurrentTour: boolean
+    onReplayCurrentTour: () => void
+}) {
     return (
         <div className="space-y-10">
             <AppearanceSection />
             <FontsSection />
             <CurrencySection />
             <TimePeriodSection />
+            <AnalyticsPreferencesSection
+                canReplayCurrentTour={canReplayCurrentTour}
+                onReplayCurrentTour={onReplayCurrentTour}
+            />
             <LayoutSection />
+        </div>
+    )
+}
+
+function AnalyticsPreferencesSection({
+    canReplayCurrentTour,
+    onReplayCurrentTour,
+}: {
+    canReplayCurrentTour: boolean
+    onReplayCurrentTour: () => void
+}) {
+    const [showEffectiveCosts, setShowEffectiveCosts] = React.useState<boolean>(() => {
+        if (typeof window === "undefined") return true
+        const stored = localStorage.getItem("analytics:showEffectiveCosts")
+        return stored === null ? true : stored !== "false"
+    })
+
+    const handleSetShowEffectiveCosts = (checked: boolean) => {
+        setShowEffectiveCosts(checked)
+        localStorage.setItem("analytics:showEffectiveCosts", String(checked))
+        window.dispatchEvent(
+            new CustomEvent("analytics:showEffectiveCostsChanged", {
+                detail: { showEffectiveCosts: checked },
+            }),
+        )
+    }
+
+    return (
+        <div className="space-y-4">
+            <div>
+                <h3 className="text-base font-semibold mb-1">Analytics & Tours</h3>
+                <p className="text-[11px] text-muted-foreground/70">
+                    Control whether analytics uses shared-cost math, and replay the walkthrough for the current page in localhost.
+                </p>
+            </div>
+
+            <div className="flex items-start gap-3 rounded-xl border border-border/40 bg-muted/10 px-4 py-3.5">
+                <Checkbox
+                    id="effective-costs-toggle"
+                    checked={showEffectiveCosts}
+                    onCheckedChange={(checked) => handleSetShowEffectiveCosts(checked === true)}
+                />
+                <Label
+                    htmlFor="effective-costs-toggle"
+                    className="flex items-center gap-1.5 text-xs cursor-pointer select-none mt-0.5"
+                >
+                    <Users className="size-3.5" />
+                    Show my share
+                </Label>
+            </div>
+
+            {canReplayCurrentTour ? (
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onReplayCurrentTour}
+                    className="w-full justify-start text-muted-foreground gap-1.5 text-xs h-7 px-2"
+                >
+                    <MapPin className="size-3.5" />
+                    Take a tour of this page
+                </Button>
+            ) : null}
         </div>
     )
 }
@@ -301,45 +435,112 @@ function AppearanceSection() {
 
 // ============ CURRENCY SECTION ============
 function CurrencySection() {
-    const { currency, setCurrency } = useCurrency()
+    const { currency, setCurrency, compactNumbers, setCompactNumbers, formatCurrency } = useCurrency()
 
     return (
-        <div className="space-y-3">
-            <div>
-                <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/70">Currency</span>
-                <p className="text-[11px] text-muted-foreground/60 mt-1">
-                    How monetary values are displayed
-                </p>
-            </div>
+        <div className="space-y-8">
+            {/* Currency Selector */}
+            <div className="space-y-3">
+                <div>
+                    <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/70">Currency</span>
+                    <p className="text-[11px] text-muted-foreground/60 mt-1">
+                        How monetary values are displayed
+                    </p>
+                </div>
 
-            <div className="flex flex-wrap gap-1.5">
-                {Object.entries(currencies).map(([code, config]) => {
-                    const isSelected = currency === code
-                    return (
-                        <button
-                            key={code}
-                            onClick={() => setCurrency(code)}
-                            className={cn(
-                                "relative inline-flex items-center justify-center rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-all duration-150",
-                                isSelected
-                                    ? "border-primary bg-primary/[0.06] text-primary"
-                                    : "border-border/40 bg-muted/15 text-muted-foreground hover:border-border hover:bg-muted/30"
-                            )}
-                        >
-                            <span className="font-semibold mr-1.5">{config.symbol}</span>
-                            <span>{code}</span>
-                        </button>
-                    )
-                })}
-            </div>
+                <div className="flex flex-wrap gap-1.5">
+                    {Object.entries(currencies).map(([code, config]) => {
+                        const isSelected = currency === code
+                        return (
+                            <button
+                                key={code}
+                                onClick={() => setCurrency(code)}
+                                className={cn(
+                                    "relative inline-flex items-center justify-center rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-all duration-150",
+                                    isSelected
+                                        ? "border-primary bg-primary/[0.06] text-primary"
+                                        : "border-border/40 bg-muted/15 text-muted-foreground hover:border-border hover:bg-muted/30"
+                                )}
+                            >
+                                <span className="font-semibold mr-1.5">{config.symbol}</span>
+                                <span>{code}</span>
+                            </button>
+                        )
+                    })}
+                </div>
 
-            <div className="rounded-xl bg-muted/15 border border-border/30 px-4 py-2.5 text-center">
-                <span className="text-[11px] text-muted-foreground/70">
-                    Preview:{" "}
-                    <span className="font-semibold text-foreground">
-                        {currency === "EUR" ? "1,234.56 €" : currency === "GBP" ? "£1,234.56" : "$1,234.56"}
+                <div className="rounded-xl bg-muted/15 border border-border/30 px-4 py-2.5 text-center">
+                    <span className="text-[11px] text-muted-foreground/70">
+                        Preview:{" "}
+                        <span className="font-semibold text-foreground">
+                            {formatCurrency(42616.68)}
+                        </span>
                     </span>
-                </span>
+                </div>
+            </div>
+
+            {/* Number Display Mode */}
+            <div className="space-y-3">
+                <div>
+                    <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/70">Number Display</span>
+                    <p className="text-[11px] text-muted-foreground/60 mt-1">
+                        How large numbers appear in stat cards
+                    </p>
+                </div>
+
+                <div className="flex gap-1.5">
+                    <button
+                        onClick={() => setCompactNumbers(true)}
+                        className={cn(
+                            "flex-1 relative flex flex-col items-center gap-1 rounded-xl border px-3 py-3 transition-all duration-150",
+                            compactNumbers
+                                ? "border-primary bg-primary/[0.06]"
+                                : "border-border/40 bg-muted/15 hover:border-border hover:bg-muted/30"
+                        )}
+                    >
+                        <span className={cn("text-sm font-semibold tabular-nums", compactNumbers && "text-primary")}>
+                            42.6K
+                        </span>
+                        <span className="text-[10px] text-muted-foreground/70">Abbreviated</span>
+                        {compactNumbers && (
+                            <div className="absolute -top-1.5 -right-1.5 size-[18px] rounded-full bg-primary flex items-center justify-center shadow-sm">
+                                <IconCheck className="size-2.5 text-primary-foreground" strokeWidth={3} />
+                            </div>
+                        )}
+                    </button>
+                    <button
+                        onClick={() => setCompactNumbers(false)}
+                        className={cn(
+                            "flex-1 relative flex flex-col items-center gap-1 rounded-xl border px-3 py-3 transition-all duration-150",
+                            !compactNumbers
+                                ? "border-primary bg-primary/[0.06]"
+                                : "border-border/40 bg-muted/15 hover:border-border hover:bg-muted/30"
+                        )}
+                    >
+                        <span className={cn("text-sm font-semibold tabular-nums", !compactNumbers && "text-primary")}>
+                            42,616.68
+                        </span>
+                        <span className="text-[10px] text-muted-foreground/70">Full</span>
+                        {!compactNumbers && (
+                            <div className="absolute -top-1.5 -right-1.5 size-[18px] rounded-full bg-primary flex items-center justify-center shadow-sm">
+                                <IconCheck className="size-2.5 text-primary-foreground" strokeWidth={3} />
+                            </div>
+                        )}
+                    </button>
+                </div>
+
+                <div className="rounded-xl bg-muted/15 border border-border/30 px-4 py-2.5 text-center">
+                    <span className="text-[11px] text-muted-foreground/70">
+                        Preview:{" "}
+                        <span className="font-semibold text-foreground">
+                            {formatCurrency(42616.68)}
+                        </span>
+                        {" · "}
+                        <span className="font-semibold text-foreground">
+                            {formatCurrency(1234567.89)}
+                        </span>
+                    </span>
+                </div>
             </div>
         </div>
     )
@@ -466,6 +667,11 @@ function LayoutSection() {
         toast.success("Cards randomized!", { description: "The grid layout has been shuffled." })
     }
 
+    const handleReset = () => {
+        window.dispatchEvent(new CustomEvent("gridstack:reset"))
+        toast.success("Layout reset!", { description: "Card order and sizes restored to defaults." })
+    }
+
     const layoutOptions = [
         {
             id: "randomize",
@@ -489,9 +695,8 @@ function LayoutSection() {
             title: "Reset Default",
             description: "Restore original layout",
             icon: "↩️",
-            action: () => toast.info("Coming soon!", { description: "Reset feature will be available soon." }),
-            active: false,
-            soon: true,
+            action: handleReset,
+            active: true,
         },
     ]
 
@@ -540,19 +745,49 @@ function LayoutSection() {
 }
 
 // ============ SUBSCRIPTION SECTION (INLINE WITH FULL FUNCTIONALITY) ============
+
+interface WalletData {
+    baseCapacity: number
+    monthlyBonusEarned: number
+    purchasedCapacity: number
+    monthlyAvailable: number
+    monthlyUsed: number
+    totalCapacity: number
+    used: number
+    remaining: number
+    plan: string
+}
+
+interface PackOption {
+    id: string
+    name: string
+    transactions: number
+    priceCents: number
+    currency: string
+    priceId: string | null
+}
+
 function SubscriptionSection() {
     const [status, setStatus] = React.useState<SubscriptionStatus | null>(null)
     const [isLoading, setIsLoading] = React.useState(true)
     const [isManaging, setIsManaging] = React.useState(false)
     const [billingPeriod, setBillingPeriod] = React.useState<"monthly" | "annual">("monthly")
+    const [walletData, setWalletData] = React.useState<WalletData | null>(null)
+    const [packs, setPacks] = React.useState<PackOption[]>([])
+    const [isBuyingPack, setIsBuyingPack] = React.useState(false)
 
-    // Fetch subscription status
+    // Fetch subscription status, wallet breakdown, and pack options
     React.useEffect(() => {
         const fetchStatus = async () => {
             try {
-                const response = await fetch("/api/subscription/me")
-                if (response.ok) {
-                    const data = await response.json()
+                const [subRes, walletRes, packsRes] = await Promise.all([
+                    fetch("/api/subscription/me"),
+                    fetch("/api/transactions/wallet"),
+                    fetch("/api/transactions/buy"),
+                ])
+
+                if (subRes.ok) {
+                    const data = await subRes.json()
                     setStatus({
                         plan: data.plan,
                         status: data.status,
@@ -561,7 +796,7 @@ function SubscriptionSection() {
                             bankTransactions: data.usage?.bank_transactions || 0,
                             fridgeItems: data.usage?.receipt_trips || 0,
                             totalTransactions: data.used_total || 0,
-                            transactionLimit: data.cap || 400,
+                            transactionLimit: data.cap || 300,
                             percentUsed: data.cap > 0 ? Math.round((data.used_total / data.cap) * 100) : 0,
                         },
                         subscription: {
@@ -569,6 +804,16 @@ function SubscriptionSection() {
                             cancelAtPeriodEnd: data.cancel_at_period_end,
                         },
                     })
+                }
+
+                if (walletRes.ok) {
+                    const walletJson = await walletRes.json()
+                    setWalletData(walletJson)
+                }
+
+                if (packsRes.ok) {
+                    const packsJson = await packsRes.json()
+                    setPacks(packsJson.packs || [])
                 }
             } catch (err) {
                 console.error("Failed to fetch subscription status:", err)
@@ -579,13 +824,39 @@ function SubscriptionSection() {
         fetchStatus()
     }, [])
 
+    const handleBuyPack = async (packId: string) => {
+        const pack = packs.find((p) => p.id === packId)
+        if (!pack?.priceId) {
+            toast.error("Pack unavailable. Please try again.")
+            return
+        }
+        setIsBuyingPack(true)
+        try {
+            const res = await fetch("/api/transactions/buy", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ priceId: pack.priceId }),
+            })
+            const data = await res.json()
+            if (data.url) {
+                const redirectUrl = new URL(data.url)
+                if (!redirectUrl.hostname.endsWith("stripe.com")) {
+                    throw new Error("Invalid checkout redirect URL")
+                }
+                window.location.href = data.url
+            } else {
+                toast.error(data.error || "Unable to start checkout")
+            }
+        } catch (err) {
+            console.error("Buy pack error:", err)
+            toast.error("Failed to start checkout")
+        } finally {
+            setIsBuyingPack(false)
+        }
+    }
+
     // Get price ID for a plan
     const getPriceIdForPlan = (plan: PlanType, period: "monthly" | "annual" = "monthly"): string | null => {
-        if (plan === 'basic') {
-            return period === 'annual'
-                ? process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_BASIC_ANNUAL || null
-                : process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_BASIC_MONTHLY || null
-        }
         if (plan === 'pro') {
             return period === 'annual'
                 ? process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_ANNUAL || null
@@ -636,7 +907,7 @@ function SubscriptionSection() {
                             bankTransactions: newData.usage?.bank_transactions || 0,
                             fridgeItems: newData.usage?.receipt_trips || 0,
                             totalTransactions: newData.used_total || 0,
-                            transactionLimit: newData.cap || 400,
+                            transactionLimit: newData.cap || 300,
                             percentUsed: newData.cap > 0 ? Math.round((newData.used_total / newData.cap) * 100) : 0,
                         },
                         subscription: {
@@ -693,7 +964,7 @@ function SubscriptionSection() {
                             bankTransactions: newData.usage?.bank_transactions || 0,
                             fridgeItems: newData.usage?.receipt_trips || 0,
                             totalTransactions: newData.used_total || 0,
-                            transactionLimit: newData.cap || 400,
+                            transactionLimit: newData.cap || 300,
                             percentUsed: newData.cap > 0 ? Math.round((newData.used_total / newData.cap) * 100) : 0,
                         },
                         subscription: {
@@ -740,7 +1011,7 @@ function SubscriptionSection() {
                             bankTransactions: newData.usage?.bank_transactions || 0,
                             fridgeItems: newData.usage?.receipt_trips || 0,
                             totalTransactions: newData.used_total || 0,
-                            transactionLimit: newData.cap || 400,
+                            transactionLimit: newData.cap || 300,
                             percentUsed: newData.cap > 0 ? Math.round((newData.used_total / newData.cap) * 100) : 0,
                         },
                         subscription: {
@@ -782,7 +1053,7 @@ function SubscriptionSection() {
                             bankTransactions: newData.usage?.bank_transactions || 0,
                             fridgeItems: newData.usage?.receipt_trips || 0,
                             totalTransactions: newData.used_total || 0,
-                            transactionLimit: newData.cap || 400,
+                            transactionLimit: newData.cap || 300,
                             percentUsed: newData.cap > 0 ? Math.round((newData.used_total / newData.cap) * 100) : 0,
                         },
                         subscription: {
@@ -825,7 +1096,7 @@ function SubscriptionSection() {
     }
 
     // Order plans with current plan first
-    const allPlans: PlanType[] = ["free", "basic", "pro", "max"]
+    const allPlans: PlanType[] = ["free", "pro", "max"]
     const orderedPlans: PlanType[] = [status.plan, ...allPlans.filter((p) => p !== status.plan)]
 
     return (
@@ -840,6 +1111,90 @@ function SubscriptionSection() {
                     </p>
                 )}
             </div>
+
+            {/* Transaction Wallet Breakdown */}
+            {walletData && (
+                <div className="rounded-xl border bg-muted/30 p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <IconDatabase className="h-4 w-4 text-primary" />
+                            <span className="text-sm font-medium">Transaction Wallet</span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                            {walletData.remaining.toLocaleString()} remaining
+                        </span>
+                    </div>
+
+                    {/* Usage bar */}
+                    <div className="space-y-1">
+                        <div className="h-2 rounded-full bg-muted overflow-hidden">
+                            <div
+                                className="h-full rounded-full bg-primary transition-all"
+                                style={{
+                                    width: `${walletData.totalCapacity > 0
+                                        ? Math.min(100, Math.round((walletData.used / walletData.totalCapacity) * 100))
+                                        : 0}%`
+                                }}
+                            />
+                        </div>
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>{walletData.used.toLocaleString()} used</span>
+                            <span>{walletData.totalCapacity.toLocaleString()} total</span>
+                        </div>
+                    </div>
+
+                    {/* Capacity breakdown */}
+                    <div className="space-y-1.5 text-xs">
+                        <div className="flex justify-between text-muted-foreground">
+                            <span>Base capacity</span>
+                            <span>{walletData.baseCapacity.toLocaleString()}</span>
+                        </div>
+                        {walletData.monthlyBonusEarned > 0 && (
+                            <div className="flex justify-between text-muted-foreground">
+                                <span>Rollover bonus</span>
+                                <span>+{walletData.monthlyBonusEarned.toLocaleString()}</span>
+                            </div>
+                        )}
+                        {walletData.purchasedCapacity > 0 && (
+                            <div className="flex justify-between text-muted-foreground">
+                                <span>Purchased packs</span>
+                                <span>+{walletData.purchasedCapacity.toLocaleString()}</span>
+                            </div>
+                        )}
+                        <div className="flex justify-between text-muted-foreground">
+                            <span>Monthly allotment</span>
+                            <span>+{walletData.monthlyAvailable.toLocaleString()}</span>
+                        </div>
+                    </div>
+
+                    {/* Buy more packs */}
+                    {packs.length > 0 && (
+                        <div className="pt-2 space-y-2">
+                            <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                                <IconShoppingCart className="h-3.5 w-3.5" />
+                                Buy Transaction Packs
+                            </p>
+                            <div className="grid grid-cols-3 gap-2">
+                                {packs.map((pack) => (
+                                    <button
+                                        key={pack.id}
+                                        onClick={() => handleBuyPack(pack.id)}
+                                        disabled={isBuyingPack}
+                                        className="flex flex-col items-center gap-0.5 rounded-lg border bg-background p-2 text-xs hover:border-primary hover:bg-primary/5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                                    >
+                                        <span className="font-semibold">{pack.transactions.toLocaleString()}</span>
+                                        <span className="text-muted-foreground">txns</span>
+                                        <span className="text-primary font-medium">€{(pack.priceCents / 100).toFixed(2)}</span>
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">
+                                One-time purchase · Permanent capacity · Never expires
+                            </p>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Billing Period Toggle */}
             <div className="flex justify-center">
@@ -900,6 +1255,131 @@ const bugFormSchema = z.object({
     title: z.string().min(5, "Title must be at least 5 characters.").max(50, "Title must be at most 50 characters."),
     description: z.string().min(20, "Description must be at least 20 characters.").max(500, "Description must be at most 500 characters."),
 })
+
+// ============ PRIVACY SECTION ============
+function PrivacySection() {
+    const [shareWithFriends, setShareWithFriends] = React.useState(true)
+    const [sharePublicly, setSharePublicly] = React.useState(false)
+    const [isLoading, setIsLoading] = React.useState(true)
+    const [isSaving, setIsSaving] = React.useState(false)
+
+    React.useEffect(() => {
+        let cancelled = false
+        async function load() {
+            try {
+                const res = await fetch("/api/users/sharing-preferences")
+                if (!res.ok) throw new Error()
+                const data = await res.json()
+                if (cancelled) return
+                setShareWithFriends(data.share_with_friends ?? true)
+                setSharePublicly(data.share_publicly ?? false)
+            } catch {
+                // keep defaults
+            } finally {
+                if (!cancelled) setIsLoading(false)
+            }
+        }
+        load()
+        return () => { cancelled = true }
+    }, [])
+
+    const handleToggle = async (key: "share_with_friends" | "share_publicly", value: boolean) => {
+        if (key === "share_with_friends") setShareWithFriends(value)
+        else setSharePublicly(value)
+
+        setIsSaving(true)
+        try {
+            const res = await fetch("/api/users/sharing-preferences", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ [key]: value }),
+            })
+            if (!res.ok) throw new Error()
+            toast.success("Privacy settings updated")
+        } catch {
+            // revert on failure
+            if (key === "share_with_friends") setShareWithFriends(!value)
+            else setSharePublicly(!value)
+            toast.error("Failed to update privacy settings")
+        } finally {
+            setIsSaving(false)
+        }
+    }
+
+    return (
+        <div className="space-y-8">
+            <div>
+                <h3 className="text-base font-semibold mb-1">Privacy Settings</h3>
+                <p className="text-[11px] text-muted-foreground/70">
+                    Control who can see your financial stats and activity.
+                </p>
+            </div>
+
+            {isLoading ? (
+                <div className="space-y-4">
+                    <div className="h-16 rounded-xl bg-muted/30 animate-pulse" />
+                    <div className="h-16 rounded-xl bg-muted/30 animate-pulse" />
+                </div>
+            ) : (
+                <div className="space-y-4">
+                    <div className="flex items-start justify-between gap-4 rounded-xl border border-border/40 bg-muted/10 px-4 py-3.5">
+                        <div className="space-y-1 flex-1">
+                            <span className="text-sm font-medium">Share stats with friends</span>
+                            <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                Your friends can see your savings rate, financial health score, and other stats on your profile.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            role="switch"
+                            aria-checked={shareWithFriends}
+                            disabled={isSaving}
+                            onClick={() => handleToggle("share_with_friends", !shareWithFriends)}
+                            className={cn(
+                                "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out disabled:opacity-50",
+                                shareWithFriends ? "bg-primary" : "bg-muted-foreground/30"
+                            )}
+                        >
+                            <span
+                                className={cn(
+                                    "pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ease-in-out",
+                                    shareWithFriends ? "translate-x-5" : "translate-x-0"
+                                )}
+                            />
+                        </button>
+                    </div>
+
+                    <div className="flex items-start justify-between gap-4 rounded-xl border border-border/40 bg-muted/10 px-4 py-3.5">
+                        <div className="space-y-1 flex-1">
+                            <span className="text-sm font-medium">Share stats publicly</span>
+                            <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                Anyone with your profile link can see your stats. When off, only friends (if enabled above) can view your profile.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            role="switch"
+                            aria-checked={sharePublicly}
+                            disabled={isSaving}
+                            onClick={() => handleToggle("share_publicly", !sharePublicly)}
+                            className={cn(
+                                "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out disabled:opacity-50",
+                                sharePublicly ? "bg-primary" : "bg-muted-foreground/30"
+                            )}
+                        >
+                            <span
+                                className={cn(
+                                    "pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ease-in-out",
+                                    sharePublicly ? "translate-x-5" : "translate-x-0"
+                                )}
+                            />
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    )
+}
 
 function BugReportSection() {
     const form = useForm<z.infer<typeof bugFormSchema>>({

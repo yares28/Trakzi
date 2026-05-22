@@ -9,8 +9,8 @@ import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import {
   Card,
-  CardAction,
   CardContent,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -90,9 +90,7 @@ export const ChartCategoryTrend = memo(function ChartCategoryTrend({
         y: e.clientY - rect.top,
       }
       mousePositionRef.current = position
-      if (tooltip) {
-        setTooltipPosition(position)
-      }
+      setTooltipPosition(position)
     }
 
     const handleMouseLeave = () => {
@@ -101,14 +99,32 @@ export const ChartCategoryTrend = memo(function ChartCategoryTrend({
       mousePositionRef.current = null
     }
 
+    const handleDocumentTouch = (e: TouchEvent) => {
+      if (!container.contains(e.target as Node)) {
+        setTooltip(null)
+        setTooltipPosition(null)
+        mousePositionRef.current = null
+      }
+    }
+
+    const handleScroll = () => {
+      setTooltip(null)
+      setTooltipPosition(null)
+      mousePositionRef.current = null
+    }
+
     container.addEventListener("mousemove", handleMouseMove)
     container.addEventListener("mouseleave", handleMouseLeave)
+    document.addEventListener("touchstart", handleDocumentTouch, { passive: true })
+    window.addEventListener("scroll", handleScroll, { passive: true })
 
     return () => {
       container.removeEventListener("mousemove", handleMouseMove)
       container.removeEventListener("mouseleave", handleMouseLeave)
+      document.removeEventListener("touchstart", handleDocumentTouch)
+      window.removeEventListener("scroll", handleScroll)
     }
-  }, [tooltip])
+  }, [])
 
   const renderInfoAction = () => (
     <ChartInfoPopover
@@ -130,9 +146,6 @@ export const ChartCategoryTrend = memo(function ChartCategoryTrend({
     <Card className="@container/card h-full w-full flex flex-col">
       <CardHeader className="flex-shrink-0">
         <CardTitle>{categoryName}</CardTitle>
-        <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-          {renderInfoAction()}
-        </CardAction>
       </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 min-w-0 flex-1 min-h-0">
         <div ref={containerRef} className="relative h-full w-full">
@@ -240,6 +253,9 @@ export const ChartCategoryTrend = memo(function ChartCategoryTrend({
           )}
         </div>
       </CardContent>
+      <CardFooter className="pb-3 gap-2">
+        {renderInfoAction()}
+      </CardFooter>
     </Card>
   )
 })

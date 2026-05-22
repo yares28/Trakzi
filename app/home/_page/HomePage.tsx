@@ -4,9 +4,10 @@ import { useCallback } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { DataTable } from "@/components/data-table"
 import { useDateFilter } from "@/components/date-filter-provider"
+import { AlertTriangle, RotateCcw } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 import { AiReparseDialog } from "./components/AiReparseDialog"
-import { ChartsGrid } from "./components/ChartsGrid"
 import { StatementUploadDialog } from "./components/StatementUploadDialog"
 import { HomeStatementReviewDialog } from "./components/HomeStatementReviewDialog"
 import { FavoritesGrid } from "./components/FavoritesGrid"
@@ -17,13 +18,17 @@ import { useFavoritesLayout } from "./hooks/useFavoritesLayout"
 import { useHomeChartData } from "./hooks/useHomeChartData"
 import { useHomeData } from "./hooks/useHomeData"
 import { useHomeStats } from "./hooks/useHomeStats"
+import { OnboardingTour } from "@/components/onboarding/onboarding-tour"
+import { useOnboarding } from "@/components/onboarding/onboarding-context"
 
 export default function Page() {
-  const { filter: dateFilter } = useDateFilter()
+  const { filter: dateFilter, setFilter } = useDateFilter()
   const queryClient = useQueryClient()
+  const { completeChecklistItem } = useOnboarding()
 
   const {
     transactions,
+    isLoading: isTransactionsLoading,
     fetchTransactions,
     isTransactionDialogOpen,
     setIsTransactionDialogOpen,
@@ -51,10 +56,15 @@ export default function Page() {
       queryClient.invalidateQueries({ queryKey: ["transactions"] }),
       queryClient.invalidateQueries({ queryKey: ["trends-bundle"] }),
       queryClient.invalidateQueries({ queryKey: ["savings-bundle"] }),
+      queryClient.invalidateQueries({ queryKey: ["data-library-bundle"] }),
+      queryClient.invalidateQueries({ queryKey: ["total-transaction-count"] }),
     ])
   }, [fetchTransactions, queryClient])
 
-  const statementImport = useStatementImport({ refreshAnalyticsData })
+  const statementImport = useStatementImport({
+    refreshAnalyticsData,
+    onImportSuccess: () => completeChecklistItem("upload_statement"),
+  })
 
   return (
     <HomeLayout
@@ -64,12 +74,30 @@ export default function Page() {
       onDragOver={statementImport.handleDragOver}
       onDrop={statementImport.handleDrop}
     >
-      <div className="@container/main flex flex-1 flex-col gap-2">
-        <main className="flex-1 space-y-4 p-4 pt-0 lg:p-6 lg:pt-2">
+      <div className="@container/main flex flex-1 flex-col gap-2 min-w-0">
+        <main className="flex-1 space-y-4 pt-0 lg:pt-2 min-w-0 w-full">
+          {!isTransactionsLoading && transactionSummary.count === 0 && (
+            <div className="mx-4 lg:mx-6 flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm dark:border-amber-800/50 dark:bg-amber-950/30">
+              <AlertTriangle className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+              <span className="flex-1 text-amber-800 dark:text-amber-300">
+                No transactions found for <strong>{dateFilter ?? "all time"}</strong>. Try a wider date range.
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                className="shrink-0 gap-1.5 border-amber-300 text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40"
+                onClick={() => setFilter("last6months")}
+              >
+                <RotateCcw className="size-3.5" />
+                Reset to last 6 months
+              </Button>
+            </div>
+          )}
           <StatsCards
             stats={stats}
             trends={statsTrends}
             transactionSummary={transactionSummary}
+            isLoading={isTransactionsLoading}
           />
 
           <FavoritesGrid
@@ -80,9 +108,8 @@ export default function Page() {
             onResize={handleFavoritesResize}
             chartData={chartData}
             dateFilter={dateFilter}
+            isLoading={isTransactionsLoading}
           />
-
-          {false && <ChartsGrid chartData={chartData} dateFilter={dateFilter} />}
 
           <DataTable
             data={[]}
@@ -107,16 +134,20 @@ export default function Page() {
       <StatementUploadDialog
         open={statementImport.isUploadDialogOpen}
         onOpenChange={statementImport.setIsUploadDialogOpen}
-        droppedFile={statementImport.droppedFile}
+        pendingFiles={statementImport.pendingFiles}
         isParsing={statementImport.isParsing}
         parsingProgress={statementImport.parsingProgress}
         parseError={statementImport.parseError}
         projectName={statementImport.projectName}
         onProjectNameChange={statementImport.setProjectName}
+        accountId={statementImport.accountId}
+        onAccountChange={statementImport.setAccountId}
         onFilesChange={(files) => statementImport.handleFilesChange(files)}
         onCancel={statementImport.handleCancelUpload}
         onContinue={statementImport.handleContinueUpload}
       />
+
+      <OnboardingTour pageId="home" />
 
       <HomeStatementReviewDialog
         open={statementImport.isReviewDialogOpen}

@@ -295,6 +295,7 @@ export interface TravelStats {
     totalCountries: number
     totalSpentAbroad: number
     topCountry: { name: string; value: number } | null
+    avgDailySpend: number
 }
 
 export interface GarageStats {

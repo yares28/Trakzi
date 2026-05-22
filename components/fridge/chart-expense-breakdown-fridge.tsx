@@ -22,6 +22,8 @@ import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { ChartExpandButton } from "@/components/chart-expand-button"
 import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
 import { NivoChartTooltip } from "@/components/chart-tooltip"
+import { computeFridgeScore } from "@/lib/fridge-score"
+import type { ReceiptTransactionRow } from "@/app/fridge/_client/types"
 
 interface ChartExpenseBreakdownFridgeProps {
   data?: Array<{
@@ -29,12 +31,19 @@ interface ChartExpenseBreakdownFridgeProps {
     label: string
     value: number
   }>
+  receiptTransactions?: ReceiptTransactionRow[]
   categorySpendingData?: Array<{ category: string; total: number; color: string | null }>
   categoryControls?: ChartInfoPopoverCategoryControls
   isLoading?: boolean
 }
 
-export const ChartExpenseBreakdownFridge = memo(function ChartExpenseBreakdownFridge({ data: baseData = [], categorySpendingData, categoryControls, isLoading = false }: ChartExpenseBreakdownFridgeProps) {
+export const ChartExpenseBreakdownFridge = memo(function ChartExpenseBreakdownFridge({
+  data: baseData = [],
+  receiptTransactions = [],
+  categorySpendingData,
+  categoryControls,
+  isLoading = false,
+}: ChartExpenseBreakdownFridgeProps) {
   const { resolvedTheme } = useTheme()
   const { colorScheme, getShuffledPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
@@ -94,10 +103,66 @@ export const ChartExpenseBreakdownFridge = memo(function ChartExpenseBreakdownFr
     format: (value: number) => formatCurrency(value)
   }), [formatCurrency])
 
+  const groceryScore = useMemo(() => {
+    if (receiptTransactions.length === 0) return null
+
+    const receiptMap = new Map<string, {
+      id: string
+      date: string
+      totalAmount: number
+      items: Array<{
+        id: string
+        name: string
+        category: string
+        categoryId?: number | null
+        price: number
+        quantity: number
+      }>
+    }>()
+
+    receiptTransactions.forEach((tx) => {
+      const receiptId = String(tx.receiptId ?? tx.id)
+      if (!receiptId) return
+
+      if (!receiptMap.has(receiptId)) {
+        receiptMap.set(receiptId, {
+          id: receiptId,
+          date: tx.receiptDate,
+          totalAmount: Number(tx.receiptTotalAmount) || 0,
+          items: [],
+        })
+      }
+
+      const receipt = receiptMap.get(receiptId)
+      if (!receipt) return
+
+      const quantity = Number.isFinite(tx.quantity) && tx.quantity > 0 ? tx.quantity : 1
+      const pricePerUnit = Number(tx.pricePerUnit)
+      const unitPrice = pricePerUnit > 0
+        ? pricePerUnit
+        : (quantity > 0 && tx.totalPrice > 0 ? tx.totalPrice / quantity : tx.totalPrice)
+
+      receipt.items.push({
+        id: String(tx.id),
+        name: tx.description || "Untitled",
+        category: tx.categoryName || "Other",
+        categoryId: tx.categoryId,
+        price: unitPrice,
+        quantity,
+      })
+
+      if (!Number.isFinite(receipt.totalAmount) || receipt.totalAmount <= 0) {
+        receipt.totalAmount = receipt.items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+      }
+    })
+
+    return computeFridgeScore(Array.from(receiptMap.values())).score
+  }, [receiptTransactions])
+
   const renderInfoTrigger = (forFullscreen = false) => (
     <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
       <ChartInfoPopover
-        title="Expense Breakdown"
+        title="Grocery Breakdown"
         description="This pie chart shows how your total grocery expenses are distributed across receipt categories."
         details={[
           "Slices are sorted by spend so the largest categories stand out.",
@@ -108,7 +173,7 @@ export const ChartExpenseBreakdownFridge = memo(function ChartExpenseBreakdownFr
       />
       <ChartAiInsightButton
         chartId="fridge:expenseBreakdown"
-        chartTitle="Expense Breakdown"
+        chartTitle="Grocery Breakdown"
         chartDescription="This pie chart shows how your total grocery expenses are distributed across receipt categories."
         chartData={{
           totalExpenses: total,
@@ -129,10 +194,10 @@ export const ChartExpenseBreakdownFridge = memo(function ChartExpenseBreakdownFr
             <GridStackCardDragHandle />
             <ChartFavoriteButton
               chartId="fridge:expenseBreakdown"
-              chartTitle="Expense Breakdown"
+              chartTitle="Grocery Breakdown"
               size="md"
             />
-            <CardTitle>Expense Breakdown</CardTitle>
+            <CardTitle>Grocery Breakdown</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
@@ -154,10 +219,10 @@ export const ChartExpenseBreakdownFridge = memo(function ChartExpenseBreakdownFr
             <GridStackCardDragHandle />
             <ChartFavoriteButton
               chartId="fridge:expenseBreakdown"
-              chartTitle="Expense Breakdown"
+              chartTitle="Grocery Breakdown"
               size="md"
             />
-            <CardTitle>Expense Breakdown</CardTitle>
+            <CardTitle>Grocery Breakdown</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
@@ -177,12 +242,12 @@ export const ChartExpenseBreakdownFridge = memo(function ChartExpenseBreakdownFr
       <ChartFullscreenModal
         isOpen={isFullscreen}
         onClose={() => setIsFullscreen(false)}
-        title="Expense Breakdown"
+        title="Grocery Breakdown"
         description=""
         headerActions={renderInfoTrigger(true)}
       >
         <div className="h-full w-full min-h-[400px] text-center flex items-center justify-center text-muted-foreground">
-          Fullscreen view - Expense breakdown pie chart
+          Fullscreen view - Grocery breakdown pie chart
         </div>
       </ChartFullscreenModal>
 
@@ -193,17 +258,17 @@ export const ChartExpenseBreakdownFridge = memo(function ChartExpenseBreakdownFr
             <ChartExpandButton onClick={() => setIsFullscreen(true)} />
             <ChartFavoriteButton
               chartId="fridge:expenseBreakdown"
-              chartTitle="Expense Breakdown"
+              chartTitle="Grocery Breakdown"
               size="md"
             />
-            <CardTitle>Expense Breakdown</CardTitle>
+            <CardTitle>Grocery Breakdown</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0 flex flex-col">
-          <div className="flex-1 min-h-[140px] md:min-h-[200px]" key={colorScheme}>
+          <div className="relative flex-1 min-h-[140px] md:min-h-[200px]" key={colorScheme}>
             <ResponsivePie
               data={data}
               margin={{ top: 40, right: 40, bottom: 40, left: 40 }}
@@ -235,6 +300,16 @@ export const ChartExpenseBreakdownFridge = memo(function ChartExpenseBreakdownFr
                 },
               }}
             />
+            {groceryScore !== null && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-2xl @sm/card:text-3xl @md/card:text-4xl @lg/card:text-5xl font-bold text-foreground leading-none">
+                  {groceryScore}
+                </span>
+                <span className="text-[0.65rem] @sm/card:text-xs @md/card:text-sm font-medium text-muted-foreground mt-0.5">
+                  Grocery Score
+                </span>
+              </div>
+            )}
           </div>
           <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-2">
             {data.slice(0, 6).map((item) => (
@@ -260,7 +335,6 @@ export const ChartExpenseBreakdownFridge = memo(function ChartExpenseBreakdownFr
 })
 
 ChartExpenseBreakdownFridge.displayName = "ChartExpenseBreakdownFridge"
-
 
 
 

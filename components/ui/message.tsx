@@ -45,7 +45,7 @@ const MessageAvatar = React.forwardRef<HTMLDivElement, MessageAvatarProps>(
       name?.trim()?.slice(0, 2).toUpperCase() || "AI"
     
     // Check if this is an assistant avatar (Trakzi icon)
-    const isAssistant = src === "/Trakzi/Trakziicon.png" || name === "Trakzi AI"
+    const isAssistant = src === "/Trakzi/LogoShort.svg" || name === "Trakzi AI"
     
     // Get theme colors for orb - using orange color only
     const [orbColors, setOrbColors] = React.useState<[string, string]>(["#e78a53", "#e78a53"])

@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 
 import { useTransactionDialog } from "@/components/transaction-dialog-provider"
 import { toast } from "sonner"
 import { normalizeTransactions } from "@/lib/utils"
+import { demoFetch } from "@/lib/demo/demo-fetch"
 
 import type { HomeTransaction } from "../types"
 
@@ -16,19 +17,36 @@ export function useHomeData({ dateFilter }: UseHomeDataOptions) {
   const router = useRouter()
   const { setRefreshCallback } = useTransactionDialog()
   const [transactions, setTransactions] = useState<HomeTransaction[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false)
+  const requestIdRef = useRef(0)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   const fetchTransactions = useCallback(
     async (bypassCache = false) => {
+      const requestId = requestIdRef.current + 1
+      requestIdRef.current = requestId
+
+      abortControllerRef.current?.abort()
+      const controller = new AbortController()
+      abortControllerRef.current = controller
+
+      setIsLoading(true)
+
       try {
         const url = dateFilter
           ? `/api/transactions?all=true&filter=${encodeURIComponent(dateFilter)}`
           : "/api/transactions?all=true"
-        const response = await fetch(url, {
+        const response = await demoFetch(url, {
           cache: bypassCache ? "no-store" : "default",
           headers: bypassCache ? { "Cache-Control": "no-cache" } : undefined,
+          signal: controller.signal,
         })
         const data = await response.json()
+
+        if (controller.signal.aborted || requestId !== requestIdRef.current) {
+          return
+        }
 
         if (response.ok) {
           const txArray = Array.isArray(data) ? data : data?.data ?? []
@@ -36,6 +54,7 @@ export function useHomeData({ dateFilter }: UseHomeDataOptions) {
             setTransactions(
               normalizeTransactions(txArray) as HomeTransaction[]
             )
+            setIsLoading(false)
           } else if (data?.error) {
             toast.error("API Error", {
               description: data.error,
@@ -54,16 +73,36 @@ export function useHomeData({ dateFilter }: UseHomeDataOptions) {
           })
         }
       } catch (error) {
+        if (
+          controller.signal.aborted ||
+          (error instanceof Error && error.name === "AbortError")
+        ) {
+          return
+        }
+
         console.error("Error fetching transactions:", error)
         toast.error("Network Error", {
           description:
             "Failed to fetch transactions. Check your database connection.",
           duration: 8000,
         })
+      } finally {
+        if (
+          !controller.signal.aborted &&
+          requestId === requestIdRef.current
+        ) {
+          setIsLoading(false)
+        }
       }
     },
     [dateFilter]
   )
+
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort()
+    }
+  }, [])
 
   useEffect(() => {
     const openDialog = searchParams.get("openTransactionDialog")
@@ -104,6 +143,7 @@ export function useHomeData({ dateFilter }: UseHomeDataOptions) {
 
   return {
     transactions,
+    isLoading,
     fetchTransactions,
     isTransactionDialogOpen,
     setIsTransactionDialogOpen,
